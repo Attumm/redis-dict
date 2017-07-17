@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from redis import StrictRedis
 from future.utils import python_2_unicode_compatible
 
@@ -70,13 +72,12 @@ class RedisDict(object):
 
     def __next__(self):
         """This contains a racecondition"""
-        self.keys_counter +=1
+        self.keys_counter += 1
         if self.keys_counter < self.keys_iter_stop:
             return self.keys_iter[self.keys_counter]
         else:
             del self.keys_iter
             raise StopIteration
-
 
 
 if __name__ == '__main__':
