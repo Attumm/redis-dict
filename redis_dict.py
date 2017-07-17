@@ -78,6 +78,59 @@ class RedisDict(object):
             raise StopIteration
 
 
+class RedisListIterator(object):
+
+    def __init__(self, redis_instance, key, start=0, end=-1):
+        """Creates a redis list iterator.
+
+        Args:
+            redis_instance (object): instance of redis
+            key (str): redis list key
+            start (int): list slice start (inclusive)
+            end (int): list slice end (exclusive)
+
+        """
+        self.position = start
+        self.key = key
+        self.redis = redis_instance
+        llen = redis_instance.llen(key)
+        self.endpos = llen if (end == -1 or (end - start) > llen) else end
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.position >= self.endpos:
+            raise StopIteration
+
+        item = self.redis.lindex(self.key, self.position)
+        self.position += 1
+        return item
+
+    next = __next__
+
+
+class RedisList(object):
+    """Emulate a python list."""
+
+    def __init__(self, redis_instance, key):
+        self.key = key
+        self.redis = redis_instance
+
+    def __len__(self):
+        return self.redis.llen(self.key)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            start = index.start or 0
+            end = (index.stop - 1) if index.stop is not None else -1
+            return self.redis.lrange(self.key, start, end)
+        if index + 1 > len(self):
+            raise IndexError("Index out of bounds.")
+        return self.redis.lindex(self.key, index)
+
+    def __iter__(self):
+        return RedisListIterator(self.redis, self.key)
 
 if __name__ == '__main__':
     d = RedisDict(namespace='app_name')
