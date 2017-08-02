@@ -19,7 +19,7 @@ class RedisDict(object):
             del kwargs['expire']
 
         self.redis = StrictRedis(*args, decode_responses=True, **kwargs)
-        self.sentinel_none = "<META __None__ 9cab>"
+        self.sentinel_none = '<META __None__ 9cab>'
 
     def _raw_get_item(self, k):
         return self.redis.get(k)
@@ -52,12 +52,22 @@ class RedisDict(object):
     def __str__(self):
         return self.__repr__()
 
+    def __len__(self):
+        return len(self._keys())
+
+    def _scan_keys(self):
+        return self.redis.scan(match=self.namespace + '*')
+
+    def _keys(self):
+        return self._scan_keys()[1]
+
     def keys(self):
-        return self.redis.keys(self.namespace + '*')
+        to_rm = len(self.namespace)
+        return [item[to_rm:] for item in self._keys()]
 
     def to_dict(self):
         to_rm = len(self.namespace)
-        return {item[to_rm:]: self._raw_get_item(item) for item in self.keys()}
+        return {item[to_rm:]: self._raw_get_item(item) for item in self._keys()}
 
     def chain_set(self, iterable, v):
         self[':'.join(iterable)] = v
@@ -76,19 +86,24 @@ class RedisDict(object):
 
     def __iter__(self):
         """This contains a racecondition"""
-        self.keys_iter = self.keys()
-        self.keys_counter = -1
-        self.keys_iter_stop = len(self.keys_iter)
+        self.keys_iter = self._keys()
         return self
 
     def __next__(self):
         """This contains a racecondition"""
-        self.keys_counter += 1
-        if self.keys_counter < self.keys_iter_stop:
-            return self.keys_iter[self.keys_counter]
-        else:
-            del self.keys_iter
+        try:
+            return self.keys_iter[self.keys_iter.pop()]
+        except (IndexError, KeyError):
             raise StopIteration
+
+    def multi_get(self, keys):
+        return self.redis.mget(keys)
+
+    def multi_chain_get(self, keys):
+        return self.multi_get(':'.join(keys))
+
+    def items(self):
+        return zip(self.keys(), self.multi_get(self._keys()))
 
 
 class RedisListIterator(object):
@@ -174,6 +189,8 @@ if __name__ == '__main__':
     assert 'random' not in d
     d['random'] = 4
     dd = RedisDict(namespace='app_name_too')
+    assert len(dd) == 0
+
     dd['random'] = 5
 
     assert d['random'] == '4'
@@ -207,5 +224,18 @@ if __name__ == '__main__':
     else:
         print('failed to throw KeyError')
 
+    assert len(dd) == 0
 
+    items = {'k1': 'v1', 'k2': 'v2', 'k3': 'v3'}
+    for key, val in items.items():
+        dd[key] = val
+
+    assert len(dd) == len(items)
+
+    for k, v in dd.items():
+        assert items[k] == v
+        del dd[k]
+
+    assert len(dd) == 0
     print('all is well')
+
