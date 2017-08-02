@@ -1,4 +1,6 @@
 from redis import StrictRedis
+
+from contextlib import contextmanager
 from future.utils import python_2_unicode_compatible
 
 
@@ -10,6 +12,11 @@ class RedisDict(object):
             # Todo validate namespace
             self.namespace = kwargs['namespace'] + ':'
             del kwargs['namespace']
+
+        self.expire = None
+        if 'expire' in kwargs:
+            self.expire = kwargs['expire']
+            del kwargs['expire']
 
         self.redis = StrictRedis(*args, decode_responses=True, **kwargs)
         self.sentinel_none = "<META __None__ 9cab>"
@@ -31,7 +38,7 @@ class RedisDict(object):
     def __setitem__(self, k, v):
         if v is None:
             v = self.none_
-        self.redis.set(self.namespace + k, v)
+        self.redis.set(self.namespace + k, v, ex=self.expire)
 
     def __delitem__(self, k):
         self.redis.delete(self.namespace + k)
@@ -56,10 +63,16 @@ class RedisDict(object):
         self[':'.join(iterable)] = v
 
     def chain_get(self, iterable):
-        return self._get_item(':'.join(iterable))
+        return self[':'.join(iterable)]
 
     def chain_del(self, iterable):
         return self.__delitem__(':'.join(iterable))
+
+    @contextmanager
+    def expire_at(self, sec_epoch):
+        self.expire, temp = sec_epoch, self.expire
+        yield
+        self.expire = temp
 
     def __iter__(self):
         """This contains a racecondition"""
@@ -70,7 +83,7 @@ class RedisDict(object):
 
     def __next__(self):
         """This contains a racecondition"""
-        self.keys_counter +=1
+        self.keys_counter += 1
         if self.keys_counter < self.keys_iter_stop:
             return self.keys_iter[self.keys_counter]
         else:
@@ -133,6 +146,8 @@ class RedisList(object):
         return RedisListIterator(self.redis, self.key)
 
 if __name__ == '__main__':
+    import time
+
     d = RedisDict(namespace='app_name')
     assert 'random' not in d
     d['random'] = 4
@@ -146,6 +161,15 @@ if __name__ == '__main__':
 
     assert deep_val == d.chain_get(deep)
     d.chain_del(deep)
+
+    try:
+        d.chain_get(deep)
+    except KeyError:
+        pass
+    except Exception:
+        print('failed to throw KeyError')
+    else:
+        print('failed to throw KeyError')
 
     assert 'random' not in d
     d['random'] = 4
@@ -166,5 +190,22 @@ if __name__ == '__main__':
 
     del dd['random']
     assert 'random' not in dd
+
+    with dd.expire_at(1):
+        dd['gone_in_one_sec'] = 'gone'
+
+    assert dd['gone_in_one_sec'] == 'gone'
+
+    time.sleep(1.1)
+
+    try:
+        dd['gone_in_one_sec']
+    except KeyError:
+        pass
+    except Exception:
+        print('failed to throw KeyError')
+    else:
+        print('failed to throw KeyError')
+
 
     print('all is well')
