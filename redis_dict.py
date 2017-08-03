@@ -114,7 +114,7 @@ class RedisDict(object):
         return dict(zip([i[to_rm:] for i in keys], self.redis.mget(keys)))
 
     def multi_del(self, key):
-        keys = self._keys()
+        keys = self._keys(key)
         if len(keys) == 0:
             return 0
         return self.redis.delete(*keys)
@@ -251,8 +251,13 @@ if __name__ == '__main__':
     assert sorted(dd.multi_get('keys')) == sorted(list(items.values()))
     assert dd.multi_dict('keys') == items
 
+    dd['one_item'] = 'im here'
     dd.multi_del('keys')
 
+    assert len(dd) == 1
+
+    del(dd['one_item'])
     assert len(dd) == 0
+
     print('all is well')
 
