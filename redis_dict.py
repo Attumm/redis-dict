@@ -55,11 +55,11 @@ class RedisDict(object):
     def __len__(self):
         return len(self._keys())
 
-    def _scan_keys(self):
-        return self.redis.scan(match=self.namespace + '*')
+    def _scan_keys(self, search_term=''):
+        return self.redis.scan(match=self.namespace + search_term + '*')
 
-    def _keys(self):
-        return self._scan_keys()[1]
+    def _keys(self, search_term=''):
+        return self._scan_keys(search_term)[1]
 
     def keys(self):
         to_rm = len(self.namespace)
@@ -96,11 +96,20 @@ class RedisDict(object):
         except (IndexError, KeyError):
             raise StopIteration
 
-    def multi_get(self, keys):
-        return self.redis.mget(keys)
+    def multi_get(self, key):
+        return self.redis.mget(self._keys())
 
     def multi_chain_get(self, keys):
         return self.multi_get(':'.join(keys))
+
+    def multi_dict(self, key):
+        keys = self._keys()
+        to_rm = len(self.namespace) + len(key) + 1
+        return dict(zip([i[to_rm:] for i in keys], self.redis.mget(keys)))
+
+    def multi_del(self, key):
+        keys = self._keys()
+        self.redis.delete(*keys)
 
     def items(self):
         return zip(self.keys(), self.multi_get(self._keys()))
@@ -228,13 +237,13 @@ if __name__ == '__main__':
 
     items = {'k1': 'v1', 'k2': 'v2', 'k3': 'v3'}
     for key, val in items.items():
-        dd[key] = val
+        dd.chain_set(['keys', key], val)
 
     assert len(dd) == len(items)
+    assert sorted(dd.multi_get('keys')) == sorted(list(items.values()))
+    assert dd.multi_dict('keys') == items
 
-    for k, v in dd.items():
-        assert items[k] == v
-        del dd[k]
+    dd.multi_del('keys')
 
     assert len(dd) == 0
     print('all is well')
