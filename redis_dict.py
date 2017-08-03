@@ -97,7 +97,7 @@ class RedisDict(object):
             raise StopIteration
 
     def multi_get(self, key):
-        return self.redis.mget(self._keys())
+        return self.redis.mget(self._keys(key))
 
     def multi_chain_get(self, keys):
         return self.multi_get(':'.join(keys))
