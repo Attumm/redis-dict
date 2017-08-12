@@ -89,6 +89,9 @@ class RedisDict(object):
         self.keys_iter = self._keys()
         return self
 
+    def next(self):
+        return self.__next__()
+
     def __next__(self):
         """This contains a racecondition"""
         try:
