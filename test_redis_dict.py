@@ -18,11 +18,22 @@ class TestRedisDict(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.redisdb = redis.StrictRedis(**redis_config)
-        cls.r = RedisDict(namespace=TEST_NAMESPACE_PREFIX, **redis_config)
+        cls.r = cls.create_redis_dict()
 
-    def clear_test_namespace(self):
-        for key in self.redisdb.scan_iter('{}*'.format(TEST_NAMESPACE_PREFIX)):
-            self.redisdb.delete(key)
+    @classmethod
+    def tearDownClass(cls):
+        cls.clear_test_namespace()
+
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        return RedisDict(namespace=namespace, **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
 
     def setUp(self):
         self.clear_test_namespace()
@@ -38,7 +49,7 @@ class TestRedisDict(unittest.TestCase):
         self.r['foo'] = 'bar'
 
         expected_keys = ['{}:foo'.format(TEST_NAMESPACE_PREFIX)]
-        actual_keys = self.redisdb.keys('{}*'.format(TEST_NAMESPACE_PREFIX))
+        actual_keys = self.redisdb.keys('{}:*'.format(TEST_NAMESPACE_PREFIX))
 
         self.assertEqual(expected_keys, actual_keys)
 
@@ -74,17 +85,15 @@ class TestRedisDict(unittest.TestCase):
         with self.r.expire_at(3600):
             self.r['foobar'] = 'barbar'
 
-        actual_ttl = self.redisdb.ttl('foobar')
-
+        actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
 
     def test_expire_keyword(self):
         """Test ading keys with an expire value by using the expire config keyword."""
-        r = RedisDict(expire=3600, **redis_config)
+        r = self.create_redis_dict(expire=3600)
 
         r['foobar'] = 'barbar'
-        actual_ttl = self.redisdb.ttl('foobar')
-
+        actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
 
 
