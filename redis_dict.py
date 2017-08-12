@@ -37,7 +37,7 @@ class RedisDict(object):
 
     def __setitem__(self, k, v):
         if v is None:
-            v = self.none_
+            v = self.sentinel_none
         self.redis.set(self.namespace + k, v, ex=self.expire)
 
     def __delitem__(self, k):
