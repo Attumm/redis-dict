@@ -86,7 +86,7 @@ class RedisDict(object):
 
     def __iter__(self):
         """This contains a racecondition"""
-        self.keys_iter = self._keys()
+        self.keys_iter = self.keys()
         return self
 
     def next(self):
@@ -95,7 +95,7 @@ class RedisDict(object):
     def __next__(self):
         """This contains a racecondition"""
         try:
-            return self.keys_iter[self.keys_iter.pop()]
+            return self.keys_iter.pop()
         except (IndexError, KeyError):
             raise StopIteration
 
