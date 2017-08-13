@@ -223,6 +223,96 @@ class TestRedisDict(unittest.TestCase):
         for key in self.r:
             self.assertEqual(self.r[key], key_values[key])
 
+    def test_multi_get_with_key_none(self):
+        """Tests that multi_get with key None raises TypeError."""
+        with self.assertRaises(TypeError):
+            self.r.multi_get(None)
+
+    def test_multi_get_empty(self):
+        """Tests the multi_get function with no keys set."""
+        self.assertEqual(self.r.multi_get('foo'), [])
+
+    def test_multi_get_nonempty(self):
+        """Tests the multi_get function with 3 keys set, get 2 of them."""
+        self.r['foobar'] = 'barbar'
+        self.r['foobaz'] = 'bazbaz'
+        self.r['goobar'] = 'borbor'
+
+        expected_result = ['barbar', 'bazbaz']
+        self.assertEqual(self.r.multi_get('foo'), expected_result)
+
+    def test_multi_get_chain_with_key_none(self):
+        """Tests that multi_chain_get with key None raises TypeError."""
+        with self.assertRaises(TypeError):
+            self.r.multi_chain_get(None)
+
+    def test_multi_chain_get_empty(self):
+        """Tests the multi_chain_get function with no keys set."""
+        self.assertEqual(self.r.multi_chain_get(['foo']), [])
+
+    def test_multi_chain_get_nonempty(self):
+        """Tests the multi_chain_get function with keys set."""
+        self.r.chain_set(['foo', 'bar', 'bar'], 'barbar')
+        self.r.chain_set(['foo', 'bar', 'baz'], 'bazbaz')
+        self.r.chain_set(['foo', 'baz'], 'borbor')
+
+        # redis.mget seems to sort keys in reverse order here
+        expected_result = [u'bazbaz', u'barbar']
+        self.assertEqual(self.r.multi_chain_get(['foo', 'bar']), expected_result)
+
+    def test_multi_dict_empty(self):
+        """Tests the multi_dict function with no keys set."""
+        self.assertEqual(self.r.multi_dict('foo'), {})
+
+    def test_multi_dict_one_key(self):
+        """Tests the multi_dict function with 1 key set."""
+        self.r['foobar'] = 'barbar'
+        expected_dict = {u'foobar': u'barbar'}
+        self.assertEqual(self.r.multi_dict('foo'), expected_dict)
+
+    def test_multi_dict_two_keys(self):
+        """Tests the multi_dict function with 2 keys set."""
+        self.r['foobar'] = 'barbar'
+        self.r['foobaz'] = 'bazbaz'
+        expected_dict = {u'foobar': u'barbar', u'foobaz': u'bazbaz'}
+        self.assertEqual(self.r.multi_dict('foo'), expected_dict)
+
+    def test_multi_dict_complex(self):
+        """Tests the multi_dict function by setting 3 keys and matching 2."""
+        self.r['foobar'] = 'barbar'
+        self.r['foobaz'] = 'bazbaz'
+        self.r['goobar'] = 'borbor'
+        expected_dict = {u'foobar': u'barbar', u'foobaz': u'bazbaz'}
+        self.assertEqual(self.r.multi_dict('foo'), expected_dict)
+
+    def test_multi_del_empty(self):
+        """Tests the multi_del function with no keys set."""
+        self.assertEqual(self.r.multi_del('foobar'), 0)
+
+    def test_multi_del_one_key(self):
+        """Tests the multi_del function with 1 key set."""
+        self.r['foobar'] = 'barbar'
+        self.assertEqual(self.r.multi_del('foobar'), 1)
+        self.assertIsNone(self.redisdb.get('foobar'))
+
+    def test_multi_del_two_keys(self):
+        """Tests the multi_del function with 2 keys set."""
+        self.r['foobar'] = 'barbar'
+        self.r['foobaz'] = 'bazbaz'
+        self.assertEqual(self.r.multi_del('foo'), 2)
+        self.assertIsNone(self.redisdb.get('foobar'))
+        self.assertIsNone(self.redisdb.get('foobaz'))
+
+    def test_multi_del_complex(self):
+        """Tests the multi_del function by setting 3 keys and deleting 2."""
+        self.r['foobar'] = 'barbar'
+        self.r['foobaz'] = 'bazbaz'
+        self.r['goobar'] = 'borbor'
+        self.assertEqual(self.r.multi_del('foo'), 2)
+        self.assertIsNone(self.redisdb.get('foobar'))
+        self.assertIsNone(self.redisdb.get('foobaz'))
+        self.assertEqual(self.r['goobar'], 'borbor')
+
 
 if __name__ == '__main__':
     unittest.main()
