@@ -110,10 +110,10 @@ class RedisDict(object):
         return self.multi_get(':'.join(keys))
 
     def multi_dict(self, key):
-        keys = self._keys()
+        keys = self._keys(key)
         if len(keys) == 0:
             return {}
-        to_rm = len(self.namespace) + len(key) + 1
+        to_rm = len(self.namespace)
         return dict(zip([i[to_rm:] for i in keys], self.redis.mget(keys)))
 
     def multi_del(self, key):
