@@ -37,7 +37,7 @@ class RedisDict(object):
 
     def __setitem__(self, k, v):
         if v is None:
-            v = self.none_
+            v = self.sentinel_none
         self.redis.set(self.namespace + k, v, ex=self.expire)
 
     def __delitem__(self, k):
@@ -86,13 +86,16 @@ class RedisDict(object):
 
     def __iter__(self):
         """This contains a racecondition"""
-        self.keys_iter = self._keys()
+        self.keys_iter = self.keys()
         return self
+
+    def next(self):
+        return self.__next__()
 
     def __next__(self):
         """This contains a racecondition"""
         try:
-            return self.keys_iter[self.keys_iter.pop()]
+            return self.keys_iter.pop()
         except (IndexError, KeyError):
             raise StopIteration
 
@@ -107,10 +110,10 @@ class RedisDict(object):
         return self.multi_get(':'.join(keys))
 
     def multi_dict(self, key):
-        keys = self._keys()
+        keys = self._keys(key)
         if len(keys) == 0:
             return {}
-        to_rm = len(self.namespace) + len(key) + 1
+        to_rm = len(self.namespace)
         return dict(zip([i[to_rm:] for i in keys], self.redis.mget(keys)))
 
     def multi_del(self, key):
