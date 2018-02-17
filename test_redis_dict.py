@@ -238,8 +238,8 @@ class TestRedisDict(unittest.TestCase):
         self.r['foobaz'] = 'bazbaz'
         self.r['goobar'] = 'borbor'
 
-        expected_result = ['barbar', 'bazbaz']
-        self.assertEqual(self.r.multi_get('foo'), expected_result)
+        expected_result = sorted(['barbar', 'bazbaz'])
+        self.assertEqual(sorted(self.r.multi_get('foo')), expected_result)
 
     def test_multi_get_chain_with_key_none(self):
         """Tests that multi_chain_get with key None raises TypeError."""
@@ -256,9 +256,8 @@ class TestRedisDict(unittest.TestCase):
         self.r.chain_set(['foo', 'bar', 'baz'], 'bazbaz')
         self.r.chain_set(['foo', 'baz'], 'borbor')
 
-        # redis.mget seems to sort keys in reverse order here
-        expected_result = [u'bazbaz', u'barbar']
-        self.assertEqual(self.r.multi_chain_get(['foo', 'bar']), expected_result)
+        expected_result = sorted([u'bazbaz', u'barbar'])
+        self.assertEqual(sorted(self.r.multi_chain_get(['foo', 'bar'])), expected_result)
 
     def test_multi_dict_empty(self):
         """Tests the multi_dict function with no keys set."""
