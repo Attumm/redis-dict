@@ -1,4 +1,4 @@
-from redis import StrictRedis
+
 
 from contextlib import contextmanager
 from future.utils import python_2_unicode_compatible
@@ -18,7 +18,15 @@ class RedisDict(object):
             self.expire = kwargs['expire']
             del kwargs['expire']
 
-        self.redis = StrictRedis(*args, decode_responses=True, **kwargs)
+        mock_backend = kwargs.pop('fakeredis') if 'fakeredis' in kwargs else False
+        if mock_backend:
+            from fakeredis import FakeStrictRedis
+            self.redis = FakeStrictRedis(*args, decode_responses=True, **kwargs)
+        else:
+            from redis import StrictRedis
+            self.redis = StrictRedis(*args, decode_responses=True, **kwargs)
+
+
         self.sentinel_none = '<META __None__ 9cab>'
 
     def _raw_get_item(self, k):

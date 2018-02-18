@@ -1,47 +1,50 @@
 import unittest
 
-import redis
+from redis import StrictRedis
+from fakeredis import FakeStrictRedis
 
 from redis_dict import RedisDict
 
 # !! Make sure you don't have keys named like this, they will be deleted.
-TEST_NAMESPACE_PREFIX = 'test_rd'
 
+
+TEST_NAMESPACE_PREFIX = 'r_test'
 redis_config = {
     'host': 'localhost',
     'port': 6379,
     'db': 0,
 }
-
+redis_dict_config = {
+    'fakeredis': True,
+    'namespace': TEST_NAMESPACE_PREFIX,
+}
 
 class TestRedisDict(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.redisdb = redis.StrictRedis(**redis_config)
+        if redis_config.get('fakeredis', False):
+            cls.redisdb = StrictRedis(**redis_config)
+        else:
+            cls.redisdb = FakeStrictRedis(**redis_config)
         cls.r = cls.create_redis_dict()
 
     @classmethod
-    def tearDownClass(cls):
-        cls.clear_test_namespace()
-
-    @classmethod
-    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+    def create_redis_dict(cls, **kwargs):
         config = redis_config.copy()
-        config.update(kwargs)
-        return RedisDict(namespace=namespace, **config)
+        config.update(redis_dict_config)
+        return RedisDict(**config)
 
     @classmethod
     def clear_test_namespace(cls):
-        for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
+        for key in cls.redisdb.keys('{}:*'.format(TEST_NAMESPACE_PREFIX)):
             cls.redisdb.delete(key)
 
-    def setUp(self):
+    def tearDown(self):
         self.clear_test_namespace()
 
     def test_keys_empty(self):
         """Calling RedisDict.keys() should return an empty list."""
         keys = self.r.keys()
-
         self.assertEqual(keys, [])
 
     def test_set_namespace(self):
@@ -136,7 +139,8 @@ class TestRedisDict(unittest.TestCase):
         self.r['foobar'] = 'barbaros'
         expected_dict = {u'foobar': u'barbaros'}
         actual_dict = self.r.to_dict()
-        self.assertEqual(actual_dict, expected_dict)
+
+        self.assertEqual(sorted(actual_dict.keys()), sorted(expected_dict.keys()))
 
     def test_chain_set_1(self):
         """Test setting a chain with 1 element."""
@@ -195,19 +199,23 @@ class TestRedisDict(unittest.TestCase):
 
     def test_expire_context(self):
         """Test adding keys with an expire value by using the contextmanager."""
-        with self.r.expire_at(3600):
+        expected = 3600
+        with self.r.expire_at(expected):
             self.r['foobar'] = 'barbar'
 
         actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
-        self.assertAlmostEqual(3600, actual_ttl, delta=2)
+        print(actual_ttl)
+        self.assertAlmostEqual(expected, actual_ttl, delta=2)
 
     def test_expire_keyword(self):
         """Test ading keys with an expire value by using the expire config keyword."""
-        r = self.create_redis_dict(expire=3600)
+        expected = 3600
+        r = self.create_redis_dict(expire=expected)
 
         r['foobar'] = 'barbar'
-        actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
-        self.assertAlmostEqual(3600, actual_ttl, delta=2)
+        actual_ttl = cls.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
+        print(actual_ttl)
+        self.assertAlmostEqual(expected, actual_ttl, delta=2)
 
     def test_iter(self):
         """Tests the __iter__ function."""
