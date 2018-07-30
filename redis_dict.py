@@ -1,3 +1,5 @@
+import json
+
 from redis import StrictRedis
 
 from contextlib import contextmanager
@@ -5,69 +7,165 @@ from future.utils import python_2_unicode_compatible
 
 
 @python_2_unicode_compatible
-class RedisDict(object):
-    def __init__(self, *args, **kwargs):
+class RedisDict:
+    trans = {
+        'json': json.loads,
+        type('').__name__: str,
+        type(1).__name__: int,
+        type(0.1).__name__: float,
+        type(True).__name__: bool,
+        type(None).__name__: lambda x: None,
+    }
+
+    def __init__(self, **kwargs):
         self.namespace = ''
         if 'namespace' in kwargs:
             # Todo validate namespace
-            self.namespace = kwargs['namespace'] + ':'
-            del kwargs['namespace']
+            self.namespace = kwargs['namespace']
+            del (kwargs['namespace'])
 
         self.expire = None
         if 'expire' in kwargs:
             self.expire = kwargs['expire']
-            del kwargs['expire']
+            del (kwargs['expire'])
 
-        self.redis = StrictRedis(*args, decode_responses=True, **kwargs)
-        self.sentinel_none = '<META __None__ 9cab>'
+        self.redis = StrictRedis(decode_responses=True, **kwargs)
+        self.iter = self.iter_keys()
 
-    def _raw_get_item(self, k):
-        return self.redis.get(k)
+    def _format_key(self, key):
+        return '{}:{}'.format(self.namespace, str(key))
 
-    def _get_item(self, k):
-        result = self._raw_get_item(self.namespace + k)
-        return result
+    def _store(self, key, value, set_type=None):
+        store_type = set_type if set_type is not None else type(value).__name__
+        store_value = '{}:{}'.format(store_type, value)
+        self.redis.set(self._format_key(key), store_value, ex=self.expire)
 
-    def __getitem__(self, k):
-        result = self._get_item(k)
+    def _load_raw(self, key):
+        result = self.redis.get(key)
         if result is None:
+            return None
+        t, value = result.split(':', 1)
+        return self.trans.get(t, lambda x: x)(value)
+
+    def _load(self, key):
+        result = self.redis.get(self._format_key(key))
+        if result is None:
+            return False, None
+        t, value = result.split(':', 1)
+        return True, self.trans.get(t, lambda x: x)(value)
+
+    def _transform(self, result):
+        t, value = result.split(':', 1)
+        return self.trans.get(t, lambda x: x)(value)
+
+    def add_type(self, k, v):
+        self.trans[k] = v
+
+    def __cmp__(self, other):
+        if len(self) != len(other):
+            return False
+        for key in self:
+            if self[key] != other[key]:
+                return False
+        return True
+
+    def __getitem__(self, item):
+        found, value = self._load(item)
+        if not found:
             raise KeyError
+        return value
 
-        return result if result != self.sentinel_none else None
+    def __setitem__(self, key, value):
+        self._store(key, value)
 
-    def __setitem__(self, k, v):
-        if v is None:
-            v = self.sentinel_none
-        self.redis.set(self.namespace + k, v, ex=self.expire)
+    def __delitem__(self, key):
+        self.redis.delete(self._format_key(key))
 
-    def __delitem__(self, k):
-        self.redis.delete(self.namespace + k)
-
-    def __contains__(self, k):
-        return self._get_item(k) is not None
-
-    def __repr__(self):
-        return str(self.to_dict())
-
-    def __str__(self):
-        return self.__repr__()
+    def __contains__(self, key):
+        return self._load(key)[1]
 
     def __len__(self):
-        return len(self._keys())
+        return len(list(self._scan_keys()))
+
+    def __iter__(self):
+        self.iter = self.iter_keys()
+        return self
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return str(self.to_dict())
+
+    def __next__(self):
+        return next(self.iter)
+
+    def next(self):
+        return self.__next__()
 
     def _scan_keys(self, search_term=''):
-        return self.redis.scan(match=self.namespace + search_term + '*')
+        return self.redis.scan_iter(match='{}:{}{}'.format(self.namespace, search_term, '*'))
 
-    def _keys(self, search_term=''):
-        return self._scan_keys(search_term)[1]
+    def get(self, key, default):
+        found, item = self._load(key)
+        if not found:
+            return default
+        return item
+
+    def iter_keys(self):
+        to_rm = len(self.namespace) + 1
+        return (item[to_rm:] for item in self._scan_keys())
 
     def keys(self):
-        to_rm = len(self.namespace)
-        return [item[to_rm:] for item in self._keys()]
+        return list(self.iter_keys())
+
+    def iteritems(self):
+        return (self[i] for i in self._scan_keys())
+
+    def items(self):
+        return list(self.iteritems())
+
+    def values(self):
+        return list(self.itervalues())
+
+    def itervalues(self):
+        to_rm = len(self.namespace) + 1
+        return ((item[to_rm:], self._load_raw(item)) for item in self._scan_keys())
 
     def to_dict(self):
-        to_rm = len(self.namespace)
-        return {item[to_rm:]: self._raw_get_item(item) for item in self._keys()}
+        """"""
+        return dict(self.values())
+
+    def clear(self):
+        """TODO should be pipelined"""
+        for key in self:
+            del(self[key])
+
+    def pop(self, key):
+        value = self[key]
+        del(self[key])
+        return value
+
+    def popitem(self):
+        """TODO does not have to get all the keys"""
+        key = self.keys()[0]
+        return self.pop(key)
+
+    def setdefault(self, key, default_value=None):
+        found, value = self._load(key)
+        if not found:
+            self[key] = default_value
+            return default_value
+        return value
+
+    def copy(self):
+        return self.to_dict()
+
+    def update(self):
+        pass
+
+    def __sizeof__(self):
+        return self.to_dict().__sizeof__()
 
     def chain_set(self, iterable, v):
         self[':'.join(iterable)] = v
@@ -84,183 +182,24 @@ class RedisDict(object):
         yield
         self.expire = temp
 
-    def __iter__(self):
-        """This contains a racecondition"""
-        self.keys_iter = self.keys()
-        return self
-
-    def next(self):
-        return self.__next__()
-
-    def __next__(self):
-        """This contains a racecondition"""
-        try:
-            return self.keys_iter.pop()
-        except (IndexError, KeyError):
-            raise StopIteration
-
     def multi_get(self, key):
-        found_keys = self._keys(key)
+        found_keys = list(self._scan_keys(key))
         if len(found_keys) == 0:
             return []
-
-        return self.redis.mget(found_keys)
+        return [self._transform(i) for i in self.redis.mget(found_keys)]
 
     def multi_chain_get(self, keys):
         return self.multi_get(':'.join(keys))
 
     def multi_dict(self, key):
-        keys = self._keys(key)
+        keys = list(self._scan_keys(key))
         if len(keys) == 0:
             return {}
-        to_rm = len(self.namespace)
-        return dict(zip([i[to_rm:] for i in keys], self.redis.mget(keys)))
+        to_rm = keys[0].rfind(':') + 1
+        return dict(zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys))))
 
     def multi_del(self, key):
-        keys = self._keys(key)
+        keys = list(self._scan_keys(key))
         if len(keys) == 0:
             return 0
         return self.redis.delete(*keys)
-
-    def items(self):
-        return zip(self.keys(), self.multi_get(self._keys()))
-
-
-class RedisListIterator(object):
-
-    def __init__(self, redis_instance, key, start=0, end=-1):
-        """Creates a redis list iterator.
-
-        Args:
-            redis_instance (object): instance of redis
-            key (str): redis list key
-            start (int): list slice start (inclusive)
-            end (int): list slice end (exclusive)
-
-        """
-        self.position = start
-        self.key = key
-        self.redis = redis_instance
-        llen = redis_instance.llen(key)
-        self.endpos = llen if (end == -1 or (end - start) > llen) else end
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self.position >= self.endpos:
-            raise StopIteration
-
-        item = self.redis.lindex(self.key, self.position)
-        self.position += 1
-        return item
-
-    next = __next__
-
-
-class RedisList(object):
-    """Emulate a python list."""
-
-    def __init__(self, redis_instance, key):
-        self.key = key
-        self.redis = redis_instance
-
-    def __len__(self):
-        return self.redis.llen(self.key)
-
-    def __getitem__(self, index):
-        if isinstance(index, slice):
-            start = index.start or 0
-            end = (index.stop - 1) if index.stop is not None else -1
-            return self.redis.lrange(self.key, start, end)
-        if index + 1 > len(self):
-            raise IndexError("Index out of bounds.")
-        return self.redis.lindex(self.key, index)
-
-    def __iter__(self):
-        return RedisListIterator(self.redis, self.key)
-
-if __name__ == '__main__':
-    import time
-
-    d = RedisDict(namespace='app_name')
-    assert 'random' not in d
-    d['random'] = 4
-    assert d['random'] == '4'
-    assert 'random' in d
-    del d['random']
-    assert 'random' not in d
-    deep = ['key', 'key1', 'key2']
-    deep_val = 'mister'
-    d.chain_set(deep, deep_val)
-
-    assert deep_val == d.chain_get(deep)
-    d.chain_del(deep)
-
-    try:
-        d.chain_get(deep)
-    except KeyError:
-        pass
-    except Exception:
-        print('failed to throw KeyError')
-    else:
-        print('failed to throw KeyError')
-
-    assert 'random' not in d
-    d['random'] = 4
-    dd = RedisDict(namespace='app_name_too')
-    assert len(dd) == 0
-
-    dd['random'] = 5
-
-    assert d['random'] == '4'
-    assert 'random' in d
-
-    assert dd['random'] == '5'
-    assert 'random' in dd
-
-    del d['random']
-    assert 'random' not in d
-
-    assert dd['random'] == '5'
-    assert 'random' in dd
-
-    del dd['random']
-    assert 'random' not in dd
-
-    with dd.expire_at(1):
-        dd['gone_in_one_sec'] = 'gone'
-
-    assert dd['gone_in_one_sec'] == 'gone'
-
-    time.sleep(1.1)
-
-    try:
-        dd['gone_in_one_sec']
-    except KeyError:
-        pass
-    except Exception:
-        print('failed to throw KeyError')
-    else:
-        print('failed to throw KeyError')
-
-    assert len(dd) == 0
-
-    items = {'k1': 'v1', 'k2': 'v2', 'k3': 'v3'}
-    for key, val in items.items():
-        dd.chain_set(['keys', key], val)
-
-    assert len(dd) == len(items)
-    assert sorted(dd.multi_get('keys')) == sorted(list(items.values()))
-    assert dd.multi_dict('keys') == items
-
-    dd['one_item'] = 'im here'
-    dd.multi_del('keys')
-
-    assert len(dd) == 1
-
-    del(dd['one_item'])
-    assert len(dd) == 0
-
-    print('all is well')
-
