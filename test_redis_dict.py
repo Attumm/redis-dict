@@ -303,6 +303,74 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(dic.get("foobar"), redis_dic.get("foobar"))
         self.assertEqual(dic.get("foobar", "foobar"), redis_dic.get("foobar", "foobar"))
 
+    def test_dict_method_clear(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+
+        dic.clear()
+        redis_dic.clear()
+
+        self.assertEqual(len(redis_dic), 0)
+        self.assertEqual(len(dic), 0)
+
+        # Boundary check. clear on empty dictionary is valid
+        dic.clear()
+        redis_dic.clear()
+
+        self.assertEqual(len(redis_dic), 0)
+        self.assertEqual(len(dic), 0)
+
+
+    def test_dict_method_clear(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+
+        dic_id = id(dic)
+        redis_dic_id = id(id)
+
+        dic_copy = dic.copy()
+        redis_dic_copy = redis_dic.copy()
+
+        self.assertNotEqual(dic_id, id(dic_copy))
+        self.assertNotEqual(redis_dic_id, id(redis_dic_copy))
+
+        dic.clear()
+        redis_dic.clear()
+
+        self.assertEqual(len(redis_dic), 0)
+        self.assertEqual(len(dic), 0)
+
+        self.assertEqual(len(dic_copy), 5)
+        self.assertEqual(len(redis_dic_copy), 5)
+
 
 class TestRedisDict(unittest.TestCase):
     @classmethod
