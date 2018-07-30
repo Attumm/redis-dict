@@ -69,6 +69,58 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(dic[key], expected_value)
             self.assertEqual(dic[key], redis_dic[key])
 
+    def test_supported_types(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_values = (("int", 1), ("float", 0.9), ("str", "im a string"), ("bool", True), ("None", None))
+
+        for key, value in input_values:
+            redis_dic[key] = value
+            dic[key] = value
+
+        expected_len = len(input_values)
+        self.assertEqual(expected_len, len(redis_dic))
+        self.assertEqual(len(dic), len(redis_dic))
+
+        for expected_key, expected_value in input_values:
+            result = redis_dic[expected_key]
+            self.assertEqual(expected_value, result)
+            self.assertEqual(dic[expected_key], result)
+
+        self.assertTrue(len(redis_dic) > 2)
+        redis_dic.clear()
+        dic.clear()
+        self.assertEqual(len(redis_dic), 0)
+        self.assertEqual(len(dic), 0)
+
+    def test_update(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_values = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        self.assertEqual(len(redis_dic), 0)
+        self.assertEqual(len(dic), 0)
+        self.assertEqual(len(input_values), 5)
+
+        redis_dic.update(input_values)
+        dic.update(input_values)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_values), 5)
+
+        for expected_key, expected_value in input_values.items():
+            self.assertEqual(redis_dic[expected_key], expected_value)
+            self.assertEqual(dic[expected_key], expected_value)
+
 
 class TestRedisDict(unittest.TestCase):
     @classmethod

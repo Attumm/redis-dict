@@ -18,6 +18,8 @@ class RedisDict:
     }
 
     def __init__(self, **kwargs):
+        self.temp_redis = None
+        self.pipeline_results  = None
         self.namespace = ''
         if 'namespace' in kwargs:
             # Todo validate namespace
@@ -30,7 +32,7 @@ class RedisDict:
             del (kwargs['expire'])
 
         self.redis = StrictRedis(decode_responses=True, **kwargs)
-        self.iter = self.iter_keys()
+        self.iter = self.iterkeys()
 
     def _format_key(self, key):
         return '{}:{}'.format(self.namespace, str(key))
@@ -88,7 +90,7 @@ class RedisDict:
         return len(list(self._scan_keys()))
 
     def __iter__(self):
-        self.iter = self.iter_keys()
+        self.iter = self.iterkeys()
         return self
 
     def __repr__(self):
@@ -112,12 +114,17 @@ class RedisDict:
             return default
         return item
 
-    def iter_keys(self):
+    def iterkeys(self):
         to_rm = len(self.namespace) + 1
         return (item[to_rm:] for item in self._scan_keys())
 
+    def iter_keys(self):
+        """Deprecated: should be removed after major version change"""
+        print("Warning: deprecated method. use iterkeys instead")
+        return self.iterkeys()
+
     def keys(self):
-        return list(self.iter_keys())
+        return list(self.iterkeys())
 
     def iteritems(self):
         return (self[i] for i in self._scan_keys())
@@ -161,8 +168,10 @@ class RedisDict:
     def copy(self):
         return self.to_dict()
 
-    def update(self):
-        pass
+    def update(self, dic):
+        with self.pipeline():
+            for key, value in dic.items():
+                self[key] = value
 
     def __sizeof__(self):
         return self.to_dict().__sizeof__()
@@ -181,6 +190,12 @@ class RedisDict:
         self.expire, temp = sec_epoch, self.expire
         yield
         self.expire = temp
+
+    @contextmanager
+    def pipeline(self):
+        self.redis, self.temp_redis = self.redis.pipeline(), self.redis
+        yield
+        self.pipeline_results, self.redis = self.redis.execute(), self.temp_redis
 
     def multi_get(self, key):
         found_keys = list(self._scan_keys(key))
