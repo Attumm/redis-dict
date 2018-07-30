@@ -108,7 +108,7 @@ class RedisDict:
     def _scan_keys(self, search_term=''):
         return self.redis.scan_iter(match='{}:{}{}'.format(self.namespace, search_term, '*'))
 
-    def get(self, key, default):
+    def get(self, key, default=None):
         found, item = self._load(key)
         if not found:
             return default
@@ -156,8 +156,11 @@ class RedisDict:
 
     def popitem(self):
         """TODO does not have to get all the keys"""
-        key = self.keys()[0]
-        return self.pop(key)
+        try:
+            key = self.keys()[0]
+        except IndexError:
+            raise KeyError
+        return key, self.pop(key)
 
     def setdefault(self, key, default_value=None):
         found, value = self._load(key)

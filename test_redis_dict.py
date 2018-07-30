@@ -176,6 +176,133 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(sorted(map(str, input_values)), sorted(map(str, result_values)))
         self.assertEqual(sorted(map(str, dic_values)), sorted(map(str, result_values)))
 
+    def test_dict_method_update(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_items), 5)
+
+    def test_dict_method_pop(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_items), 5)
+
+        for i, key in enumerate(input_items.keys(), start=1):
+            expected = dic.pop(key)
+            result = redis_dic.pop(key)
+            self.assertEqual(expected, result)
+            self.assertEqual(len(dic), len(input_items)-i)
+            self.assertEqual(len(redis_dic), len(input_items)-i)
+
+        with self.assertRaises(KeyError):
+            dic.pop("item")
+        with self.assertRaises(KeyError):
+            redis_dic.pop("item")
+
+    def test_dict_method_popitem(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_items), 5)
+
+        expected = [dic.popitem() for _ in range(5)]
+        result = [redis_dic.popitem() for _ in range(5)]
+
+        self.assertEqual(sorted(map(str, expected)), sorted(map(str, result)))
+
+        self.assertEqual(len(dic), 0)
+        self.assertEqual(len(redis_dic), 0)
+
+        with self.assertRaises(KeyError):
+            dic.popitem()
+        with self.assertRaises(KeyError):
+            redis_dic.popitem()
+
+    def test_dict_method_setdefault(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        dic.setdefault("item", 4)
+        redis_dic.setdefault("item", 4)
+
+        self.assertEqual(dic["item"], redis_dic["item"])
+
+        self.assertEqual(len(dic), 1)
+        self.assertEqual(len(redis_dic), 1)
+
+        dic.setdefault("item", 5)
+        redis_dic.setdefault("item", 5)
+
+        self.assertEqual(dic["item"], redis_dic["item"])
+
+        self.assertEqual(len(dic), 1)
+        self.assertEqual(len(redis_dic), 1)
+
+        dic.setdefault("foobar", 6)
+        redis_dic.setdefault("foobar", 6)
+
+        self.assertEqual(dic["item"], redis_dic["item"])
+        self.assertEqual(dic["foobar"], redis_dic["foobar"])
+
+        self.assertEqual(len(dic), 2)
+        self.assertEqual(len(redis_dic), 2)
+
+    def test_dict_method_get(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        dic.setdefault("item", 4)
+        redis_dic.setdefault("item", 4)
+
+        self.assertEqual(dic["item"], redis_dic["item"])
+
+        self.assertEqual(len(dic), 1)
+        self.assertEqual(len(redis_dic), 1)
+
+        self.assertEqual(dic.get("item"), redis_dic.get("item"))
+        self.assertEqual(dic.get("foobar"), redis_dic.get("foobar"))
+        self.assertEqual(dic.get("foobar", "foobar"), redis_dic.get("foobar", "foobar"))
+
 
 class TestRedisDict(unittest.TestCase):
     @classmethod
