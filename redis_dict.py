@@ -127,7 +127,8 @@ class RedisDict:
         return list(self.iterkeys())
 
     def iteritems(self):
-        return (self[i] for i in self._scan_keys())
+        to_rm = len(self.namespace) + 1
+        return ((item[to_rm:], self._load_raw(item)) for item in self._scan_keys())
 
     def items(self):
         return list(self.iteritems())
@@ -137,11 +138,11 @@ class RedisDict:
 
     def itervalues(self):
         to_rm = len(self.namespace) + 1
-        return ((item[to_rm:], self._load_raw(item)) for item in self._scan_keys())
+        return (self[i[to_rm:]] for i in self._scan_keys())
 
     def to_dict(self):
         """"""
-        return dict(self.values())
+        return dict(self.items())
 
     def clear(self):
         """TODO should be pipelined"""
@@ -193,9 +194,11 @@ class RedisDict:
 
     @contextmanager
     def pipeline(self):
+        #TODO handle contextmanager inception.
         self.redis, self.temp_redis = self.redis.pipeline(), self.redis
         yield
-        self.pipeline_results, self.redis = self.redis.execute(), self.temp_redis
+        self.pipeline_results, self.temp_redis, self.redis = self.redis.execute(), None, self.temp_redis
+
 
     def multi_get(self, key):
         found_keys = list(self._scan_keys(key))

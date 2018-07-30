@@ -121,6 +121,61 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(redis_dic[expected_key], expected_value)
             self.assertEqual(dic[expected_key], expected_value)
 
+    def test_iter(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        self.assertEqual(len(redis_dic), 0)
+        self.assertEqual(len(dic), 0)
+        self.assertEqual(len(input_items), 5)
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_items), 5)
+
+        for expected_key, expected_value in input_items.items():
+            self.assertEqual(redis_dic[expected_key], expected_value)
+            self.assertEqual(dic[expected_key], expected_value)
+
+        for key in redis_dic:
+            self.assertTrue(key in input_items)
+
+        for key in redis_dic.iterkeys():
+            self.assertTrue(key in input_items)
+
+        for key in redis_dic.keys():
+            self.assertTrue(key in input_items)
+
+        for key, value in redis_dic.items():
+            self.assertEqual(input_items[key], value)
+            self.assertEqual(dic[key], value)
+
+        for key, value in redis_dic.iteritems():
+            self.assertEqual(input_items[key], value)
+            self.assertEqual(dic[key], value)
+
+        input_values = list(input_items.values())
+        dic_values = list(input_items.values())
+        result_values = list(redis_dic.itervalues())
+
+        self.assertEqual(sorted(map(str, input_values)), sorted(map(str, result_values)))
+        self.assertEqual(sorted(map(str, dic_values)), sorted(map(str, result_values)))
+
+        result_values = list(redis_dic.itervalues())
+        self.assertEqual(sorted(map(str, input_values)), sorted(map(str, result_values)))
+        self.assertEqual(sorted(map(str, dic_values)), sorted(map(str, result_values)))
+
 
 class TestRedisDict(unittest.TestCase):
     @classmethod
