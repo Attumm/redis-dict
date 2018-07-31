@@ -74,7 +74,7 @@ class RedisDict:
     def __getitem__(self, item):
         found, value = self._load(item)
         if not found:
-            raise KeyError
+            raise KeyError(item)
         return value
 
     def __setitem__(self, key, value):
@@ -159,7 +159,7 @@ class RedisDict:
         try:
             key = self.keys()[0]
         except IndexError:
-            raise KeyError
+            raise KeyError("popitem(): dictionary is empty")
         return key, self.pop(key)
 
     def setdefault(self, key, default_value=None):

@@ -334,7 +334,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(redis_dic), 0)
         self.assertEqual(len(dic), 0)
 
-
     def test_dict_method_clear(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -370,6 +369,20 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
         self.assertEqual(len(dic_copy), 5)
         self.assertEqual(len(redis_dic_copy), 5)
+
+    def test_dict_exception_keyerror(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        with self.assertRaisesRegex(KeyError, "appel"):
+            dic['appel']
+        with self.assertRaisesRegex(KeyError, "appel"):
+            redis_dic['appel']
+
+        with self.assertRaisesRegex(KeyError, "popitem\(\): dictionary is empty"):
+            dic.popitem()
+        with self.assertRaisesRegex(KeyError, "popitem\(\): dictionary is empty"):
+            redis_dic.popitem()
 
 
     def test_dict_types_bool(self):
