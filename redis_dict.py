@@ -123,6 +123,12 @@ class RedisDict:
         print("Warning: deprecated method. use iterkeys instead")
         return self.iterkeys()
 
+    def key(self, search_term=''):
+        to_rm = len(self.namespace) + 1
+        cursor, data = self.get_redis.scan(match='{}:{}{}'.format(self.namespace, search_term, '*'), count=1)
+        for item in data:
+            return item[to_rm:]
+
     def keys(self):
         return list(self.iterkeys())
 
@@ -141,7 +147,6 @@ class RedisDict:
         return (self[i[to_rm:]] for i in self._scan_keys())
 
     def to_dict(self):
-        """"""
         return dict(self.items())
 
     def clear(self):
@@ -155,10 +160,8 @@ class RedisDict:
         return value
 
     def popitem(self):
-        """TODO does not have to get all the keys"""
-        try:
-            key = self.keys()[0]
-        except IndexError:
+        key = self.key()
+        if key is None:
             raise KeyError("popitem(): dictionary is empty")
         return key, self.pop(key)
 
