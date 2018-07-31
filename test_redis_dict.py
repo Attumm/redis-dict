@@ -384,7 +384,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaisesRegex(KeyError, "popitem\(\): dictionary is empty"):
             redis_dic.popitem()
 
-
     def test_dict_types_bool(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -426,6 +425,118 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
         self.assertEqual(len(redis_dic), len(input_items))
         self.assertEqual(len(dic), len(input_items))
+
+    def test_dict_method_pipeline(self):
+        redis_dic = self.create_redis_dict()
+        expected = {
+            'a': 1,
+            'b': 2,
+            'b': 3,
+        }
+        with redis_dic.pipeline():
+            for k, v in expected.items():
+                redis_dic[k] = v
+
+        self.assertEqual(len(redis_dic), len(expected))
+        for k, v in expected.items():
+            self.assertEqual(redis_dic[k], v)
+        redis_dic.clear()
+        self.assertEqual(len(redis_dic), 0)
+
+        with redis_dic.pipeline():
+            with redis_dic.pipeline():
+                for k, v in expected.items():
+                    redis_dic[k] = v
+
+        self.assertEqual(len(redis_dic), len(expected))
+        for k, v in expected.items():
+            self.assertEqual(redis_dic[k], v)
+        redis_dic.clear()
+        self.assertEqual(len(redis_dic), 0)
+
+        with redis_dic.pipeline():
+            with redis_dic.pipeline():
+                with redis_dic.pipeline():
+                    for k, v in expected.items():
+                        redis_dic[k] = v
+
+        self.assertEqual(len(redis_dic), len(expected))
+        for k, v in expected.items():
+            self.assertEqual(redis_dic[k], v)
+        redis_dic.clear()
+        self.assertEqual(len(redis_dic), 0)
+
+        with redis_dic.pipeline():
+            with redis_dic.pipeline():
+                with redis_dic.pipeline():
+                    with redis_dic.pipeline():
+                        for k, v in expected.items():
+                            redis_dic[k] = v
+
+        self.assertEqual(len(redis_dic), len(expected))
+        for k, v in expected.items():
+            self.assertEqual(redis_dic[k], v)
+        redis_dic.clear()
+        self.assertEqual(len(redis_dic), 0)
+
+    def test_dict_method_pipeline_buffer_sets(self):
+        redis_dic = self.create_redis_dict()
+        expected = {
+            'a': 1,
+            'b': 2,
+            'b': 3,
+        }
+        with redis_dic.pipeline():
+            for k, v in expected.items():
+                redis_dic[k] = v
+            self.assertEqual(len(redis_dic), 0)
+
+        self.assertEqual(len(redis_dic), len(expected))
+
+        for k, v in expected.items():
+            self.assertEqual(redis_dic[k], v)
+
+        with redis_dic.pipeline():
+            for k, v in redis_dic.items():
+                redis_dic[k] = v*2
+            for k, v in expected.items():
+                self.assertEqual(redis_dic[k], v)
+
+        for k, v in expected.items():
+            self.assertEqual(redis_dic[k], v*2)
+        self.assertEqual(len(redis_dic), len(expected))
+
+        redis_dic.clear()
+        self.assertEqual(len(redis_dic), 0)
+
+
+        with redis_dic.pipeline():
+            with redis_dic.pipeline():
+                for k, v in expected.items():
+                    redis_dic[k] = v
+                self.assertEqual(len(redis_dic), 0)
+
+        self.assertEqual(len(redis_dic), len(expected))
+
+        for k, v in expected.items():
+            self.assertEqual(redis_dic[k], v)
+
+        with redis_dic.pipeline():
+            with redis_dic.pipeline():
+                for k, v in redis_dic.items():
+                    redis_dic[k] = v * 2
+                for k, v in expected.items():
+                    self.assertEqual(redis_dic[k], v)
+
+        for k, v in expected.items():
+            self.assertEqual(redis_dic[k], v * 2)
+        self.assertEqual(len(redis_dic), len(expected))
+
+        with redis_dic.pipeline():
+            redis_dic.clear()
+            self.assertEqual(len(redis_dic), len(expected))
+
+        self.assertEqual(len(redis_dic), 0)
 
 
 class TestRedisDict(unittest.TestCase):

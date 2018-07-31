@@ -19,7 +19,6 @@ class RedisDict:
 
     def __init__(self, **kwargs):
         self.temp_redis = None
-        self.pipeline_results  = None
         self.namespace = ''
         if 'namespace' in kwargs:
             # Todo validate namespace
@@ -32,6 +31,7 @@ class RedisDict:
             del (kwargs['expire'])
 
         self.redis = StrictRedis(decode_responses=True, **kwargs)
+        self.get_redis = self.redis
         self.iter = self.iterkeys()
 
     def _format_key(self, key):
@@ -43,14 +43,14 @@ class RedisDict:
         self.redis.set(self._format_key(key), store_value, ex=self.expire)
 
     def _load_raw(self, key):
-        result = self.redis.get(key)
+        result = self.get_redis.get(key)
         if result is None:
             return None
         t, value = result.split(':', 1)
         return self.trans.get(t, lambda x: x)(value)
 
     def _load(self, key):
-        result = self.redis.get(self._format_key(key))
+        result = self.get_redis.get(self._format_key(key))
         if result is None:
             return False, None
         t, value = result.split(':', 1)
@@ -106,7 +106,7 @@ class RedisDict:
         return self.__next__()
 
     def _scan_keys(self, search_term=''):
-        return self.redis.scan_iter(match='{}:{}{}'.format(self.namespace, search_term, '*'))
+        return self.get_redis.scan_iter(match='{}:{}{}'.format(self.namespace, search_term, '*'))
 
     def get(self, key, default=None):
         found, item = self._load(key)
@@ -145,9 +145,9 @@ class RedisDict:
         return dict(self.items())
 
     def clear(self):
-        """TODO should be pipelined"""
-        for key in self:
-            del(self[key])
+        with self.pipeline():
+            for key in self:
+                del(self[key])
 
     def pop(self, key):
         value = self[key]
@@ -197,11 +197,14 @@ class RedisDict:
 
     @contextmanager
     def pipeline(self):
-        #TODO handle contextmanager inception.
-        self.redis, self.temp_redis = self.redis.pipeline(), self.redis
-        yield
-        self.pipeline_results, self.temp_redis, self.redis = self.redis.execute(), None, self.temp_redis
-
+        top_level = False
+        if self.temp_redis is None:
+            self.redis, self.temp_redis, top_level = self.redis.pipeline(), self.redis, True
+        try:
+            yield
+        finally:
+            if top_level:
+                _, self.temp_redis, self.redis = self.redis.execute(), None, self.temp_redis
 
     def multi_get(self, key):
         found_keys = list(self._scan_keys(key))
