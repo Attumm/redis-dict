@@ -372,6 +372,49 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(redis_dic_copy), 5)
 
 
+    def test_dict_types_bool(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "True": True,
+            "False": False,
+            "NotTrue": False,
+            "NotFalse": True,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), len(input_items))
+        self.assertEqual(len(dic), len(input_items))
+
+        for key, expected_value in input_items.items():
+            self.assertEqual(redis_dic[key], expected_value)
+            self.assertEqual(dic[key], expected_value)
+
+        dic.clear()
+        redis_dic.clear()
+
+        self.assertEqual(len(redis_dic), 0)
+        self.assertEqual(len(dic), 0)
+
+        for k, v in input_items.items():
+            redis_dic[k] = v
+            dic[k] = v
+
+        for key, expected_value in input_items.items():
+            self.assertEqual(redis_dic[key], expected_value)
+            self.assertEqual(dic[key], expected_value)
+
+        for k, v in redis_dic.items():
+            self.assertEqual(input_items[k], v)
+            self.assertEqual(dic[k], v)
+
+        self.assertEqual(len(redis_dic), len(input_items))
+        self.assertEqual(len(dic), len(input_items))
+
+
 class TestRedisDict(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -608,8 +651,8 @@ class TestRedisDict(unittest.TestCase):
         self.r.chain_set(['foo', 'baz'], 'borbor')
 
         # redis.mget seems to sort keys in reverse order here
-        expected_result = [u'bazbaz', u'barbar']
-        self.assertEqual(self.r.multi_chain_get(['foo', 'bar']), expected_result)
+        expected_result = sorted([u'bazbaz', u'barbar'])
+        self.assertEqual(sorted(self.r.multi_chain_get(['foo', 'bar'])), expected_result)
 
     def test_multi_dict_empty(self):
         """Tests the multi_dict function with no keys set."""
