@@ -620,14 +620,14 @@ class TestRedisDict(unittest.TestCase):
     def test_repr_nonempty(self):
         """Tests the __repr__ function with keys set."""
         self.r['foobars'] = 'barrbars'
-        expected_repr = str({u'foobars': u'barrbars'})
+        expected_repr = str({'foobars': 'barrbars'})
         actual_repr = repr(self.r)
         self.assertEqual(actual_repr, expected_repr)
 
     def test_str_nonempty(self):
         """Tests the __repr__ function with keys set."""
         self.r['foobars'] = 'barrbars'
-        expected_str = str({u'foobars': u'barrbars'})
+        expected_str = str({'foobars': 'barrbars'})
         actual_str = str(self.r)
         self.assertEqual(actual_str, expected_str)
 
@@ -740,11 +740,12 @@ class TestRedisDict(unittest.TestCase):
             self.assertEqual(self.r[key], key_values[key])
 
     # TODO behavior of multi and chain methods should be discussed.
-    @unittest.skip
-    def test_multi_get_with_key_none(self):
-        """Tests that multi_get with key None raises TypeError."""
-        with self.assertRaises(TypeError):
-            self.r.multi_get(None)
+    # TODO python 2 couldn't skip
+    #@unittest.skip
+    #def test_multi_get_with_key_none(self):
+    #    """Tests that multi_get with key None raises TypeError."""
+    #    with self.assertRaises(TypeError):
+    #        self.r.multi_get(None)
 
     def test_multi_get_empty(self):
         """Tests the multi_get function with no keys set."""
@@ -833,4 +834,8 @@ class TestRedisDict(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    import sys
+    if sys.version_info[0] == 2:
+        unittest.TestCase.assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
     unittest.main()
+

@@ -23,12 +23,12 @@ class RedisDict:
         if 'namespace' in kwargs:
             # Todo validate namespace
             self.namespace = kwargs['namespace']
-            del (kwargs['namespace'])
+            del(kwargs['namespace'])
 
         self.expire = None
         if 'expire' in kwargs:
             self.expire = kwargs['expire']
-            del (kwargs['expire'])
+            del(kwargs['expire'])
 
         self.redis = StrictRedis(decode_responses=True, **kwargs)
         self.get_redis = self.redis
@@ -115,8 +115,9 @@ class RedisDict:
         return item
 
     def iterkeys(self):
+        """Note: for pythone2 str is needed"""
         to_rm = len(self.namespace) + 1
-        return (item[to_rm:] for item in self._scan_keys())
+        return (str(item[to_rm:]) for item in self._scan_keys())
 
     def iter_keys(self):
         """Deprecated: should be removed after major version change"""
@@ -124,17 +125,19 @@ class RedisDict:
         return self.iterkeys()
 
     def key(self, search_term=''):
+        """Note: for pythone2 str is needed"""
         to_rm = len(self.namespace) + 1
         cursor, data = self.get_redis.scan(match='{}:{}{}'.format(self.namespace, search_term, '*'), count=1)
         for item in data:
-            return item[to_rm:]
+            return str(item[to_rm:])
 
     def keys(self):
         return list(self.iterkeys())
 
     def iteritems(self):
+        """Note: for pythone2 str is needed"""
         to_rm = len(self.namespace) + 1
-        return ((item[to_rm:], self._load_raw(item)) for item in self._scan_keys())
+        return ((str(item[to_rm:]), self._load_raw(item)) for item in self._scan_keys())
 
     def items(self):
         return list(self.iteritems())
