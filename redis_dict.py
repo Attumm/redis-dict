@@ -19,16 +19,9 @@ class RedisDict:
 
     def __init__(self, **kwargs):
         self.temp_redis = None
-        self.namespace = ''
-        if 'namespace' in kwargs:
-            # Todo validate namespace
-            self.namespace = kwargs['namespace']
-            del(kwargs['namespace'])
-
-        self.expire = None
-        if 'expire' in kwargs:
-            self.expire = kwargs['expire']
-            del(kwargs['expire'])
+        # Todo validate namespace
+        self.namespace = kwargs.pop('namespace', '')
+        self.expire = kwargs.pop('expire', None)
 
         self.redis = StrictRedis(decode_responses=True, **kwargs)
         self.get_redis = self.redis
