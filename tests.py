@@ -226,6 +226,41 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(KeyError):
             redis_dic.pop("item")
 
+    def test_dict_method_pop_default(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_items), 5)
+
+        for i, key in enumerate(input_items.keys(), start=1):
+            expected = dic.pop(key)
+            result = redis_dic.pop(key)
+            self.assertEqual(expected, result)
+            self.assertEqual(len(dic), len(input_items)-i)
+            self.assertEqual(len(redis_dic), len(input_items)-i)
+
+
+        expected = "defualt item"
+        self.assertEqual(dic.pop("item", expected), expected)
+        self.assertEqual(redis_dic.pop("item", expected), expected)
+
+        expected = None
+        self.assertEqual(dic.pop("item", expected), expected)
+        self.assertEqual(redis_dic.pop("item", expected), expected)
+
     def test_dict_method_popitem(self):
         redis_dic = self.create_redis_dict()
         dic = dict()

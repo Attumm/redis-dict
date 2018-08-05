@@ -5,6 +5,8 @@ from redis import StrictRedis
 from contextlib import contextmanager
 from future.utils import python_2_unicode_compatible
 
+SENTINEL = object()
+
 
 @python_2_unicode_compatible
 class RedisDict:
@@ -151,8 +153,14 @@ class RedisDict:
             for key in self:
                 del(self[key])
 
-    def pop(self, key):
-        value = self[key]
+    def pop(self, key, default=SENTINEL):
+        try:
+            value = self[key]
+        except KeyError:
+            if default is not SENTINEL:
+                return default
+            raise
+
         del(self[key])
         return value
 
