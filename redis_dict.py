@@ -189,6 +189,9 @@ class RedisDict:
             for key, value in dic.items():
                 self[key] = value
 
+    def fromkeys(self, iterable, value=None):
+        return {}.fromkeys(iterable, value)
+
     def __sizeof__(self):
         return self.to_dict().__sizeof__()
 

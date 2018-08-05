@@ -573,6 +573,40 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
         self.assertEqual(len(redis_dic), 0)
 
+    def test_dict_method_fromkeys(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        keys = ['a', 'b', 'c', 'd']
+        expected_dic = {k: None for k in keys}
+
+        result_dic = dic.fromkeys(keys)
+        result_redis_dic = redis_dic.fromkeys(keys)
+
+        self.assertEqual(len(result_dic), len(keys))
+        self.assertEqual(len(result_redis_dic), len(keys))
+        self.assertEqual(len(expected_dic), len(keys))
+        for k, v in expected_dic.items():
+            self.assertEqual(result_redis_dic[k], v)
+            self.assertEqual(result_dic[k], v)
+
+    def test_dict_method_fromkeys_with_default(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        expected_default = 42
+        keys = ['a', 'b', 'c', 'd']
+        expected_dic = {k: expected_default for k in keys}
+
+        result_dic = dic.fromkeys(keys, expected_default)
+        result_redis_dic = redis_dic.fromkeys(keys, expected_default)
+
+        self.assertEqual(len(result_dic), len(keys))
+        self.assertEqual(len(result_redis_dic), len(keys))
+        self.assertEqual(len(expected_dic), len(keys))
+        for k, v in expected_dic.items():
+            self.assertEqual(result_redis_dic[k], v)
+
 
 class TestRedisDict(unittest.TestCase):
     @classmethod
