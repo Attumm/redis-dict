@@ -37,6 +37,15 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
     def setUp(self):
         self.clear_test_namespace()
 
+    def test_python3_all_methods_from_dictionary_are_implemented(self):
+        import sys
+        if sys.version_info[0] == 3:
+            redis_dic = self.create_redis_dict()
+            dic = dict()
+
+            self.assertEqual(len(set(dir({})) - set(dir(RedisDict))), 0)
+            self.assertEqual(len(set(dir(dic)) - set(dir(redis_dic))), 0)
+
     def test_input_items(self):
         """Calling RedisDict.keys() should return an empty list."""
         redis_dic = self.create_redis_dict()
