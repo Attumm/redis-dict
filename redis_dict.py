@@ -35,13 +35,6 @@ class RedisDict:
         store_value = '{}:{}'.format(store_type, value)
         self.redis.set(self._format_key(key), store_value, ex=self.expire)
 
-    def _load_raw(self, key):
-        result = self.get_redis.get(key)
-        if result is None:
-            return None
-        t, value = result.split(':', 1)
-        return self.trans.get(t, lambda x: x)(value)
-
     def _load(self, key):
         result = self.get_redis.get(self._format_key(key))
         if result is None:
@@ -130,7 +123,11 @@ class RedisDict:
     def iteritems(self):
         """Note: for pythone2 str is needed"""
         to_rm = len(self.namespace) + 1
-        return ((str(item[to_rm:]), self._load_raw(item)) for item in self._scan_keys())
+        for item in self._scan_keys():
+            try:
+                yield (str(item[to_rm:]), self[item[to_rm:]])
+            except KeyError:
+                pass
 
     def items(self):
         return list(self.iteritems())
@@ -140,7 +137,11 @@ class RedisDict:
 
     def itervalues(self):
         to_rm = len(self.namespace) + 1
-        return (self[i[to_rm:]] for i in self._scan_keys())
+        for item in self._scan_keys():
+            try:
+                yield self[item[to_rm:]]
+            except KeyError:
+                pass
 
     def to_dict(self):
         return dict(self.items())
@@ -156,10 +157,14 @@ class RedisDict:
         return value
 
     def popitem(self):
-        key = self.key()
-        if key is None:
-            raise KeyError("popitem(): dictionary is empty")
-        return key, self.pop(key)
+        while True:
+            key = self.key()
+            if key is None:
+                raise KeyError("popitem(): dictionary is empty")
+            try:
+                return key, self.pop(key)
+            except KeyError:
+                continue
 
     def setdefault(self, key, default_value=None):
         found, value = self._load(key)
@@ -209,7 +214,7 @@ class RedisDict:
         found_keys = list(self._scan_keys(key))
         if len(found_keys) == 0:
             return []
-        return [self._transform(i) for i in self.redis.mget(found_keys)]
+        return [self._transform(i) for i in self.redis.mget(found_keys) if i is not None]
 
     def multi_chain_get(self, keys):
         return self.multi_get(':'.join(keys))
@@ -219,7 +224,7 @@ class RedisDict:
         if len(keys) == 0:
             return {}
         to_rm = keys[0].rfind(':') + 1
-        return dict(zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys))))
+        return dict(zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None)))
 
     def multi_del(self, key):
         keys = list(self._scan_keys(key))
