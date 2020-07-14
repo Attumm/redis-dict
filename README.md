@@ -5,3 +5,5 @@
 
 
 A Dictionary with Redis as backend.
+
+This project is used in different companies in production.
