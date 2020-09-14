@@ -5,7 +5,7 @@
 
 Dictionary with Redis as storage backend.
 Redis is a great database for simple to complex distributed environments.
-Redis-dict tries to make using Redis as simple as using a dictionary.
+redis-dict tries to make using Redis as simple as using a dictionary.
 redis-dict stores data in redis with key values, this is according to Redis best practices.
 This also allows other non-python programs to access the data stored in redis.
 
@@ -18,7 +18,7 @@ i.e no nested layout
 e.g values such list, instance and other dictionaries.
 When used with supported types in can be used a drop in for a normal dictionary.
 
-Redis-dict has all the methods of a normal dictionary and the same behavior.
+redis-dict has all the methods of a normal dictionary and the same behavior.
 
 #### Types
 Those types can be saved and retrieved as the same type.
