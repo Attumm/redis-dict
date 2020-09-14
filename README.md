@@ -4,7 +4,7 @@
 [![Build Status](https://travis-ci.org/Attumm/redis-dict.svg?branch=v2)](https://travis-ci.org/Attumm/redis-dict)
 
 Dictionary with Redis as storage backend.
-Redis is a great database for simple to complex distributed environments.
+Redis is a great database for all kinds of environments; from simple to complex.
 redis-dict tries to make using Redis as simple as using a dictionary.
 redis-dict stores data in redis with key values, this is according to Redis best practices.
 This also allows other non-python programs to access the data stored in redis.
@@ -18,10 +18,10 @@ i.e no nested layout
 e.g values such list, instance and other dictionaries.
 When used with supported types in can be used a drop in for a normal dictionary.
 
-redis-dict has all the methods of a normal dictionary and the same behavior.
+redis-dict has all the methods and behaviours of a normal dictionary.
 
 #### Types
-Those types can be saved and retrieved as the same type.
+Several python types can be saved and retrieved as the same type.
 As of writing, redis-dict supports the following types.
 * String
 * Integer
@@ -35,7 +35,8 @@ Redis has the great feature of expiring keys, this feature is supported.
 ```python
 r_dic = RedisDict(namespace='app_name', expire=10)
 ```
-2. with context manager you can temporarily set the expiration of a key.
+2. With context manager you can temporarly set the default expiration time you have set.
+Defaults to None (do not expire)
 ```python
 seconds = 60
 with r_dic.expire_at(seconds):
@@ -43,7 +44,7 @@ with r_dic.expire_at(seconds):
 ```
 
 #### Batching
-Batch you requests by using Pipeline, as easy as using context manager 
+Batch your requests by using Pipeline, as easy as using context manager 
 
 Example storing the first ten items of fibonacci, with one roundtrip to redis.
 ```python
@@ -59,12 +60,12 @@ with r_dic.pipeline():
 ```
 
 #### Namescape
-redis-dict namespaces per default, this to have redis-dict per project, that won't is separated in redis
-This has some advantages such as knowing to which data belongs to which app.
-Making sure that apps don't collide with keys. Causing very difficult to debug issues.
+Redis-dict uses namespaces by default. This allows you to have an instance of Redis-dict per project.
+When looking directly at the data in redis, this gives you the advantage of directly seeing which data belongs to which app.
+This also has the advantage that it is less likely for apps to collide with keys, which is a difficult problem to debug.
 
 ## Examples
-Some simple examples, For more examples look into the assert_test.py file or the unit test files they show all the functionality unit test by unit test.
+Here are some more simple examples of Redis-dict. More complex examples of Redis-dict can be found in the tests. All functionality is tested in either[ `assert_test.py` (here)](https://github.com/Attumm/redis-dict/blob/master/assert_test.py#L1) or in the un[it tests (here)](https://github.com/Attumm/redis-dict/blob/master/tests.py#L1). 
 ```python
     >>> from redis_dict import RedisDict
     >>> r_dic = RedisDict(namespace='app_name')
@@ -77,4 +78,4 @@ Some simple examples, For more examples look into the assert_test.py file or the
 ```
 
 ### Note
-This project is used in different companies in production.
+This project is used by different companies in production.
