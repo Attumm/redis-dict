@@ -44,7 +44,7 @@ i.e no nested layout
 e.g values such list, instance and other dictionaries.
 When used with supported types in can be used a drop in for a normal dictionary.
 
-redis-dict has all the methods and behaviors of a normal dictionary.
+redis-dict has all the methods and behavior of a normal dictionary.
 
 #### Types
 Several python types can be saved and retrieved as the same type.
@@ -72,7 +72,7 @@ with r_dic.expire_at(seconds):
 #### Batching
 Batch your requests by using Pipeline, as easy as using context manager 
 
-Example storing the first ten items of Fibonacci, with one round-trip to Redis.
+Example storing the first ten items of Fibonacci, with one round trip to Redis.
 ```python
 def fib(n):
     a, b = 0, 1
@@ -92,5 +92,11 @@ This also has the advantage that it is less likely for apps to collide with keys
 
 ### More Examples
  More complex examples of Redis-dict can be found in the tests. All functionality is tested in either[ `assert_test.py` (here)](https://github.com/Attumm/redis-dict/blob/master/assert_test.py#L1) or in the [unit tests (here)](https://github.com/Attumm/redis-dict/blob/master/tests.py#L1). 
+
+## Installation
+```sh
+pip install redis-dict
+```
+
 ### Note
 This project is used by different companies in production.
