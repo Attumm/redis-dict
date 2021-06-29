@@ -31,11 +31,11 @@ As of writing, redis-dict supports the following types.
 
 #### Expire 
 Redis has the great feature of expiring keys, this feature is supported.
-1. you can set default experition when creating redis-dict instance.
+1. you can set default expiration when creating redis-dict instance.
 ```python
 r_dic = RedisDict(namespace='app_name', expire=10)
 ```
-2. With context manager you can temporarly set the default expiration time you have set.
+2. With context manager you can temporary set the default expiration time you have set.
 Defaults to None (do not expire)
 ```python
 seconds = 60
@@ -46,7 +46,7 @@ with r_dic.expire_at(seconds):
 #### Batching
 Batch your requests by using Pipeline, as easy as using context manager 
 
-Example storing the first ten items of fibonacci, with one roundtrip to redis.
+Example storing the first ten items of Fibonacci, with one roundtrip to redis.
 ```python
 def fib(n):
     a, b = 0, 1
@@ -60,12 +60,12 @@ with r_dic.pipeline():
 ```
 
 #### Namescape
-Redis-dict uses namespaces by default. This allows you to have an instance of Redis-dict per project.
+Redis-dict uses name spaces by default. This allows you to have an instance of Redis-dict per project.
 When looking directly at the data in redis, this gives you the advantage of directly seeing which data belongs to which app.
 This also has the advantage that it is less likely for apps to collide with keys, which is a difficult problem to debug.
 
 ## Examples
-Here are some more simple examples of Redis-dict. More complex examples of Redis-dict can be found in the tests. All functionality is tested in either[ `assert_test.py` (here)](https://github.com/Attumm/redis-dict/blob/master/assert_test.py#L1) or in the un[it tests (here)](https://github.com/Attumm/redis-dict/blob/master/tests.py#L1). 
+Here are some more simple examples of Redis-dict. More complex examples of Redis-dict can be found in the tests. All functionality is tested in either[ `assert_test.py` (here)](https://github.com/Attumm/redis-dict/blob/master/assert_test.py#L1) or in the [unit tests (here)](https://github.com/Attumm/redis-dict/blob/master/tests.py#L1). 
 ```python
     >>> from redis_dict import RedisDict
     >>> r_dic = RedisDict(namespace='app_name')
