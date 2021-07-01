@@ -1,5 +1,5 @@
 # Redis Dict
-[![Build Status](https://travis-ci.org/Attumm/redis-dict.svg?branch=v2)](https://travis-ci.org/Attumm/redis-dict)
+[![Build Status](https://travis-ci.com/Attumm/redis-dict.svg?branch=main)](https://travis-ci.com/Attumm/redis-dict)
 
 Dictionary with Redis as storage back-end.
 Redis is a great database for all kinds of environments; from simple to complex.
