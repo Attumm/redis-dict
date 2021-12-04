@@ -10,13 +10,21 @@ SENTINEL = object()
 
 @python_2_unicode_compatible
 class RedisDict:
-    trans = {
-        'json': json.loads,
+    transform = {
         type('').__name__: str,
         type(1).__name__: int,
         type(0.1).__name__: float,
         type(True).__name__: lambda x: x == "True",
         type(None).__name__: lambda x: None,
+        type(None).__name__: lambda x: None,
+
+        "list": json.loads,
+        "dict": json.loads,
+    }
+
+    pre_transform = {
+        "list": json.dumps,
+        "dict": json.dumps,
     }
 
     def __init__(self, **kwargs):
@@ -32,8 +40,10 @@ class RedisDict:
     def _format_key(self, key):
         return '{}:{}'.format(self.namespace, str(key))
 
-    def _store(self, key, value, set_type=None):
-        store_type = set_type if set_type is not None else type(value).__name__
+    def _store(self, key, value):
+        store_type = type(value).__name__
+
+        value = self.pre_transform.get(store_type, lambda x: x)(value)
         store_value = '{}:{}'.format(store_type, value)
         self.redis.set(self._format_key(key), store_value, ex=self.expire)
 
@@ -42,11 +52,11 @@ class RedisDict:
         if result is None:
             return False, None
         t, value = result.split(':', 1)
-        return True, self.trans.get(t, lambda x: x)(value)
+        return True, self.transform.get(t, lambda x: x)(value)
 
     def _transform(self, result):
         t, value = result.split(':', 1)
-        return self.trans.get(t, lambda x: x)(value)
+        return self.transform.get(t, lambda x: x)(value)
 
     def add_type(self, k, v):
         self.trans[k] = v
