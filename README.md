@@ -56,6 +56,13 @@ As of writing, redis-dict supports the following types.
 * Boolean
 * None
 
+#### Other Types not fully supported
+Experimental support for the following types.
+List, Dictionary supported provided with json serialization.
+Although is not the best solution, it can work for many usecases. So use at your discretion.
+* List
+* Dictionary
+
 #### Expire 
 Redis has the great feature of expiring keys. This feature is supported.
 1. You can set the default expiration when creating a redis-dict instance.
