@@ -1,6 +1,6 @@
 # redis-dict
 [![Build Status](https://travis-ci.com/Attumm/redis-dict.svg?branch=main)](https://travis-ci.com/Attumm/redis-dict)
-[![Downloads](https://pepy.tech/badge/redis-dict/month)](https://pepy.tech/project/redis-dict)
+[![Downloads](https://pepy.tech/badge/redis-dict)](https://pepy.tech/project/redis-dict)
 
 A Python dictionary with Redis as the storage back-end.
 Redis is a great database for all kinds of environments; from simple to complex.
