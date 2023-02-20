@@ -1,2 +1,2 @@
 redis==2.10.6
-future==0.16.0
+future==0.18.3
