@@ -17,7 +17,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
 
-    version='1.6.0',
+    version='1.6.1',
     py_modules=['redis_dict'],
     install_requires=['redis', 'future'],
     license='MIT',
