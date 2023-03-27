@@ -1,20 +1,17 @@
-# redis-dict
+# Redis-dict
 [![Build Status](https://travis-ci.com/Attumm/redis-dict.svg?branch=main)](https://travis-ci.com/Attumm/redis-dict)
 [![Downloads](https://pepy.tech/badge/redis-dict)](https://pepy.tech/project/redis-dict)
 
-A Python dictionary with Redis as the storage back-end.
-Redis is a great database for all kinds of environments; from simple to complex.
-redis-dict tries to make using Redis as simple as using a dictionary.
-redis-dict stores data in Redis with key-values, this is according to [Redis best practices](https://redislabs.com/redis-best-practices/data-storage-patterns/).
-This also allows other non-Python programs to access the data stored in Redis.
+RedisDict is a Python library that allows you to interact with Redis as if it were a Python dictionary. It provides a simple, convenient, and user-friendly interface for managing key-value pairs in Redis. The library is designed to work seamlessly with different data types such as strings, integers, floats, booleans, None, lists, and dictionaries. It also offers additional utility functions and features for more complex use cases.
 
-redis-dict was built out of the necessity of working with incredibly large data sets.
-It had to be possible to only send or receive the required data over the wire and into memory.
-With redis-dict it's as simple as a dictionary.
+RedisDict was developed to address the challenges associated with handling extremely large datasets, which often exceed the capacity of local memory. This package offers a powerful and efficient solution for managing vast amounts of data by leveraging the capabilities of Redis and providing a familiar Python dictionary-like interface for seamless integration into your projects.
+
+
+RedisDict stores data in Redis using key-value pairs, adhering to [Redis best practices](https://redislabs.com/redis-best-practices/data-storage-patterns/) for data storage patterns. This design not only ensures optimal performance and reliability but also enables interoperability with non-Python programs, granting them seamless access to the data stored in Redis.
 
 ## Example
-Redis is a really fast database if used right.
-redis-dict uses Redis for key-value storage.
+Redis is an exceptionally fast database when used appropriately. RedisDict leverages Redis for efficient key-value storage, enabling high-performance data management.
+
 ```python
     >>> from redis_dict import RedisDict
     >>> dic = RedisDict(namespace='bar')
@@ -39,51 +36,50 @@ In Redis our example looks like this.
 
 ## Features
 
-#### Dictionary
-redis-dict can be used as a drop-in replacement for a normal dictionary as long as no datastructures are used by reference.
-i.e. no nested layout
-e.g. values such list, instance and other dictionaries.
-When used with supported types, it can be used a drop-in for a normal dictionary.
+* Dictionary-like interface: Use familiar Python dictionary syntax to interact with Redis.
+* Various data types: Easily store and retrieve strings, integers, floats, booleans, None, lists, and dictionaries.
+* Custom data types: Add custom types and transformations to suit your specific needs.
+* Pipelining support: Use pipelines for batch operations to improve performance.
+* Expiration support: Set expiration times for keys using context managers.
+* Hierarchical storage: Chain keys for organizing data in a hierarchical manner.
+* Multi-get and multi-delete: Perform batch operations for getting and deleting multiple keys at once.
 
-redis-dict has all the methods and behavior of a normal dictionary.
+#### Caveats and Experimental Support
 
-#### Types
-Several Python types can be saved and retrieved as the same type.
-As of writing, redis-dict supports the following types.
-* String
-* Integer
-* Float
-* Boolean
-* None
-
-#### Other Types not fully supported
-Experimental support for the following types.
-List, Dictionary supported provided with json serialization.
-If your list or Dictionary can be serializate by json this feature will work.
-
-Although is not the best solution, it could work for many usecases. So use at your discretion.
-If there is need for other referenced types open issue on github.
+Please note that the following data types have experimental support in RedisDict:
 * List
 * Dictionary
 
-#### Expire 
-Redis has the great feature of expiring keys. This feature is supported.
-1. You can set the default expiration when creating a redis-dict instance.
+These data types are supported through JSON serialization, which means that if your lists or dictionaries can be serialized using JSON, this feature should work as expected. However, this may not be the optimal solution for all use cases. As such, use these features at your discretion and consider potential limitations.
+
+If you encounter a need for additional support or improvements for these or other reference types, please feel free to open an issue on the GitHub repository. Your feedback and contributions are greatly appreciated.
+
+## Advance features examples
+
+#### Expiration 
+
+Redis provides a valuable feature that enables keys to expire. RedisDict supports this feature in the following ways:
+1. Set a default expiration time when creating a RedisDict instance:
 ```python
 r_dic = RedisDict(namespace='app_name', expire=10)
 ```
-2. With a context manager you can temporarily set the default expiration time.
-Defaults to None (does not expire)
+In this example, the keys will have a default expiration time of 10 seconds.
+
+2. Temporarily set the default expiration time within the scope using a context manager:
 ```python
 seconds = 60
 with r_dic.expire_at(seconds):
     r_dic['gone_in_sixty_seconds'] = 'foo'
 ```
+In this example, the key 'gone_in_sixty_seconds' will expire after 60 seconds. The default expiration time for other keys outside the context manager remains unchanged.
+
+Please note that the default expiration time is set to None, which indicates that the keys will not expire unless explicitly specified.
 
 #### Batching
-Batch your requests by using Pipeline, as easy as using a context manager 
+Efficiently batch your requests using the Pipeline feature, which can be easily utilized with a context manager.
 
-Example storing the first ten items of Fibonacci, with one round trip to Redis.
+For example, let's store the first ten items of the Fibonacci sequence using a single round trip to Redis:
+
 ```python
 def fib(n):
     a, b = 0, 1
@@ -96,13 +92,16 @@ with r_dic.pipeline():
         r_dic[str(index)] = item
 ```
 
-#### Namespaces
-redis-dict uses namespaces by default. This allows you to have an instance of redis-dict per project.
-When looking directly at the data in Redis, this gives you the advantage of directly seeing which data belongs to which app.
-This also has the advantage that it is less likely for apps to collide with keys, which is a difficult problem to debug.
+By employing the pipeline context manager, you can reduce network overhead and improve the performance of your application when executing multiple Redis operations in a single batch.
 
-### More Examples
-More complex examples of redis-dict can be found in the tests. All functionality is tested in either[ `assert_test.py` (here)](https://github.com/Attumm/redis-dict/blob/master/assert_test.py#L1) or in the [unit tests (here)](https://github.com/Attumm/redis-dict/blob/master/tests.py#L1). 
+#### Namespaces
+RedisDict employs namespaces by default, providing an organized and efficient way to manage data across multiple projects. By using a dedicated RedisDict instance for each project, you can easily identify which data belongs to which application when inspecting Redis directly.
+
+This approach also minimizes the risk of key collisions between different applications, preventing hard-to-debug issues. By leveraging namespaces, RedisDict ensures a cleaner and more maintainable data management experience for developers working on multiple projects.
+
+### Additional Examples
+For more advanced examples of RedisDict, please refer to the test files in the repository. All features and functionalities are thoroughly tested in either[ `assert_test.py` (here)](https://github.com/Attumm/redis-dict/blob/master/assert_test.py#L1) or in the [unit tests (here)](https://github.com/Attumm/redis-dict/blob/master/tests.py#L1). 
+The test can be used as starting point for new projects
 
 ## Installation
 ```sh
@@ -110,4 +109,4 @@ pip install redis-dict
 ```
 
 ### Note
-This project is used by different companies in production.
+Please be aware that this project is currently being utilized by various organizations in their production environments. If you have any questions or concerns, feel free to raise issues
