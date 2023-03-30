@@ -137,4 +137,4 @@ Please be aware that this project is currently being utilized by various organiz
 
 
 
-### Note This project only uses redis as dependancy
+### Note This project only uses redis as dependency 
