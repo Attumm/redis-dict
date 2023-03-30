@@ -17,9 +17,9 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
 
-    version='1.6.1',
+    version='2.0.0',
     py_modules=['redis_dict'],
-    install_requires=['redis', 'future'],
+    install_requires=['redis',],
     license='MIT',
 
     url='https://github.com/Attumm/redisdict',
@@ -34,8 +34,6 @@ setup(
 
         'License :: OSI Approved :: MIT License',
 
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
