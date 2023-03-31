@@ -1,8 +1,12 @@
+import time
 import unittest
+from unittest.mock import MagicMock
 
 import redis
 
 from redis_dict import RedisDict
+from hypothesis import given, assume, strategies as st
+
 
 # !! Make sure you don't have keys named like this, they will be deleted.
 TEST_NAMESPACE_PREFIX = 'test_rd'
@@ -10,7 +14,7 @@ TEST_NAMESPACE_PREFIX = 'test_rd'
 redis_config = {
     'host': 'localhost',
     'port': 6379,
-    'db': 0,
+    'db': 11,
 }
 
 class TestRedisDictBehaviorDict(unittest.TestCase):
@@ -22,6 +26,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.clear_test_namespace()
+        pass
 
     @classmethod
     def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
@@ -64,6 +69,9 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         dic[expected_key] = expected_value
         self.assertEqual(expected, len(dic))
         self.assertEqual(expected, len(redis_dic))
+
+        self.assertTrue(expected_key in redis_dic)
+        self.assertTrue(expected_key in dic)
 
         self.assertEqual(dic[expected_key], redis_dic[expected_key])
 
@@ -693,6 +701,9 @@ class TestRedisDict(unittest.TestCase):
     def test_contains_empty(self):
         """Tests the __contains__ function with no keys set."""
         self.assertFalse('foobar' in self.r)
+        self.assertFalse('foobar1' in self.r)
+        self.assertFalse('foobar_is_not_found' in self.r)
+        self.assertFalse('1' in self.r)
 
     def test_contains_nonempty(self):
         """Tests the __contains__ function with keys set."""
@@ -919,6 +930,429 @@ class TestRedisDict(unittest.TestCase):
         self.assertIsNone(self.redisdb.get('foobar'))
         self.assertIsNone(self.redisdb.get('foobaz'))
         self.assertEqual(self.r['goobar'], 'borbor')
+        
+    def test_set_and_get(self):
+        self.r['key1'] = 'value1'
+        self.assertEqual(self.r['key1'], 'value1')
+
+    def test_set_and_delete(self):
+        self.r['key2'] = 'value2'
+        del self.r['key2']
+        self.assertNotIn('key2', self.r)
+
+    def test_set_and_update(self):
+        self.r['key3'] = 'value3'
+        self.r.update({'key3': 'new_value3'})
+        self.assertEqual(self.r['key3'], 'new_value3')
+
+    def test_clear(self):
+        self.r['key4'] = 'value4'
+        self.r.clear()
+        self.assertEqual(len(self.r), 0)
+
+    def test_set_and_pop(self):
+        self.r['key5'] = 'value5'
+        popped_value = self.r.pop('key5')
+        self.assertEqual(popped_value, 'value5')
+        self.assertNotIn('key5', self.r)
+
+    def test_set_and_popitem(self):
+        self.r['key6'] = 'value6'
+        key, value = self.r.popitem()
+        self.assertEqual(key, 'key6')
+        self.assertEqual(value, 'value6')
+        self.assertNotIn('key6', self.r)
+
+    def test_set_and_get_with_different_types(self):
+        data = {
+            'key_str': 'string_value',
+            'key_int': 42,
+            'key_float': 3.14,
+            'key_bool': True,
+            'key_list': [1, 2, 3],
+            'key_dict': {'a': 1, 'b': 2},
+            'key_none': None
+        }
+
+        for key, value in data.items():
+            self.r[key] = value
+
+        for key, expected_value in data.items():
+            self.assertEqual(self.r[key], expected_value)
+
+    def test_namespace_isolation(self):
+        other_namespace = RedisDict(namespace='other_namespace')
+        self.r['key7'] = 'value7'
+        self.assertNotIn('key7', other_namespace)
+
+        # teardown
+        other_namespace.clear()
+
+    def test_namespace_global_expire(self):
+        other_namespace = RedisDict(namespace='other_namespace', expire=1)
+        other_namespace['key'] = 'value'
+
+        self.assertEqual(other_namespace['key'], 'value')
+        self.assertIn('key', other_namespace)
+
+        time.sleep(2)
+        self.assertNotIn('key', other_namespace)
+        self.assertRaises(KeyError, lambda: self.r['key11'])
+
+        # teardown
+        other_namespace.clear()
+
+    def test_pipeline(self):
+        with self.r.pipeline():
+            self.r['key8'] = 'value8'
+            self.r['key9'] = 'value9'
+
+        self.assertEqual(self.r['key8'], 'value8')
+        self.assertEqual(self.r['key9'], 'value9')
+
+    def test_expire_at(self):
+        self.r['key10'] = 'value10'
+        with self.r.expire_at(1):
+            self.r['key11'] = 'value11'
+
+        time.sleep(2)
+        self.assertEqual(self.r['key10'], 'value10')
+        self.assertRaises(KeyError, lambda: self.r['key11'])
+
+    def test_set_get_empty_tuple(self):
+        key = "empty_tuple"
+        value = ()
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    def test_set_get_single_element_tuple(self):
+        key = "single_element_tuple"
+        value = (42,)
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    def test_set_get_empty_set(self):
+        key = "empty_set"
+        value = set()
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    def test_set_get_single_element_set(self):
+        key = "single_element_set"
+        value = {42}
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+
+    @unittest.skip # this highlights that sets, and tuples not fully supporte
+    def test_set_get_mixed_type_set(self):
+        key = "mixed_type_set"
+        value = {1, "foobar", 3.14, (1, 2, 3)}
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @unittest.skip # this highlights that sets, and tuples not fully supporte
+    def test_set_get_nested_tuple(self):
+        key = "nested_tuple"
+        value = (1, (2, 3), (4, (5, 6)))
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+
+class TestRedisDictSecurity(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.redisdb = redis.StrictRedis(**redis_config)
+        cls.r = cls.create_redis_dict()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.clear_test_namespace()
+
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        return RedisDict(namespace=namespace, **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
+
+    def setUp(self):
+        self.clear_test_namespace()
+
+    def test_unicode_key(self):
+        # Test handling of unicode keys
+        unicode_key = '你好'
+        self.r[unicode_key] = 'value'
+        self.assertEqual(self.r[unicode_key], 'value')
+
+    def test_unicode_value(self):
+        # Test handling of unicode values
+        unicode_value = '世界'
+        self.r['key'] = unicode_value
+        self.assertEqual(self.r['key'], unicode_value)
+
+    def test_special_characters_key(self):
+        special_chars_key = '!@#$%^&*()-=_+[]{}|;:\'",.<>/?`~'
+        self.r[special_chars_key] = 'value'
+        self.assertEqual(self.r[special_chars_key], 'value')
+
+    def test_special_characters_value(self):
+        special_chars_value = '!@#$%^&*()-=_+[]{}|;:\'",.<>/?`~'
+        self.r['key'] = special_chars_value
+        self.assertEqual(self.r['key'], special_chars_value)
+
+    def test_large_key(self):
+        # Test handling of large keys (size limit is 512MB)
+        large_key = 'k' * (512 * 1024 * 1024)
+        with self.assertRaises(ValueError):
+            self.r[large_key] = 'value'
+
+    def test_large_value(self):
+        # Test handling of large values (size limit is 512MB)
+        large_value = 'v' * (512 * 1024 * 1024)
+        with self.assertRaises(ValueError):
+            self.r['key'] = large_value
+
+    def test_injection_attack_get(self):
+        injection_key = 'key; GET another_key'
+        self.r['another_key'] = 'value'
+        with self.assertRaises(KeyError):
+            self.r[injection_key]
+        self.assertEqual(self.r['another_key'], 'value')
+
+        self.r[injection_key] = "foo"
+        self.assertEqual(self.r[injection_key], "foo")
+        self.assertEqual(self.r['another_key'], 'value')
+
+    def test_injection_attack_mget(self):
+        injection_key = 'foo; MGET foo2 foo3'
+        self.r['foo2'] = 'bar2'
+        self.r['foo3'] = 'bar3'
+        with self.assertRaises(KeyError):
+            self.r[injection_key]
+        self.assertEqual(self.r.multi_get('foo'), ['bar2', 'bar3'])
+        self.assertEqual(self.r['foo2'], 'bar2')
+        self.assertEqual(self.r['foo3'], 'bar3')
+ 
+        self.r[injection_key] = "bar"
+        self.assertEqual(self.r.multi_get('foo'), ['bar2', 'bar3', 'bar'])
+        self.assertEqual(self.r[injection_key], 'bar')
+        self.assertEqual(self.r['foo2'], 'bar2')
+        self.assertEqual(self.r['foo3'], 'bar3')
+
+    def test_injection_attack_scan(self):
+        injection_key = 'bar; SCAN 0 MATCH *'
+        self.r['foo2'] = 'bar2'
+        self.r['foo3'] = 'bar3'
+        with self.assertRaises(KeyError):
+            self.r[injection_key]
+        self.assertNotIn(injection_key, self.r.keys())
+        self.assertEqual(self.r['foo2'], 'bar2')
+        self.assertEqual(self.r['foo3'], 'bar3')
+
+        self.r[injection_key] = 'bar'
+        self.assertEqual(self.r[injection_key], 'bar')
+        self.assertEqual(self.r['foo2'], 'bar2')
+        self.assertEqual(self.r['foo3'], 'bar3')
+
+    def test_injection_attack_rename(self):
+        injection_key = 'key1; RENAME key2 key3'
+        self.r['foo2'] = 'bar2'
+        self.r['foo3'] = 'bar3'
+        with self.assertRaises(KeyError):
+            self.r[injection_key]
+        self.assertNotIn(injection_key, self.r.keys())
+        self.assertEqual(self.r['foo2'], 'bar2')
+        self.assertEqual(self.r['foo3'], 'bar3')
+
+        self.r[injection_key] = 'bar'
+        self.assertEqual(self.r[injection_key], 'bar')
+        self.assertEqual(self.r['foo2'], 'bar2')
+        self.assertEqual(self.r['foo3'], 'bar3')
+
+
+@unittest.skip
+class TestRedisDictComparison(unittest.TestCase):
+    """ Should be added for python3, then this unit test should pass.
+        TODO: add the following methods
+        __lt__(self, other) 
+        __le__(self, other) 
+        __eq__(self, other) 
+        __ne__(self, other) 
+        __gt__(self, other) 
+        __ge__(self, other)
+    """
+    def setUp(self):
+        self.r1 = RedisDict(namespace="test1")
+        self.r2 = RedisDict(namespace="test2")
+        self.r3 = RedisDict(namespace="test3")
+        self.r4 = RedisDict(namespace="test4")
+
+        self.r1.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r2.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r3.update({"a": 1, "b": 3, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r4.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 7]}})
+
+        self.d1 = {"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
+        self.d2 = {"a": 1, "b": 3, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
+
+
+    def tearDown(self):
+        self.r1.clear()
+        self.r2.clear()
+        self.r3.clear()
+        self.r4.clear()
+
+    def test_equality(self):
+        self.assertTrue(self.r1 == self.r2)
+        self.assertFalse(self.r1 == self.r3)
+        self.assertFalse(self.r1 == self.r4)
+
+        self.assertTrue(self.r2 == self.r1)
+        self.assertFalse(self.r2 == self.r3)
+        self.assertFalse(self.r2 == self.r4)
+
+        self.assertFalse(self.r3 == self.r4)
+
+    def test_inequality(self):
+        self.assertFalse(self.r1 != self.r2)
+        self.assertTrue(self.r1 != self.r3)
+        self.assertTrue(self.r1 != self.r4)
+
+        self.assertFalse(self.r2 != self.r1)
+        self.assertTrue(self.r2 != self.r3)
+        self.assertTrue(self.r2 != self.r4)
+
+        self.assertTrue(self.r3 != self.r4)
+
+    def test_equal_redis_dict(self):
+        self.assertEqual(self.r1, self.r2)
+        self.assertNotEqual(self.r1, self.r3)
+        self.assertNotEqual(self.r1, self.r4)
+
+    def test_equal_with_dict(self):
+        self.assertEqual(self.r1, self.d1)
+        self.assertNotEqual(self.r1, self.d2)
+
+    def test_empty_equal(self):
+        empty_r = RedisDict(namespace="test_empty")
+        self.assertEqual(empty_r, {})
+        
+
+    def test_nested_empty_equal(self):
+        nested_empty_r = RedisDict(namespace="test_nested_empty")
+        nested_empty_r.update({"a": {}})
+        nested_empty_d = {"a": {}}
+        self.assertEqual(nested_empty_r, nested_empty_d)
+
+class TestRedisDictWithHypothesis(unittest.TestCase):
+    """
+    A test suite employing Hypothesis for property-based testing of RedisDict.
+
+    This class uses the Hypothesis library to perform fuzz testing on
+    RedisDict instances. Through the generation of diverse inputs, edge cases, and randomized
+    scenarios, this test suite aims to evaluate the correctness and resilience of the RedisDict
+    implementation under various conditions. The goal is to cover a broad spectrum of potential
+    interactions and behaviors, ensuring the implementation can handle complex and unforeseen
+    situations.
+    """
+
+    def setUp(self):
+        self.r = RedisDict(namespace="test_with_fuzzing")
+
+    def tearDown(self):
+        self.r.clear()
+
+    @given(key=st.text(min_size=1), value=st.text())
+    def test_set_get_text(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.integers())
+    def test_set_get_integer(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.floats(allow_nan=False, allow_infinity=False))
+    def test_set_get_float(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.booleans())
+    def test_set_get_boolean(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.none())
+    def test_set_get_none(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.lists(st.integers()))
+    def test_set_get_list_of_integers(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.lists(st.text()))
+    def test_set_get_list_of_text(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.dictionaries(st.text(min_size=1), st.text()))
+    def test_set_get_dictionary(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.dictionaries(st.text(min_size=1), st.integers()))
+    def test_set_get_dictionary_with_integer_values(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.dictionaries(st.text(min_size=1), st.floats(allow_nan=False, allow_infinity=False)))
+    def test_set_get_dictionary_with_float_values(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.dictionaries(st.text(min_size=1), st.lists(st.integers())))
+    def test_set_get_dictionary_with_list_values(self, key, value):
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.dictionaries(st.text(min_size=1), st.dictionaries(st.text(min_size=1), st.text())))
+    def test_set_get_nested_dictionary(self, key, value):
+        """
+        Test setting and getting a nested dictionary.
+        """
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.lists(st.lists(st.integers())))
+    def test_set_get_nested_list(self, key, value):
+        """
+        Test setting and getting a nested list.
+        """
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+    
+    @given(key=st.text(min_size=1), value=st.tuples(st.integers(), st.text(), st.floats(allow_nan=False, allow_infinity=False), st.booleans()))
+    def test_set_get_tuple(self, key, value):
+        """
+        Test setting and getting a tuple.
+        """
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @given(key=st.text(min_size=1), value=st.sets(st.integers()))
+    def test_set_get_set(self, key, value):
+        """
+        Test setting and getting a set.
+        """
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
 
 
 if __name__ == '__main__':
