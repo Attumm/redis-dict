@@ -1,5 +1,5 @@
 import json
-from typing import Any, Callable, Dict, Iterator, List, Tuple, Union, Optional
+from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
 
 from redis import StrictRedis
 
@@ -44,7 +44,7 @@ def _pre_transform_tuple(val: Tuple[Any, ...]) -> str:
     return json.dumps(list(val))
 
 
-def _transform_set(val: str) -> set[Any]:
+def _transform_set(val: str) -> Set[Any]:
     """
     Deserialize a JSON-formatted string to a set.
 
@@ -60,7 +60,7 @@ def _transform_set(val: str) -> set[Any]:
     return set(json.loads(val))
 
 
-def _pre_transform_set(val: set[Any]) -> str:
+def _pre_transform_set(val: Set[Any]) -> str:
     """
     Serialize a set to a JSON-formatted string.
 
