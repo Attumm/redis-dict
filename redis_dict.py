@@ -178,7 +178,7 @@ class RedisDict:
             key (str): The key to store the value.
             value (Any): The value to be stored.
         """
-        store_type = type(value).__name__
+        store_type, key = type(value).__name__, str(key)
         if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
             # TODO When needed, make valid_input, pass the reason, or throw a exception.
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
