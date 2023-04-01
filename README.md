@@ -2,37 +2,10 @@
 [![Build Status](https://travis-ci.com/Attumm/redis-dict.svg?branch=main)](https://travis-ci.com/Attumm/redis-dict)
 [![Downloads](https://pepy.tech/badge/redis-dict)](https://pepy.tech/project/redis-dict)
 
-RedisDict is a Python library that allows you to interact with Redis as if it were a Python dictionary. It provides a simple, convenient, and user-friendly interface for managing key-value pairs in Redis. The library is designed to work seamlessly with different data types such as strings, integers, floats, booleans, None, lists, and dictionaries. It also offers additional utility functions and features for more complex use cases.
+RedisDict is a Python library that provides a convenient and familiar interface for interacting with Redis as if it were a Python dictionary. This simple yet powerful library enables you to manage key-value pairs in Redis using native Python syntax. It supports various data types, including strings, integers, floats, booleans, lists, and dictionaries, and includes additional utility functions for more complex use cases.
 
-RedisDict was developed to address the challenges associated with handling extremely large datasets, which often exceed the capacity of local memory. This package offers a powerful and efficient solution for managing vast amounts of data by leveraging the capabilities of Redis and providing a familiar Python dictionary-like interface for seamless integration into your projects.
+By leveraging Redis for efficient key-value storage, RedisDict allows for high-performance data management and is particularly useful for handling large datasets that may exceed local memory capacity.
 
-
-RedisDict stores data in Redis using key-value pairs, adhering to [Redis best practices](https://redislabs.com/redis-best-practices/data-storage-patterns/) for data storage patterns. This design not only ensures optimal performance and reliability but also enables interoperability with non-Python programs, granting them seamless access to the data stored in Redis.
-
-## Example
-Redis is an exceptionally fast database when used appropriately. RedisDict leverages Redis for efficient key-value storage, enabling high-performance data management.
-
-```python
-    >>> from redis_dict import RedisDict
-    >>> dic = RedisDict(namespace='bar')
-    >>> 'foo' in dic
-    False
-    >>> dic['foo'] = 42
-    >>> dic['foo']
-    42
-    >>> 'foo' in dic
-    True
-    >>> dic["baz"] = "a string"
-    >>> print(dic)
-    {'foo': 42, 'baz': 'a string'}
-
-```
-In Redis our example looks like this.
-```
-127.0.0.1:6379> KEYS "*"
-1) "bar:foo"
-2) "bar:baz"
-```
 
 ## Features
 
@@ -43,85 +16,179 @@ In Redis our example looks like this.
 * Efficiency and Scalability: RedisDict is designed for use with large datasets and is optimized for efficiency. It retrieves only the data needed for a particular operation, ensuring efficient memory usage and fast performance.
 * Namespace Management: Provides simple and efficient namespace handling to help organize and manage data in Redis, streamlining data access and manipulation.
 * Distributed Computing: With its ability to seamlessly connect to other instances or servers with access to the same Redis instance, RedisDict enables easy distributed computing.
-* Multi-get and multi-delete: Perform batch operations for getting and deleting multiple keys at once.
 * Custom data types: Add custom types and transformations to suit your specific needs.
 
-#### Caveats and Experimental Support
-
-Please note that the following data types have experimental support in RedisDict:
-* List
-* Tuple
-* Set
-* Dictionary
-
-These data types are supported through JSON serialization, which means that if your lists or dictionaries can be serialized using JSON, this feature should work as expected. However, this may not be the optimal solution for all use cases. As such, use these features at your discretion and consider potential limitations.
-
-If you encounter a need for additional support or improvements for these or other reference types, please feel free to open an issue on the GitHub repository. Your feedback and contributions are greatly appreciated.
-
-### Distributed computing 
-You can use RedisDict for distributed computing by starting multiple RedisDict instances on different servers or instances that have access to the same Redis instance:
-```python
-# On server 1
-r = RedisDict(namespace="example", **redis_config)
-r["foo"] = "bar"
-
-
-# On server 2
-r1 = RedisDict(namespace="example", **redis_config)
-print(r1["foo"])
-"bar"
-
-```
-
-## Advance features examples
-
-#### Expiration 
-
-Redis provides a valuable feature that enables keys to expire. RedisDict supports this feature in the following ways:
-1. Set a default expiration time when creating a RedisDict instance:
-```python
-r_dic = RedisDict(namespace='app_name', expire=10)
-```
-In this example, the keys will have a default expiration time of 10 seconds.
-
-2. Temporarily set the default expiration time within the scope using a context manager:
-```python
-seconds = 60
-with r_dic.expire_at(seconds):
-    r_dic['gone_in_sixty_seconds'] = 'foo'
-```
-In this example, the key 'gone_in_sixty_seconds' will expire after 60 seconds. The default expiration time for other keys outside the context manager remains unchanged.
-
-Please note that the default expiration time is set to None, which indicates that the keys will not expire unless explicitly specified.
-
-#### Batching
-Efficiently batch your requests using the Pipeline feature, which can be easily utilized with a context manager.
-
-For example, let's store the first ten items of the Fibonacci sequence using a single round trip to Redis:
-[example](https://github.com/Attumm/redis-dict/blob/main/assert_test.py#L1) larger script using pipelining with batching
+## Example
+Redis is an exceptionally fast database when used appropriately. RedisDict leverages Redis for efficient key-value storage, enabling high-performance data management.
 
 ```python
-def fib(n):
-    a, b = 0, 1
-    for _ in range(n):
-        yield a
-        a, b = (a+b), a
+from redis_dict import RedisDict
 
-with r_dic.pipeline():
-    for index, item in enumerate(fib(10)):
-        r_dic[str(index)] = item
+dic = RedisDict(namespace='bar')
+dic['foo'] = 42
+print(dic['foo'])  # Output: 42
+print('foo' in dic)  # Output: True
+dic["baz"] = "hello world"
+print(dic)  # Output: {'foo': 42, 'baz': 'hello world'}
 ```
-
-By employing the pipeline context manager, you can reduce network overhead and improve the performance of your application when executing multiple Redis operations in a single batch.
+In Redis our example looks like this.
+```
+127.0.0.1:6379> KEYS "*"
+1) "bar:foo"
+2) "bar:baz"
+127.0.0.1:6379> GET "bar:foo"
+"int:42"
+127.0.0.1:6379> GET "bar:baz"
+"str:hello world"
+```
 
 ### Namespaces
 RedisDict employs namespaces by default, providing an organized and efficient way to manage data across multiple projects. By using a dedicated RedisDict instance for each project, you can easily identify which data belongs to which application when inspecting Redis directly.
 
 This approach also minimizes the risk of key collisions between different applications, preventing hard-to-debug issues. By leveraging namespaces, RedisDict ensures a cleaner and more maintainable data management experience for developers working on multiple projects.
 
+
+## Advanced Features
+
+### Expiration
+
+Redis provides a valuable feature that enables keys to expire. RedisDict supports this feature in the following ways:
+1. Set a default expiration time when creating a RedisDict instance. In this example, the keys will have a default expiration time of 10 seconds.
+
+```python
+dic = RedisDict(namespace='app_name', expire=10)
+dic['gone'] = 'in ten seconds'
+```
+2. Temporarily set the default expiration time within the scope using a context manager. In this example, the key 'gone' will expire after 60 seconds. The default expiration time for other keys outside the context manager remains unchanged.
+
+```python
+from redis_dict import RedisDict
+
+dic = RedisDict(namespace='bar')
+
+seconds = 60
+with dic.expire_at(seconds):
+    dic['gone'] = 'in sixty seconds'
+```
+
+### Batching
+Efficiently batch your requests using the Pipeline feature, which can be easily utilized with a context manager.
+
+```python
+dic = RedisDict(namespace="example")
+
+# one round trip to redis
+with dic.pipeline():
+    for index in range(100):
+        dic[str(index)] = index
+```
+
+### Distributed computing
+You can use RedisDict for distributed computing by starting multiple RedisDict instances on different servers or instances that have access to the same Redis instance:
+```python
+# On server 1
+dic = RedisDict(namespace="example")
+dic["foo"] = "bar"
+
+# On server 2
+from redis_dict import RedisDict
+
+dic = RedisDict(namespace="example")
+print(dic["foo"]) # outputs "bar"
+```
+
+## More Examples
+
+### Caching made simple
+```python
+import time
+from redis_dict import RedisDict
+
+def expensive_function(x):
+    time.sleep(2)
+    return x * 2
+
+cache = RedisDict(namespace="cache", expire=10)
+
+def cached_expensive_function(x):
+    if x not in cache:
+        cache[x] = expensive_function(x)
+    return cache[x]
+
+start_time = time.time()
+print(cached_expensive_function(5))  # Takes around 2 seconds to compute and caches the result.
+print(f"Time taken: {time.time() - start_time:.2f} seconds")
+
+start_time = time.time()
+print(cached_expensive_function(5))  # Fetches the result from the cache, taking almost no time.
+print(f"Time taken: {time.time() - start_time:.2f} seconds")
+```
+
+### Redis-dict as dictionary
+```python
+from redis_dict import RedisDict
+
+# Create a RedisDict instance with a namespace
+dic = RedisDict(namespace="example")
+
+# Set key-value pairs
+dic["name"] = "John Doe"
+dic["age"] = 32
+dic["city"] = "Amsterdam"
+
+# Get value by key
+print(dic["name"])  # Output: John Doe
+
+# Update value by key, got a year older
+dic["age"] = 33
+
+# Check if key exists
+print("name" in dic)  # Output: True
+print("country" in dic)  # Output: False
+
+# Get value with a default value if the key doesn't exist
+print(dic.get("country", "NL"))  # Output: NL
+
+# Get the length (number of keys) of the RedisDict
+print(len(dic))  # Output: 3
+
+# Iterate over keys
+for key in dic:
+    print(key, dic[key])
+
+# Delete a key-value pair
+del dic["city"]
+
+# Clear all key-value pairs in the RedisDict
+dic.clear()
+
+# Get the length (number of keys) of the RedisDict
+print(len(dic))  # Output: 0
+
+# Update RedisDict with multiple key-value pairs
+dic.update({"a": 1, "b": 2, "c": 3})
+
+# Use methods of a normal dict
+print(list(dic.keys()))   # Output: ['a', 'b', 'c']
+print(list(dic.values()))  # Output: [1, 2, 3]
+print(list(dic.items()))  # Output: [('a', 1), ('b', 2), ('c', 3)]
+
+# Using pop() and popitem() methods
+value = dic.pop("a")
+print(value)  # Output: 1
+
+key, value = dic.popitem()
+print(key, value)  # Output: 'c' 3 (example)
+
+# Using setdefault() method
+dic.setdefault("d", 4)
+print(dic["d"])  # Output: 4
+```
+
+
 ### Additional Examples
-For more advanced examples of RedisDict, please refer to the test files in the repository. All features and functionalities are thoroughly tested in either[ `assert_test.py` (here)](https://github.com/Attumm/redis-dict/blob/main/assert_test.py#L1) or in the [unit tests (here)](https://github.com/Attumm/redis-dict/blob/main/tests.py#L1). 
-The test can be used as starting point for new projects
+For more advanced examples of RedisDict, please refer to the unit-test files in the repository. All features and functionalities are thoroughly tested in [unit tests (here)](https://github.com/Attumm/redis-dict/blob/main/tests.py#L1) Or take a look at load test for batching [load test](https://github.com/Attumm/redis-dict/blob/main/load_test.py.py#L1).
+The unit-tests can be as used as a starting point.
 
 ### Tests
 
@@ -133,8 +200,6 @@ pip install redis-dict
 ```
 
 ### Note
-Please be aware that this project is currently being utilized by various organizations in their production environments. If you have any questions or concerns, feel free to raise issues
+* Please be aware that this project is currently being utilized by various organizations in their production environments. If you have any questions or concerns, feel free to raise issues
+* This project only uses redis as dependency
 
-
-
-### Note This project only uses redis as dependency 
