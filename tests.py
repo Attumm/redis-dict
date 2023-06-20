@@ -58,7 +58,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         """Test adding keys with an expire value by using the contextmanager."""
         key = "foo"
         expected = 1200
-        redis_dic = self.create_redis_dict(expire_key={"foo": expected})
+        redis_dic = self.create_redis_dict(expire_key={key: expected})
         redis_dic[key] = 'barbar'
 
         actual_ttl = self.redisdb.ttl('{}:{}'.format(TEST_NAMESPACE_PREFIX, key))
@@ -68,7 +68,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         """Test ading keys with an expire value by using the expire config keyword."""
         key = "foo"
         expected = 1200
-        redis_dic = self.create_redis_dict(expire=3600, expire_key={"foo": expected})
+        redis_dic = self.create_redis_dict(expire=3600, expire_key={key: expected})
 
         redis_dic[key] = 'barbar'
 
@@ -79,13 +79,43 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         """Test ading keys with an expire value by using the expire config keyword."""
         key = "foo"
         expected = 1200
-        redis_dic = self.create_redis_dict(expire=3600, expire_key={"foo": expected})
+        redis_dic = self.create_redis_dict(expire=3600, expire_key={key: expected})
 
         with redis_dic.expire_at(800):
             redis_dic[key] = 'barbar'
 
         actual_ttl = self.redisdb.ttl('{}:{}'.format(TEST_NAMESPACE_PREFIX, key))
         self.assertAlmostEqual(expected, actual_ttl, delta=2)
+
+    def test_expire_key_does_not_override_other_key(self):
+        """Test ading keys with an expire value by using the expire config keyword."""
+        key_config = "config"
+        expected_with_key_config = 1600
+
+        key_global = "global"
+        expected_with_global = 1200
+
+        key_context = "context"
+        expected_with_context = 800
+
+        redis_dic = self.create_redis_dict(
+            expire=expected_with_global, expire_key={key_config: expected_with_key_config}
+        )
+
+        redis_dic[key_global] = 'bar1'
+        redis_dic[key_config] = 'bar2'
+
+        with redis_dic.expire_at(expected_with_context):
+            redis_dic[key_context] = 'bar3'
+
+        actual_ttl = self.redisdb.ttl('{}:{}'.format(TEST_NAMESPACE_PREFIX, key_config))
+        self.assertAlmostEqual(expected_with_key_config, actual_ttl, delta=2)
+
+        actual_ttl = self.redisdb.ttl('{}:{}'.format(TEST_NAMESPACE_PREFIX, key_global))
+        self.assertAlmostEqual(expected_with_global, actual_ttl, delta=2)
+
+        actual_ttl = self.redisdb.ttl('{}:{}'.format(TEST_NAMESPACE_PREFIX, key_context))
+        self.assertAlmostEqual(expected_with_context, actual_ttl, delta=2)
 
     def test_input_items(self):
         """Calling RedisDict.keys() should return an empty list."""
