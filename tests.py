@@ -1134,12 +1134,12 @@ class TestRedisDictSecurity(unittest.TestCase):
         self.r['foo3'] = 'bar3'
         with self.assertRaises(KeyError):
             self.r[injection_key]
-        self.assertEqual(self.r.multi_get('foo'), ['bar2', 'bar3'])
+        self.assertEqual(sorted(self.r.multi_get('foo')), sorted(['bar2', 'bar3']))
         self.assertEqual(self.r['foo2'], 'bar2')
         self.assertEqual(self.r['foo3'], 'bar3')
  
         self.r[injection_key] = "bar"
-        self.assertEqual(self.r.multi_get('foo'), ['bar2', 'bar3', 'bar'])
+        self.assertEqual(sorted(self.r.multi_get('foo')), sorted(['bar2', 'bar3', 'bar']))
         self.assertEqual(self.r[injection_key], 'bar')
         self.assertEqual(self.r['foo2'], 'bar2')
         self.assertEqual(self.r['foo3'], 'bar3')
