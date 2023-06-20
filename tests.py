@@ -1,21 +1,21 @@
 import time
 import unittest
-from unittest.mock import MagicMock
 
 import redis
 
 from redis_dict import RedisDict
-from hypothesis import given, assume, strategies as st
+from hypothesis import given, strategies as st
 
 
-# !! Make sure you don't have keys named like this, they will be deleted.
-TEST_NAMESPACE_PREFIX = 'test_rd'
+# !! Make sure you don't have keys within redis named like this, they will be deleted.
+TEST_NAMESPACE_PREFIX = '__test_prefix_key_meta_8128__'
 
 redis_config = {
     'host': 'localhost',
     'port': 6379,
     'db': 11,
 }
+
 
 class TestRedisDictBehaviorDict(unittest.TestCase):
     @classmethod
@@ -245,8 +245,8 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             expected = dic.pop(key)
             result = redis_dic.pop(key)
             self.assertEqual(expected, result)
-            self.assertEqual(len(dic), len(input_items)-i)
-            self.assertEqual(len(redis_dic), len(input_items)-i)
+            self.assertEqual(len(dic), len(input_items) - i)
+            self.assertEqual(len(redis_dic), len(input_items) - i)
 
         with self.assertRaises(KeyError):
             dic.pop("item")
@@ -276,9 +276,8 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             expected = dic.pop(key)
             result = redis_dic.pop(key)
             self.assertEqual(expected, result)
-            self.assertEqual(len(dic), len(input_items)-i)
-            self.assertEqual(len(redis_dic), len(input_items)-i)
-
+            self.assertEqual(len(dic), len(input_items) - i)
+            self.assertEqual(len(redis_dic), len(input_items) - i)
 
         expected = "defualt item"
         self.assertEqual(dic.pop("item", expected), expected)
@@ -396,7 +395,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(redis_dic), 0)
         self.assertEqual(len(dic), 0)
 
-    def test_dict_method_clear(self):
+    def test_dict_method_clear_1(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
 
@@ -441,9 +440,9 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaisesRegex(KeyError, "appel"):
             redis_dic['appel']
 
-        with self.assertRaisesRegex(KeyError, "popitem\(\): dictionary is empty"):
+        with self.assertRaisesRegex(KeyError, r"popitem\(\): dictionary is empty"):
             dic.popitem()
-        with self.assertRaisesRegex(KeyError, "popitem\(\): dictionary is empty"):
+        with self.assertRaisesRegex(KeyError, r"popitem\(\): dictionary is empty"):
             redis_dic.popitem()
 
     def test_dict_types_bool(self):
@@ -493,7 +492,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         expected = {
             'a': 1,
             'b': 2,
-            'b': 3,
+            'c': 3,
         }
         with redis_dic.pipeline():
             for k, v in expected.items():
@@ -546,7 +545,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         expected = {
             'a': 1,
             'b': 2,
-            'b': 3,
+            'c': 3,
         }
         with redis_dic.pipeline():
             for k, v in expected.items():
@@ -560,17 +559,16 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
         with redis_dic.pipeline():
             for k, v in redis_dic.items():
-                redis_dic[k] = v*2
+                redis_dic[k] = v * 2
             for k, v in expected.items():
                 self.assertEqual(redis_dic[k], v)
 
         for k, v in expected.items():
-            self.assertEqual(redis_dic[k], v*2)
+            self.assertEqual(redis_dic[k], v * 2)
         self.assertEqual(len(redis_dic), len(expected))
 
         redis_dic.clear()
         self.assertEqual(len(redis_dic), 0)
-
 
         with redis_dic.pipeline():
             with redis_dic.pipeline():
@@ -664,8 +662,7 @@ class TestRedisDict(unittest.TestCase):
         keys = self.r.keys()
         self.assertEqual(keys, [])
 
-
-    def test_set_and_get(self):
+    def test_set_and_get_foobar(self):
         """Test setting a key and retrieving it."""
         self.r['foobar'] = 'barbar'
 
@@ -840,11 +837,11 @@ class TestRedisDict(unittest.TestCase):
 
     # TODO behavior of multi and chain methods should be discussed.
     # TODO python 2 couldn't skip
-    #@unittest.skip
-    #def test_multi_get_with_key_none(self):
-    #    """Tests that multi_get with key None raises TypeError."""
-    #    with self.assertRaises(TypeError):
-    #        self.r.multi_get(None)
+    # @unittest.skip
+    # def test_multi_get_with_key_none(self):
+    #     """Tests that multi_get with key None raises TypeError."""
+    #     with self.assertRaises(TypeError):
+    #         self.r.multi_get(None)
 
     def test_multi_get_empty(self):
         """Tests the multi_get function with no keys set."""
@@ -930,7 +927,7 @@ class TestRedisDict(unittest.TestCase):
         self.assertIsNone(self.redisdb.get('foobar'))
         self.assertIsNone(self.redisdb.get('foobaz'))
         self.assertEqual(self.r['goobar'], 'borbor')
-        
+
     def test_set_and_get(self):
         self.r['key1'] = 'value1'
         self.assertEqual(self.r['key1'], 'value1')
@@ -1043,15 +1040,14 @@ class TestRedisDict(unittest.TestCase):
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-
-    @unittest.skip # this highlights that sets, and tuples not fully supporte
+    @unittest.skip  # this highlights that sets, and tuples not fully supported
     def test_set_get_mixed_type_set(self):
         key = "mixed_type_set"
         value = {1, "foobar", 3.14, (1, 2, 3)}
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-    @unittest.skip # this highlights that sets, and tuples not fully supporte
+    @unittest.skip  # this highlights that sets, and tuples not fully supported
     def test_set_get_nested_tuple(self):
         key = "nested_tuple"
         value = (1, (2, 3), (4, (5, 6)))
@@ -1137,7 +1133,7 @@ class TestRedisDictSecurity(unittest.TestCase):
         self.assertEqual(sorted(self.r.multi_get('foo')), sorted(['bar2', 'bar3']))
         self.assertEqual(self.r['foo2'], 'bar2')
         self.assertEqual(self.r['foo3'], 'bar3')
- 
+
         self.r[injection_key] = "bar"
         self.assertEqual(sorted(self.r.multi_get('foo')), sorted(['bar2', 'bar3', 'bar']))
         self.assertEqual(self.r[injection_key], 'bar')
@@ -1178,13 +1174,13 @@ class TestRedisDictSecurity(unittest.TestCase):
 @unittest.skip
 class TestRedisDictComparison(unittest.TestCase):
     """ Should be added for python3, then this unit test should pass.
-        TODO: add the following methods
-        __lt__(self, other) 
-        __le__(self, other) 
-        __eq__(self, other) 
-        __ne__(self, other) 
-        __gt__(self, other) 
-        __ge__(self, other)
+    TODO: add the following methods
+    __lt__(self, other)
+    __le__(self, other)
+    __eq__(self, other)
+    __ne__(self, other)
+    __gt__(self, other)
+    __ge__(self, other)
     """
     def setUp(self):
         self.r1 = RedisDict(namespace="test1")
@@ -1199,7 +1195,6 @@ class TestRedisDictComparison(unittest.TestCase):
 
         self.d1 = {"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
         self.d2 = {"a": 1, "b": 3, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
-
 
     def tearDown(self):
         self.r1.clear()
@@ -1241,13 +1236,13 @@ class TestRedisDictComparison(unittest.TestCase):
     def test_empty_equal(self):
         empty_r = RedisDict(namespace="test_empty")
         self.assertEqual(empty_r, {})
-        
 
     def test_nested_empty_equal(self):
         nested_empty_r = RedisDict(namespace="test_nested_empty")
         nested_empty_r.update({"a": {}})
         nested_empty_d = {"a": {}}
         self.assertEqual(nested_empty_r, nested_empty_d)
+
 
 class TestRedisDictWithHypothesis(unittest.TestCase):
     """
@@ -1337,7 +1332,7 @@ class TestRedisDictWithHypothesis(unittest.TestCase):
         """
         self.r[key] = value
         self.assertEqual(self.r[key], value)
-    
+
     @given(key=st.text(min_size=1), value=st.tuples(st.integers(), st.text(), st.floats(allow_nan=False, allow_infinity=False), st.booleans()))
     def test_set_get_tuple(self, key, value):
         """
@@ -1360,4 +1355,3 @@ if __name__ == '__main__':
     if sys.version_info[0] == 2:
         unittest.TestCase.assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
     unittest.main()
-
