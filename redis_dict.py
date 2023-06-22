@@ -134,7 +134,6 @@ class RedisDict:
 
         self.namespace: str = kwargs.pop('namespace', '')
         self.expire: Union[int, None] = kwargs.pop('expire', None)
-        self.expire_key: Union[int, None] = kwargs.pop('expire_key', {})
 
         self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
@@ -186,8 +185,7 @@ class RedisDict:
         value = self.pre_transform.get(store_type, lambda x: x)(value)  # type: ignore
 
         store_value = '{}:{}'.format(store_type, value)
-        expire = self.expire_key.get(key, self.expire)
-        self.redis.set(self._format_key(key), store_value, ex=expire)
+        self.redis.set(self._format_key(key), store_value, ex=self.expire)
 
     def _load(self, key: str) -> Tuple[bool, Any]:
         """

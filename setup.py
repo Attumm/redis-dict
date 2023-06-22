@@ -17,7 +17,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
 
-    version='2.1.0',
+    version='2.0.3',
     py_modules=['redis_dict'],
     install_requires=['redis',],
     license='MIT',
@@ -43,6 +43,6 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
     ],
 )
+

@@ -53,40 +53,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(set(dir({})) - set(dir(RedisDict)), set())
             self.assertEqual(len(set(dir(dic)) - set(dir(redis_dic))), 0)
 
-
-    def test_expire_key(self):
-        """Test adding keys with an expire value by using the contextmanager."""
-        key = "foo"
-        expected = 1200
-        redis_dic = self.create_redis_dict(expire_key={"foo": expected})
-        redis_dic[key] = 'barbar'
-
-        actual_ttl = self.redisdb.ttl('{}:{}'.format(TEST_NAMESPACE_PREFIX, key))
-        self.assertAlmostEqual(expected, actual_ttl, delta=2)
-
-    def test_expire_key_override_global_expire(self):
-        """Test ading keys with an expire value by using the expire config keyword."""
-        key = "foo"
-        expected = 1200
-        redis_dic = self.create_redis_dict(expire=3600, expire_key={"foo": expected})
-
-        redis_dic[key] = 'barbar'
-
-        actual_ttl = self.redisdb.ttl('{}:{}'.format(TEST_NAMESPACE_PREFIX, key))
-        self.assertAlmostEqual(expected, actual_ttl, delta=2)
-
-    def test_expire_key_override_context(self):
-        """Test ading keys with an expire value by using the expire config keyword."""
-        key = "foo"
-        expected = 1200
-        redis_dic = self.create_redis_dict(expire=3600, expire_key={"foo": expected})
-
-        with redis_dic.expire_at(800):
-            redis_dic[key] = 'barbar'
-
-        actual_ttl = self.redisdb.ttl('{}:{}'.format(TEST_NAMESPACE_PREFIX, key))
-        self.assertAlmostEqual(expected, actual_ttl, delta=2)
-
     def test_input_items(self):
         """Calling RedisDict.keys() should return an empty list."""
         redis_dic = self.create_redis_dict()
