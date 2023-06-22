@@ -1,6 +1,5 @@
 import json
 from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
-
 from redis import StrictRedis
 
 from contextlib import contextmanager
@@ -134,6 +133,7 @@ class RedisDict:
 
         self.namespace: str = kwargs.pop('namespace', '')
         self.expire: Union[int, None] = kwargs.pop('expire', None)
+        self.preserve_expiration: bool = kwargs.pop('preserve_expiration', False)
 
         self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
@@ -185,7 +185,12 @@ class RedisDict:
         value = self.pre_transform.get(store_type, lambda x: x)(value)  # type: ignore
 
         store_value = '{}:{}'.format(store_type, value)
-        self.redis.set(self._format_key(key), store_value, ex=self.expire)
+        formatted_key = self._format_key(key)
+
+        if self.preserve_expiration and self.redis.exists(formatted_key):
+            self.redis.set(formatted_key, store_value, keepttl=True)
+        else:
+            self.redis.set(formatted_key, store_value, ex=self.expire)
 
     def _load(self, key: str) -> Tuple[bool, Any]:
         """
@@ -720,3 +725,12 @@ class RedisDict:
         if len(keys) == 0:
             return 0
         return self.redis.delete(*keys)
+
+    def get_redis_info(self):
+        return self.redis.info()
+
+    def get_ttl(self, key):
+        val = self.redis.ttl(self._format_key(key))
+        if val < 0:
+            return None
+        return val

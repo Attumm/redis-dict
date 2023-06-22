@@ -1234,14 +1234,73 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertNotEqual(self.r1, self.d2)
 
     def test_empty_equal(self):
-        empty_r = RedisDict(namespace="test_empty")
+        empty_r = RedisDict(namespace="test_empty") # TODO make sure it's deleted
         self.assertEqual(empty_r, {})
 
     def test_nested_empty_equal(self):
-        nested_empty_r = RedisDict(namespace="test_nested_empty")
+        nested_empty_r = RedisDict(namespace="test_nested_empty") # TODO make sure it's deleted
         nested_empty_r.update({"a": {}})
         nested_empty_d = {"a": {}}
         self.assertEqual(nested_empty_r, nested_empty_d)
+
+
+class TestRedisDictPreserveExpire(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.redisdb = redis.StrictRedis(**redis_config)
+        cls.r = cls.create_redis_dict()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.clear_test_namespace()
+        pass
+
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        return RedisDict(namespace=namespace, **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
+
+    def setUp(self):
+        self.clear_test_namespace()
+
+    def test_preserve_expiration(self):
+        """Test preserve_expiration configuration parameter."""
+        # Setup RedisDict with preserve_expiration=True and a global expire time.
+        redis_dict = self.create_redis_dict(expire=3600, preserve_expiration=True)
+
+        key = "foo"
+        value = "bar"
+        redis_dict[key] = value
+
+        # Ensure the TTL (time-to-live) of the "foo" key is approximately the global expire time.
+        actual_ttl = redis_dict.get_ttl(key)
+        self.assertAlmostEqual(3600, actual_ttl, delta=1)
+
+        time_sleeping = 3
+        time.sleep(time_sleeping)
+
+        # Override the "foo" value and create a new "bar" key.
+        new_key = "bar"
+        redis_dict[key] = "value"
+        redis_dict[new_key] = "value too"
+
+        # Ensure the TTL of the "foo" key has passed 3 seconds.
+        actual_ttl_foo = redis_dict.get_ttl(key)
+        self.assertAlmostEqual(3600 - time_sleeping, actual_ttl_foo, delta=1)
+
+        # Ensure the TTL of the "bar" key is also approximately the global expire time.
+        actual_ttl_bar = redis_dict.get_ttl(new_key)
+
+        self.assertAlmostEqual(3600, actual_ttl_bar, delta=1)
+
+        # Ensure the difference between the TTLs of "foo" and "bar" is at least 2 seconds.
+        self.assertTrue(abs(actual_ttl_foo - actual_ttl_bar) >= 1)
 
 
 class TestRedisDictWithHypothesis(unittest.TestCase):
