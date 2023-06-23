@@ -1271,7 +1271,6 @@ class TestRedisDictPreserveExpire(unittest.TestCase):
 
     def test_preserve_expiration(self):
         """Test preserve_expiration configuration parameter."""
-        # Setup RedisDict with preserve_expiration=True and a global expire time.
         redis_dict = self.create_redis_dict(expire=3600, preserve_expiration=True)
 
         key = "foo"
@@ -1301,6 +1300,38 @@ class TestRedisDictPreserveExpire(unittest.TestCase):
 
         # Ensure the difference between the TTLs of "foo" and "bar" is at least 2 seconds.
         self.assertTrue(abs(actual_ttl_foo - actual_ttl_bar) >= 1)
+
+    def test_preserve_expiration_not_used(self):
+        """Test preserve_expiration configuration parameter."""
+        redis_dict = self.create_redis_dict(expire=3600)
+
+        key = "foo"
+        value = "bar"
+        redis_dict[key] = value
+
+        # Ensure the TTL (time-to-live) of the "foo" key is approximately the global expire time.
+        actual_ttl = redis_dict.get_ttl(key)
+        self.assertAlmostEqual(3600, actual_ttl, delta=1)
+
+        time_sleeping = 3
+        time.sleep(time_sleeping)
+
+        # Override the "foo" value and create a new "bar" key.
+        new_key = "bar"
+        redis_dict[key] = "value"
+        redis_dict[new_key] = "value too"
+
+        # Ensure the TTL of the "foo" key is global expire again.
+        actual_ttl_foo = redis_dict.get_ttl(key)
+        self.assertAlmostEqual(3600, actual_ttl_foo, delta=1)
+
+        # Ensure the TTL of the "bar" key is also approximately the global expire time.
+        actual_ttl_bar = redis_dict.get_ttl(new_key)
+
+        self.assertAlmostEqual(3600, actual_ttl_bar, delta=1)
+
+        # Ensure the difference between the TTLs of "foo" and "bar" is no more then 1 seconds.
+        self.assertTrue(abs(actual_ttl_foo - actual_ttl_bar) <= 1)
 
 
 class TestRedisDictWithHypothesis(unittest.TestCase):
