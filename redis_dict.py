@@ -1,6 +1,5 @@
 import json
 from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
-
 from redis import StrictRedis
 
 from contextlib import contextmanager
@@ -99,6 +98,8 @@ class RedisDict:
         namespace (str): A string used as a prefix for Redis keys to separate data in different namespaces.
         expire (Union[int, None]): An optional expiration time for keys, in seconds.
 
+    TODO:
+        Move init to work with types
     """
 
     transform: transform_type = {
@@ -134,6 +135,7 @@ class RedisDict:
 
         self.namespace: str = kwargs.pop('namespace', '')
         self.expire: Union[int, None] = kwargs.pop('expire', None)
+        self.preserve_expiration: bool = kwargs.pop('preserve_expiration', False)
 
         self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
@@ -185,7 +187,12 @@ class RedisDict:
         value = self.pre_transform.get(store_type, lambda x: x)(value)  # type: ignore
 
         store_value = '{}:{}'.format(store_type, value)
-        self.redis.set(self._format_key(key), store_value, ex=self.expire)
+        formatted_key = self._format_key(key)
+
+        if self.preserve_expiration and self.redis.exists(formatted_key):
+            self.redis.set(formatted_key, store_value, keepttl=True)
+        else:
+            self.redis.set(formatted_key, store_value, ex=self.expire)
 
     def _load(self, key: str) -> Tuple[bool, Any]:
         """
@@ -720,3 +727,28 @@ class RedisDict:
         if len(keys) == 0:
             return 0
         return self.redis.delete(*keys)
+
+    def get_redis_info(self) -> Dict[str, Any]:
+        """
+        Retrieve information and statistics about the Redis server.
+
+        Returns:
+            dict: The information and statistics from the Redis server in a dictionary.
+        """
+        return dict(self.redis.info())
+
+    def get_ttl(self, key: str) -> Optional[int]:
+        """
+        Get the Time To Live (TTL) in seconds for a given key. If the key does not exist or does not have an
+        associated expire, return None.
+
+        Args:
+            key (str): The key for which to get the TTL.
+
+        Returns:
+            Optional[int]: The TTL in seconds if the key exists and has an expire set; otherwise, None.
+        """
+        val = self.redis.ttl(self._format_key(key))
+        if val < 0:
+            return None
+        return val

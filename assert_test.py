@@ -73,7 +73,7 @@ assert len(dd) == len(items)
 assert sorted(dd.multi_get('keys')) == sorted(list(items.values()))
 assert dd.multi_dict('keys') == items
 
-long_key ='thekeyislongbutstill'
+long_key = 'thekeyislongbutstill'
 items = {'K1': 'V1', 'KK22': 'VV22', 'KKK333': 'VVV333'}
 for key, val in items.items():
     dd.chain_set([long_key, key], val)
@@ -87,7 +87,7 @@ dd.multi_del('keys')
 
 assert len(dd) == 1
 
-del(dd['one_item'])
+del dd['one_item']
 assert len(dd) == 0
 
 print('all is well')

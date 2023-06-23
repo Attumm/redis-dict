@@ -13,6 +13,7 @@ random.seed(SEED)
 
 data_types = ["str", "int", "float", "bool", "list", "dict"]
 
+
 def generate_random_data(data_type):
     if data_type == "str":
         return ''.join(random.choice(string.ascii_letters) for _ in range(10))
@@ -27,11 +28,12 @@ def generate_random_data(data_type):
     else:
         return {f'key{i}': random.randint(1, 100) for i in range(5)}
 
+
 def main():
     start_total = time.time()
     r = RedisDict(namespace="load_test")
     operation_times = []
-    batched = BATCHING 
+    batched = BATCHING
 
     if batched:
         data = []
@@ -39,8 +41,7 @@ def main():
             key = f"key{i}"
             data_type = random.choice(data_types)
             value = generate_random_data(data_type)
-            data.append((key, value)) 
-
+            data.append((key, value))
 
             if i % BATCH_SIZE == 0:
                 with r.pipeline():
@@ -71,7 +72,7 @@ def main():
 
             start_time = time.time()
             r[key] = value
-            retrieved_value = r[key]
+            _ = r[key]
             end_time = time.time()
 
             operation_times.append(end_time - start_time)
@@ -100,4 +101,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
