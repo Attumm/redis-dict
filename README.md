@@ -24,7 +24,7 @@ Redis is an exceptionally fast database when used appropriately. RedisDict lever
 ```python
 from redis_dict import RedisDict
 
-dic = RedisDict(namespace='bar')
+dic = RedisDict()
 dic['foo'] = 42
 print(dic['foo'])  # Output: 42
 print('foo' in dic)  # Output: True
@@ -34,16 +34,16 @@ print(dic)  # Output: {'foo': 42, 'baz': 'hello world'}
 In Redis our example looks like this.
 ```
 127.0.0.1:6379> KEYS "*"
-1) "bar:foo"
-2) "bar:baz"
-127.0.0.1:6379> GET "bar:foo"
+1) "main:foo"
+2) "main:baz"
+127.0.0.1:6379> GET "main:foo"
 "int:42"
-127.0.0.1:6379> GET "bar:baz"
+127.0.0.1:6379> GET "main:baz"
 "str:hello world"
 ```
 
 ### Namespaces
-RedisDict employs namespaces by default, providing an organized and efficient way to manage data across multiple projects. By using a dedicated RedisDict instance for each project, you can easily identify which data belongs to which application when inspecting Redis directly.
+Acting as an identifier for your dictionary across different systems, RedisDict employs namespaces for organized data management. When a namespace isn't specified, "main" becomes the default. Thus allowing for data organization accross systems and projects with the same redis instance.
 
 This approach also minimizes the risk of key collisions between different applications, preventing hard-to-debug issues. By leveraging namespaces, RedisDict ensures a cleaner and more maintainable data management experience for developers working on multiple projects.
 

@@ -98,8 +98,6 @@ class RedisDict:
         namespace (str): A string used as a prefix for Redis keys to separate data in different namespaces.
         expire (Union[int, None]): An optional expiration time for keys, in seconds.
 
-    TODO:
-        Move init to work with types
     """
 
     transform: transform_type = {
@@ -122,24 +120,27 @@ class RedisDict:
         type(set()).__name__: _pre_transform_set,
     }
 
-    def __init__(self, **kwargs: Any):
+
+    def __init__(self,
+                 namespace: str = 'main',
+                 expire: Optional[int] = None,
+                 preserve_expiration: Optional[bool] = False,
+                 **redis_kwargs: Any) -> None:
         """
         Initialize a RedisDict instance.
 
         Args:
             namespace (str, optional): A prefix for keys stored in Redis.
             expire (int, optional): Expiration time for keys in seconds.
-            **kwargs: Additional keyword arguments passed to StrictRedis.
+            preserve_expiration (bool, optional): Whether or not to preserve the expiration.
+            **redis_kwargs: Additional keyword arguments passed to StrictRedis.
         """
         self.temp_redis: Optional[StrictRedis[Any]] = None
-
-        self.namespace: str = kwargs.pop('namespace', '')
-        self.expire: Union[int, None] = kwargs.pop('expire', None)
-        self.preserve_expiration: bool = kwargs.pop('preserve_expiration', False)
-
-        self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **kwargs)
+        self.namespace: str = namespace
+        self.expire: Optional[int] = expire
+        self.preserve_expiration: Optional[bool] = preserve_expiration
+        self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
-        self.iter: Iterator[str] = self.iterkeys()
 
     def _format_key(self, key: str) -> str:
         """
