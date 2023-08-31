@@ -123,7 +123,7 @@ class RedisDict:
 
     def __init__(self,
                  namespace: str = 'main',
-                 expire: Optional[int] = None,
+                 expire: Union[int, None] = None,
                  preserve_expiration: Optional[bool] = False,
                  **redis_kwargs: Any) -> None:
         """
@@ -137,7 +137,7 @@ class RedisDict:
         """
         self.temp_redis: Optional[StrictRedis[Any]] = None
         self.namespace: str = namespace
-        self.expire: Optional[int] = expire
+        self.expire: Union[int, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
         self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
