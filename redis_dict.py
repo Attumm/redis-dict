@@ -187,7 +187,8 @@ class RedisDict:
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
         value = self.pre_transform.get(store_type, lambda x: x)(value)  # type: ignore
 
-        store_value = '{}:{}'.format(store_type, value)
+        # store_value = '{}:{}'.format(store_type, value)
+        store_value = value
         formatted_key = self._format_key(key)
 
         if self.preserve_expiration and self.redis.exists(formatted_key):
@@ -208,8 +209,11 @@ class RedisDict:
         result = self.get_redis.get(self._format_key(key))
         if result is None:
             return False, None
-        t, value = result.split(':', 1)
-        return True, self.transform.get(t, lambda x: x)(value)
+        if result[0] == "{":
+            t = "dict"
+        else:
+            t = "str"
+        return True, self.transform.get(t, lambda x: x)(result)
 
     def _transform(self, result: str) -> Any:
         """
@@ -221,8 +225,11 @@ class RedisDict:
         Returns:
             Any: The transformed Python object.
         """
-        t, value = result.split(':', 1)
-        return self.transform.get(t, lambda x: x)(value)
+        if result[0] == "{":
+            t = "dict"
+        else:
+            t = "str"
+        return self.transform.get(t, lambda x: x)(result)
 
     def add_type(self, k: str, v: Callable[[str], Any]) -> None:
         """
