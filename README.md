@@ -199,8 +199,8 @@ For more advanced examples of RedisDict, please refer to the unit-test files in 
 The unit-tests can be as used as a starting point.
 
 ### Redis Encryption
-An example on how to configure and utilize encrypted Redis for redis-dict.
-[Readme](https://github.com/Attumm/redis-dict/blob/main/encrypted_redis.MD#L1)]
+Setup guide for configuring and utilizing encrypted Redis for redis-dict.
+[Setup guide](https://github.com/Attumm/redis-dict/blob/main/encrypted_redis.MD)
 
 
 ### Tests
