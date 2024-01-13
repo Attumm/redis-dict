@@ -12,7 +12,7 @@ By leveraging Redis for efficient key-value storage, RedisDict allows for high-p
 * Dictionary-like interface: Use familiar Python dictionary syntax to interact with Redis.
 * Data Type Support: Comprehensive support for various data types, including strings, integers, floats, booleans, lists, dictionaries, sets, and tuples.
 * Pipelining support: Use pipelines for batch operations to improve performance.
-* Expiration support: Set expiration times for keys using context managers.
+* Expiration Support: Enables the setting of expiration times either globally or individually per key, through the use of context managers.
 * Efficiency and Scalability: RedisDict is designed for use with large datasets and is optimized for efficiency. It retrieves only the data needed for a particular operation, ensuring efficient memory usage and fast performance.
 * Namespace Management: Provides simple and efficient namespace handling to help organize and manage data in Redis, streamlining data access and manipulation.
 * Distributed Computing: With its ability to seamlessly connect to other instances or servers with access to the same Redis instance, RedisDict enables easy distributed computing.
@@ -56,19 +56,28 @@ Redis provides a valuable feature that enables keys to expire. RedisDict support
 1. Set a default expiration time when creating a RedisDict instance. In this example, the keys will have a default expiration time of 10 seconds.
 
 ```python
-dic = RedisDict(namespace='app_name', expire=10)
+dic = RedisDict(expire=10)
 dic['gone'] = 'in ten seconds'
 ```
 2. Temporarily set the default expiration time within the scope using a context manager. In this example, the key 'gone' will expire after 60 seconds. The default expiration time for other keys outside the context manager remains unchanged.
 
 ```python
-from redis_dict import RedisDict
-
-dic = RedisDict(namespace='bar')
+dic = RedisDict()
 
 seconds = 60
 with dic.expire_at(seconds):
     dic['gone'] = 'in sixty seconds'
+```
+
+3. Updating keys while preserving the initial timeout In certain situations, there is a need to update the value while keeping the expiration intact. This is achievable by setting the 'preserve_expiration' to true.
+
+```python
+dic = RedisDict(expire=10, preserve_expiration=True)
+dic['gone'] = 'in ten seconds'
+
+time.sleep(5)
+dic['gone'] = 'gone in 5 seconds'
+
 ```
 
 ### Batching
@@ -185,13 +194,16 @@ dic.setdefault("d", 4)
 print(dic["d"])  # Output: 4
 ```
 
-
 ### Additional Examples
 For more advanced examples of RedisDict, please refer to the unit-test files in the repository. All features and functionalities are thoroughly tested in [unit tests (here)](https://github.com/Attumm/redis-dict/blob/main/tests.py#L1) Or take a look at load test for batching [load test](https://github.com/Attumm/redis-dict/blob/main/load_test.py.py#L1).
 The unit-tests can be as used as a starting point.
 
-### Tests
+### Redis Encryption
+An example on how to configure and utilize encrypted Redis for redis-dict.
+[Readme](https://github.com/Attumm/redis-dict/blob/main/encrypted_redis.MD#L1)]
 
+
+### Tests
 The RedisDict library includes a comprehensive suite of tests that ensure its correctness and resilience. The test suite covers various data types, edge cases, and error handling scenarios. It also employs the Hypothesis library for property-based testing, which provides fuzz testing to evaluate the implementation
 
 ## Installation
