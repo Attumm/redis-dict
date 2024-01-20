@@ -206,6 +206,24 @@ Setup guide for configuring and utilizing encrypted Redis for redis-dict.
 ### Tests
 The RedisDict library includes a comprehensive suite of tests that ensure its correctness and resilience. The test suite covers various data types, edge cases, and error handling scenarios. It also employs the Hypothesis library for property-based testing, which provides fuzz testing to evaluate the implementation
 
+### Redis config
+To configure RedisDict using your Redis config.
+
+Configure both the host and port.
+```python
+dic = RedisDict(host='127.0.0.1', port=6380)
+```
+
+Configuration with a dictionary.
+```python
+redis_config = {
+    'host': '127.0.0.1',
+    'port': 6380,
+}
+
+dic = RedisDict(**redis_config)
+```
+
 ## Installation
 ```sh
 pip install redis-dict

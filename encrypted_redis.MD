@@ -54,16 +54,16 @@ For production use, one might already have a Redis instance and/or certificates.
    from redis_dict import RedisDict
 
    redis_config = { 
-       host: 'localhost',
-       port: 6380, 
-       ssl: True,
-       ssl_keyfile=: 'test_redis_key.pem',
-       ssl_certfile=: 'test_redis_cert.pem',
-       ssl_cert_reqs: 'required',
-       ssl_ca_certs: 'test_redis_cert.pem'
+       'host': '127.0.0.1',
+       'port': 6380,
+       'ssl': True,
+       'ssl_keyfile': 'test_redis_key.pem',
+       'ssl_certfile': 'test_redis_cert.pem',
+       'ssl_cert_reqs': 'required',
+       'ssl_ca_certs': 'test_redis_cert.pem'
    }
-   dic = RedisDict(redis_kwargs=redis_config)
 
+   dic = RedisDict(**redis_config)
    
    dic['foo'] = 'bar'
    print(dic['foo'])  # should return 'bar'
