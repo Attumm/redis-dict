@@ -1,5 +1,6 @@
 import time
 import unittest
+from datetime import timedelta
 
 import redis
 
@@ -808,19 +809,31 @@ class TestRedisDict(unittest.TestCase):
     def test_expire_context(self):
         """Test adding keys with an expire value by using the contextmanager."""
         with self.r.expire_at(3600):
-            self.r['foobar'] = 'barbar'
+            self.r['foobar1'] = 'barbar1'
+        print(type(timedelta(hours=0.25, minutes=15, seconds=900)))
+        with self.r.expire_at(timedelta(hours=0.25, minutes=15, seconds=900)):
+            self.r['foobar2'] = 'barbar2'
 
-        actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
+        actual_ttl = self.redisdb.ttl('{}:foobar1'.format(TEST_NAMESPACE_PREFIX))
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
+        actual_ttl = self.redisdb.ttl('{}:foobar2'.format(TEST_NAMESPACE_PREFIX))
+        self.assertAlmostEqual(2700, actual_ttl, delta=2)
 
     def test_expire_keyword(self):
         """Test ading keys with an expire value by using the expire config keyword."""
         r = self.create_redis_dict(expire=3600)
 
-        r['foobar'] = 'barbar'
+        r['foobar1'] = 'barbar1'
         actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
 
+        r.clear()
+
+        r = self.create_redis_dict(expire=timedelta(hours=0.25, minutes=15, seconds=900))
+
+        r['foobar2'] = 'barbar2'
+        actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
+        self.assertAlmostEqual(2700, actual_ttl, delta=2)
     def test_iter(self):
         """Tests the __iter__ function."""
         key_values = {

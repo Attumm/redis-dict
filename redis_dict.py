@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
 from redis import StrictRedis
 
@@ -123,7 +124,7 @@ class RedisDict:
 
     def __init__(self,
                  namespace: str = 'main',
-                 expire: Union[int, None] = None,
+                 expire: Union[int, timedelta, None] = None,
                  preserve_expiration: Optional[bool] = False,
                  **redis_kwargs: Any) -> None:
         """
@@ -131,13 +132,13 @@ class RedisDict:
 
         Args:
             namespace (str, optional): A prefix for keys stored in Redis.
-            expire (int, optional): Expiration time for keys in seconds.
+            expire (int, timedelta, optional): Expiration time for keys in seconds.
             preserve_expiration (bool, optional): Whether or not to preserve the expiration.
             **redis_kwargs: Additional keyword arguments passed to StrictRedis.
         """
         self.temp_redis: Optional[StrictRedis[Any]] = None
         self.namespace: str = namespace
-        self.expire: Union[int, None] = expire
+        self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
         self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
@@ -640,12 +641,12 @@ class RedisDict:
         return self.__delitem__(':'.join(iterable))
 
     @contextmanager
-    def expire_at(self, sec_epoch: int) -> Iterator[None]:
+    def expire_at(self, sec_epoch: int | timedelta) -> Iterator[None]:
         """
         Context manager to set the expiration time for keys in the RedisDict.
 
         Args:
-            sec_epoch (int): The expiration time in Unix timestamp format.
+            sec_epoch (int, timedelta): The expiration time in Unix timestamp format.
 
         Returns:
             ContextManager: A context manager during which the expiration time is the time set.
