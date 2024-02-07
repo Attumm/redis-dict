@@ -646,7 +646,7 @@ class RedisDict:
         Context manager to set the expiration time for keys in the RedisDict.
 
         Args:
-            sec_epoch (int, timedelta): The expiration time in Unix timestamp format.
+            sec_epoch (int, timedelta): The expiration duration is set using either an integer or a timedelta.
 
         Returns:
             ContextManager: A context manager during which the expiration time is the time set.

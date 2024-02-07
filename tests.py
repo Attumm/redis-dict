@@ -7,7 +7,6 @@ import redis
 from redis_dict import RedisDict
 from hypothesis import given, strategies as st
 
-
 # !! Make sure you don't have keys within redis named like this, they will be deleted.
 TEST_NAMESPACE_PREFIX = '__test_prefix_key_meta_8128__'
 
@@ -809,31 +808,54 @@ class TestRedisDict(unittest.TestCase):
     def test_expire_context(self):
         """Test adding keys with an expire value by using the contextmanager."""
         with self.r.expire_at(3600):
-            self.r['foobar1'] = 'barbar1'
-        print(type(timedelta(hours=0.25, minutes=15, seconds=900)))
-        with self.r.expire_at(timedelta(hours=0.25, minutes=15, seconds=900)):
-            self.r['foobar2'] = 'barbar2'
+            self.r['foobar'] = 'barbar'
 
-        actual_ttl = self.redisdb.ttl('{}:foobar1'.format(TEST_NAMESPACE_PREFIX))
+        actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
-        actual_ttl = self.redisdb.ttl('{}:foobar2'.format(TEST_NAMESPACE_PREFIX))
-        self.assertAlmostEqual(2700, actual_ttl, delta=2)
+
+    def test_expire_context_timedelta(self):
+        """ Test adding keys with an expire value by using the contextmanager. With timedelta as argument. """
+        timedelta_one_hour = timedelta(hours=1)
+        timedelta_one_minute = timedelta(minutes=1)
+        hour_in_seconds = 60 * 60
+        minute_in_seconds = 60
+
+        with self.r.expire_at(timedelta_one_hour):
+            self.r['one_hour'] = 'one_hour'
+        with self.r.expire_at(timedelta_one_minute):
+            self.r['one_minute'] = 'one_minute'
+
+        actual_ttl = self.redisdb.ttl('{}:one_hour'.format(TEST_NAMESPACE_PREFIX))
+        self.assertAlmostEqual(hour_in_seconds, actual_ttl, delta=2)
+        actual_ttl = self.redisdb.ttl('{}:one_minute'.format(TEST_NAMESPACE_PREFIX))
+        self.assertAlmostEqual(minute_in_seconds, actual_ttl, delta=2)
 
     def test_expire_keyword(self):
-        """Test ading keys with an expire value by using the expire config keyword."""
+        """Test adding keys with an expire value by using the expire config keyword."""
         r = self.create_redis_dict(expire=3600)
 
-        r['foobar1'] = 'barbar1'
+        r['foobar'] = 'barbar'
         actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
 
-        r.clear()
+    def test_expire_keyword_timedelta(self):
+        """ Test adding keys with an expire value by using the expire config keyword. With timedelta as argument."""
+        timedelta_one_hour = timedelta(hours=1)
+        timedelta_one_minute = timedelta(minutes=1)
+        hour_in_seconds = 60 * 60
+        minute_in_seconds = 60
 
-        r = self.create_redis_dict(expire=timedelta(hours=0.25, minutes=15, seconds=900))
+        r_hour = self.create_redis_dict(expire=timedelta_one_hour)
+        r_minute = self.create_redis_dict(expire=timedelta_one_minute)
 
-        r['foobar2'] = 'barbar2'
-        actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
-        self.assertAlmostEqual(2700, actual_ttl, delta=2)
+        r_hour['one_hour'] = 'one_hour'
+        r_minute['one_minute'] = 'one_minute'
+
+        actual_ttl = self.redisdb.ttl('{}:one_hour'.format(TEST_NAMESPACE_PREFIX))
+        self.assertAlmostEqual(hour_in_seconds, actual_ttl, delta=2)
+        actual_ttl = self.redisdb.ttl('{}:one_minute'.format(TEST_NAMESPACE_PREFIX))
+        self.assertAlmostEqual(minute_in_seconds, actual_ttl, delta=2)
+
     def test_iter(self):
         """Tests the __iter__ function."""
         key_values = {
@@ -1195,6 +1217,7 @@ class TestRedisDictComparison(unittest.TestCase):
     __gt__(self, other)
     __ge__(self, other)
     """
+
     def setUp(self):
         self.r1 = RedisDict(namespace="test1")
         self.r2 = RedisDict(namespace="test2")
@@ -1247,11 +1270,11 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertNotEqual(self.r1, self.d2)
 
     def test_empty_equal(self):
-        empty_r = RedisDict(namespace="test_empty") # TODO make sure it's deleted
+        empty_r = RedisDict(namespace="test_empty")  # TODO make sure it's deleted
         self.assertEqual(empty_r, {})
 
     def test_nested_empty_equal(self):
-        nested_empty_r = RedisDict(namespace="test_nested_empty") # TODO make sure it's deleted
+        nested_empty_r = RedisDict(namespace="test_nested_empty")  # TODO make sure it's deleted
         nested_empty_r.update({"a": {}})
         nested_empty_d = {"a": {}}
         self.assertEqual(nested_empty_r, nested_empty_d)
@@ -1410,7 +1433,8 @@ class TestRedisDictWithHypothesis(unittest.TestCase):
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-    @given(key=st.text(min_size=1), value=st.dictionaries(st.text(min_size=1), st.floats(allow_nan=False, allow_infinity=False)))
+    @given(key=st.text(min_size=1),
+           value=st.dictionaries(st.text(min_size=1), st.floats(allow_nan=False, allow_infinity=False)))
     def test_set_get_dictionary_with_float_values(self, key, value):
         self.r[key] = value
         self.assertEqual(self.r[key], value)
@@ -1420,7 +1444,8 @@ class TestRedisDictWithHypothesis(unittest.TestCase):
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-    @given(key=st.text(min_size=1), value=st.dictionaries(st.text(min_size=1), st.dictionaries(st.text(min_size=1), st.text())))
+    @given(key=st.text(min_size=1),
+           value=st.dictionaries(st.text(min_size=1), st.dictionaries(st.text(min_size=1), st.text())))
     def test_set_get_nested_dictionary(self, key, value):
         """
         Test setting and getting a nested dictionary.
@@ -1436,7 +1461,8 @@ class TestRedisDictWithHypothesis(unittest.TestCase):
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-    @given(key=st.text(min_size=1), value=st.tuples(st.integers(), st.text(), st.floats(allow_nan=False, allow_infinity=False), st.booleans()))
+    @given(key=st.text(min_size=1),
+           value=st.tuples(st.integers(), st.text(), st.floats(allow_nan=False, allow_infinity=False), st.booleans()))
     def test_set_get_tuple(self, key, value):
         """
         Test setting and getting a tuple.
@@ -1455,6 +1481,7 @@ class TestRedisDictWithHypothesis(unittest.TestCase):
 
 if __name__ == '__main__':
     import sys
+
     if sys.version_info[0] == 2:
         unittest.TestCase.assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
     unittest.main()
