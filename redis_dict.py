@@ -121,7 +121,6 @@ class RedisDict:
         type(set()).__name__: _pre_transform_set,
     }
 
-
     def __init__(self,
                  namespace: str = 'main',
                  expire: Union[int, timedelta, None] = None,
