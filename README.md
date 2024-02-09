@@ -53,13 +53,21 @@ This approach also minimizes the risk of key collisions between different applic
 ### Expiration
 
 Redis provides a valuable feature that enables keys to expire. RedisDict supports this feature in the following ways:
-1. Set a default expiration time when creating a RedisDict instance. In this example, the keys will have a default expiration time of 10 seconds.
+1. Set a default expiration time when creating a RedisDict instance. In this example, the keys will have a default expiration time of 10 seconds. Use seconds with an integer or pass a datetime timedelta.
 
 ```python
 dic = RedisDict(expire=10)
 dic['gone'] = 'in ten seconds'
 ```
-2. Temporarily set the default expiration time within the scope using a context manager. In this example, the key 'gone' will expire after 60 seconds. The default expiration time for other keys outside the context manager remains unchanged.
+Or, for a more Pythonic approach, use a timedelta.
+```python
+from datetime import
+
+dic = RedisDict(expire=timedelta(minutes=1))
+dic['gone'] = 'in a minute'
+```
+
+2. Temporarily set the default expiration time within the scope using a context manager. In this example, the key 'gone' will expire after 60 seconds. The default expiration time for other keys outside the context manager remains unchanged. Either pass an integer or a timedelta.
 
 ```python
 dic = RedisDict()
