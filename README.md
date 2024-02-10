@@ -61,7 +61,7 @@ dic['gone'] = 'in ten seconds'
 ```
 Or, for a more Pythonic approach, use a timedelta.
 ```python
-from datetime import
+from datetime import timedelta
 
 dic = RedisDict(expire=timedelta(minutes=1))
 dic['gone'] = 'in a minute'
