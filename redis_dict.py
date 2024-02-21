@@ -7,7 +7,6 @@ from contextlib import contextmanager
 
 SENTINEL = object()
 
-
 transform_type = Dict[str, Callable[[str], Any]]
 pre_transform_type = Dict[str, Callable[[Any], str]]
 
@@ -234,7 +233,7 @@ class RedisDict:
         """
         self.transform[k] = v
 
-    def __cmp__(self, other: Any) -> int:
+    def __eq__(self, other: Any) -> bool:
         """
         Compare the current RedisDict with another object.
 
@@ -242,22 +241,26 @@ class RedisDict:
             other (Any): The object to compare with.
 
         Returns:
-            int: 1 if equal, -1 otherwise.
-        Note:
-            TODO add the following methods
-            __lt__(self, other)
-            __le__(self, other)
-            __eq__(self, other)
-            __ne__(self, other)
-            __gt__(self, other)
-            __ge__(self, other)
+            bool: True if equal, False otherwise
         """
         if len(self) != len(other):
-            return -1
+            return False
         for key, value in self.iteritems():
             if value != other.get(key, SENTINEL):
-                return -1
-        return 1
+                return False
+        return True
+
+    def __ne__(self, other: Any) -> bool:
+        """
+        Compare the current RedisDict with another object.
+
+        Args:
+            other (Any): The object to compare with.
+
+        Returns:
+            bool: False if equal, True otherwise
+        """
+        return not self.__eq__(other)
 
     def __getitem__(self, item: str) -> Any:
         """
@@ -427,7 +430,7 @@ class RedisDict:
 
     def iteritems(self) -> Iterator[Tuple[str, Any]]:
         """
-        Note: for pythone2 str is needed
+        Note: for python2 str is needed
         """
         to_rm = len(self.namespace) + 1
         for item in self._scan_keys():
@@ -712,7 +715,8 @@ class RedisDict:
         if len(keys) == 0:
             return {}
         to_rm = keys[0].rfind(':') + 1
-        return dict(zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None)))
+        return dict(
+            zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None)))
 
     def multi_del(self, key: str) -> int:
         """
