@@ -1336,6 +1336,61 @@ class TestRedisDictComparison(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.r1 > self.d1
 
+    def test_sequential_comparison(self):
+        d = {}
+        d2 = {}
+        rd = RedisDict(namespace="sequential_comparison")
+
+        # Testing for identity
+        assert d is not d2
+        assert d is not rd
+
+        # Testing for equality
+        assert d == d2
+        assert d == rd
+        assert d.items() == d2.items()
+        assert d.items() == rd.items()
+
+        d["foo1"] = "bar1"
+
+        # Testing for inequality after modification in 'd'
+        assert d != d2
+        assert d != rd
+        assert d.items() != d2.items()
+        assert d.items() != rd.items()
+
+        # Modifying 'd2' and 'rd'
+        d2["foo1"] = "bar1"
+        rd["foo1"] = "bar1"
+
+        # Testing for equality
+        assert d == d2
+        assert d == rd
+        assert d.items() == d2.items()
+        assert d.items() == rd.items()
+
+        d.clear()
+        d2.clear()
+        rd.clear()
+
+        rd.update({"a": {}})
+        d.update({"a": {}})
+        d2.update({"a": {}})
+
+        # Testing for nested comparison
+        assert d == d2
+        assert d == rd
+        assert d.items() == d2.items()
+        assert d.items() == rd.items()
+
+        d.clear()
+
+        # Testing for inequality after clear
+        assert d != d2
+        assert d != rd
+        assert d.items() != d2.items()
+        assert d.items() != rd.items()
+
 
 class TestRedisDictPreserveExpire(unittest.TestCase):
     @classmethod

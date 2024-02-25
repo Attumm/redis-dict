@@ -715,8 +715,7 @@ class RedisDict:
         if len(keys) == 0:
             return {}
         to_rm = keys[0].rfind(':') + 1
-        return dict(
-            zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None)))
+        return dict(zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None)))
 
     def multi_del(self, key: str) -> int:
         """
