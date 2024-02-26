@@ -1342,32 +1342,32 @@ class TestRedisDictComparison(unittest.TestCase):
         rd = RedisDict(namespace="sequential_comparison")
 
         # Testing for identity
-        assert d is not d2
-        assert d is not rd
+        self.assertTrue(d is not d2)
+        self.assertTrue(d is not rd)
 
         # Testing for equality
-        assert d == d2
-        assert d == rd
-        assert d.items() == d2.items()
-        assert d.items() == rd.items()
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == rd.items())
 
         d["foo1"] = "bar1"
 
         # Testing for inequality after modification in 'd'
-        assert d != d2
-        assert d != rd
-        assert d.items() != d2.items()
-        assert d.items() != rd.items()
+        self.assertTrue(d != d2)
+        self.assertTrue(d != rd)
+        self.assertTrue(d.items() != d2.items())
+        self.assertTrue(list(d.items()) != rd.items())
 
         # Modifying 'd2' and 'rd'
         d2["foo1"] = "bar1"
         rd["foo1"] = "bar1"
 
         # Testing for equality
-        assert d == d2
-        assert d == rd
-        assert d.items() == d2.items()
-        assert d.items() == rd.items()
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == rd.items())
 
         d.clear()
         d2.clear()
@@ -1378,18 +1378,18 @@ class TestRedisDictComparison(unittest.TestCase):
         d2.update({"a": {}})
 
         # Testing for nested comparison
-        assert d == d2
-        assert d == rd
-        assert d.items() == d2.items()
-        assert d.items() == rd.items()
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == rd.items())
 
         d.clear()
 
         # Testing for inequality after clear
-        assert d != d2
-        assert d != rd
-        assert d.items() != d2.items()
-        assert d.items() != rd.items()
+        self.assertTrue(d != d2)
+        self.assertTrue(d != rd)
+        self.assertTrue(d.items() != d2.items())
+        self.assertTrue(list(d.items()) != rd.items())
 
 
 class TestRedisDictPreserveExpire(unittest.TestCase):
