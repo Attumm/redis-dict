@@ -1227,6 +1227,20 @@ class TestRedisDictComparison(unittest.TestCase):
         self.r3.clear()
         self.r4.clear()
 
+    @classmethod
+    def clear_test_namespace(cls):
+        names_spaces = [
+            "test1", "test2", "test3", "test4",
+            "sequential_comparison", "test_empty",
+            "test_nested_empty"
+        ]
+        for namespace in names_spaces:
+            RedisDict(namespace).clear()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.clear_test_namespace()
+
     def test_eq(self):
         self.assertTrue(self.r1 == self.r2)
         self.assertFalse(self.r1 == self.r3)
@@ -1390,6 +1404,15 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertTrue(d != rd)
         self.assertTrue(d.items() != d2.items())
         self.assertTrue(list(d.items()) != rd.items())
+
+        d2.clear()
+        rd.clear()
+
+        # Testing for equality after clear
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == rd.items())
 
 
 class TestRedisDictPreserveExpire(unittest.TestCase):
