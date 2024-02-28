@@ -104,6 +104,8 @@ with dic.pipeline():
 You can use RedisDict for distributed computing by starting multiple RedisDict instances on different servers or instances that have access to the same Redis instance:
 ```python
 # On server 1
+from redis_dict import RedisDict
+
 dic = RedisDict(namespace="example")
 dic["foo"] = "bar"
 

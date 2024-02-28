@@ -1206,18 +1206,7 @@ class TestRedisDictSecurity(unittest.TestCase):
         self.assertEqual(self.r['foo3'], 'bar3')
 
 
-@unittest.skip
 class TestRedisDictComparison(unittest.TestCase):
-    """ Should be added for python3, then this unit test should pass.
-    TODO: add the following methods
-    __lt__(self, other)
-    __le__(self, other)
-    __eq__(self, other)
-    __ne__(self, other)
-    __gt__(self, other)
-    __ge__(self, other)
-    """
-
     def setUp(self):
         self.r1 = RedisDict(namespace="test1")
         self.r2 = RedisDict(namespace="test2")
@@ -1238,46 +1227,192 @@ class TestRedisDictComparison(unittest.TestCase):
         self.r3.clear()
         self.r4.clear()
 
-    def test_equality(self):
+    @classmethod
+    def clear_test_namespace(cls):
+        names_spaces = [
+            "test1", "test2", "test3", "test4",
+            "sequential_comparison", "test_empty",
+            "test_nested_empty"
+        ]
+        for namespace in names_spaces:
+            RedisDict(namespace).clear()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.clear_test_namespace()
+
+    def test_eq(self):
         self.assertTrue(self.r1 == self.r2)
         self.assertFalse(self.r1 == self.r3)
         self.assertFalse(self.r1 == self.r4)
-
         self.assertTrue(self.r2 == self.r1)
         self.assertFalse(self.r2 == self.r3)
         self.assertFalse(self.r2 == self.r4)
-
         self.assertFalse(self.r3 == self.r4)
 
-    def test_inequality(self):
-        self.assertFalse(self.r1 != self.r2)
-        self.assertTrue(self.r1 != self.r3)
-        self.assertTrue(self.r1 != self.r4)
-
-        self.assertFalse(self.r2 != self.r1)
-        self.assertTrue(self.r2 != self.r3)
-        self.assertTrue(self.r2 != self.r4)
-
-        self.assertTrue(self.r3 != self.r4)
-
-    def test_equal_redis_dict(self):
+    def test_eq_with_redis_dict(self):
         self.assertEqual(self.r1, self.r2)
-        self.assertNotEqual(self.r1, self.r3)
-        self.assertNotEqual(self.r1, self.r4)
 
-    def test_equal_with_dict(self):
+    def test_eq_with_dict(self):
         self.assertEqual(self.r1, self.d1)
-        self.assertNotEqual(self.r1, self.d2)
 
-    def test_empty_equal(self):
-        empty_r = RedisDict(namespace="test_empty")  # TODO make sure it's deleted
+    def test_eq_empty(self):
+        empty_r = RedisDict(namespace="test_empty")
         self.assertEqual(empty_r, {})
+        empty_r.clear()
 
-    def test_nested_empty_equal(self):
-        nested_empty_r = RedisDict(namespace="test_nested_empty")  # TODO make sure it's deleted
+    def test_eq_nested_empty(self):
+        nested_empty_r = RedisDict(namespace="test_nested_empty")
         nested_empty_r.update({"a": {}})
         nested_empty_d = {"a": {}}
         self.assertEqual(nested_empty_r, nested_empty_d)
+        nested_empty_r.clear()
+
+    def test_neq(self):
+        self.assertFalse(self.r1 != self.r2)
+        self.assertTrue(self.r1 != self.r3)
+        self.assertTrue(self.r1 != self.r4)
+        self.assertFalse(self.r2 != self.r1)
+        self.assertTrue(self.r2 != self.r3)
+        self.assertTrue(self.r2 != self.r4)
+        self.assertTrue(self.r3 != self.r4)
+
+    def test_neq_with_redis_dict(self):
+        self.assertNotEqual(self.r1, self.r3)
+        self.assertNotEqual(self.r1, self.r4)
+
+    def test_neq_with_dict(self):
+        self.assertNotEqual(self.r1, self.d2)
+
+    def test_neq_empty(self):
+        empty_r = RedisDict(namespace="test_empty")
+        self.assertNotEqual(self.r1, {})
+        self.assertNotEqual(empty_r, self.d1)
+        empty_r.clear()
+
+    def test_neq_nested_empty(self):
+        nested_empty_r = RedisDict(namespace="test_nested_empty")
+        nested_empty_r.update({"a": {}})
+        nested_empty_d = {"a": {}}
+        self.assertNotEqual(self.r1, nested_empty_d)
+        self.assertNotEqual(nested_empty_r, self.d1)
+        nested_empty_r.clear()
+
+    def test_is_comparison(self):
+        self.assertTrue(self.r1 is self.r1)
+        self.assertFalse(self.r1 is self.r2)
+        self.assertTrue(self.r2 is self.r2)
+        self.assertFalse(self.r2 is self.r3)
+
+    def test_is_comparison_with_dict(self):
+        self.assertFalse(self.r1 is self.d1)
+        self.assertFalse(self.d2 is self.d1)
+
+    def test_is_not_comparison(self):
+        self.assertFalse(self.r1 is not self.r1)
+        self.assertTrue(self.r1 is not self.r2)
+        self.assertFalse(self.r2 is not self.r2)
+        self.assertTrue(self.r2 is not self.r3)
+
+    def test_is_not_comparison_with_dict(self):
+        self.assertTrue(self.r1 is not self.d1)
+        self.assertTrue(self.d2 is not self.d1)
+
+    def test_lt(self):
+        with self.assertRaises(TypeError):
+            self.r1 < self.r2
+
+    def test_lt_with_different_type(self):
+        with self.assertRaises(TypeError):
+            self.r1 < self.d1
+
+    def test_le(self):
+        with self.assertRaises(TypeError):
+            self.r1 <= self.r2
+
+    def test_le_with_different_type(self):
+        with self.assertRaises(TypeError):
+            self.r1 <= self.d1
+
+    def test_ge(self):
+        with self.assertRaises(TypeError):
+            self.r1 >= self.r2
+
+    def test_ge_with_different_type(self):
+        with self.assertRaises(TypeError):
+            self.r1 >= self.d1
+
+    def test_gt(self):
+        with self.assertRaises(TypeError):
+            self.r1 > self.r2
+
+    def test_gt_with_different_type(self):
+        with self.assertRaises(TypeError):
+            self.r1 > self.d1
+
+    def test_sequential_comparison(self):
+        d = {}
+        d2 = {}
+        rd = RedisDict(namespace="sequential_comparison")
+
+        # Testing for identity
+        self.assertTrue(d is not d2)
+        self.assertTrue(d is not rd)
+
+        # Testing for equality
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == rd.items())
+
+        d["foo1"] = "bar1"
+
+        # Testing for inequality after modification in 'd'
+        self.assertTrue(d != d2)
+        self.assertTrue(d != rd)
+        self.assertTrue(d.items() != d2.items())
+        self.assertTrue(list(d.items()) != rd.items())
+
+        # Modifying 'd2' and 'rd'
+        d2["foo1"] = "bar1"
+        rd["foo1"] = "bar1"
+
+        # Testing for equality
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == rd.items())
+
+        d.clear()
+        d2.clear()
+        rd.clear()
+
+        rd.update({"a": {}})
+        d.update({"a": {}})
+        d2.update({"a": {}})
+
+        # Testing for nested comparison
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == rd.items())
+
+        d.clear()
+
+        # Testing for inequality after clear
+        self.assertTrue(d != d2)
+        self.assertTrue(d != rd)
+        self.assertTrue(d.items() != d2.items())
+        self.assertTrue(list(d.items()) != rd.items())
+
+        d2.clear()
+        rd.clear()
+
+        # Testing for equality after clear
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == rd.items())
 
 
 class TestRedisDictPreserveExpire(unittest.TestCase):
