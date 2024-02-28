@@ -642,8 +642,10 @@ class RedisDict:
         """
         return self.__delitem__(':'.join(iterable))
 
+    #  def expire_at(self, sec_epoch: int | timedelta) -> Iterator[None]:
+    #  compatibility with Python 3.9 typing
     @contextmanager
-    def expire_at(self, sec_epoch: int | timedelta) -> Iterator[None]:
+    def expire_at(self, sec_epoch: Union[int, timedelta]) -> Iterator[None]:
         """
         Context manager to set the expiration time for keys in the RedisDict.
 
