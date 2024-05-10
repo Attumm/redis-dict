@@ -1,5 +1,4 @@
 # Redis-dict
-[![Build Status](https://travis-ci.com/Attumm/redis-dict.svg?branch=main)](https://travis-ci.com/Attumm/redis-dict)
 [![Downloads](https://static.pepy.tech/badge/redis-dict/month)](https://pepy.tech/project/redis-dict)
 
 RedisDict is a Python library that provides a convenient and familiar interface for interacting with Redis as if it were a Python dictionary. This simple yet powerful library enables you to manage key-value pairs in Redis using native Python syntax. It supports various data types, including strings, integers, floats, booleans, lists, and dictionaries, and includes additional utility functions for more complex use cases.
@@ -205,7 +204,7 @@ print(dic["d"])  # Output: 4
 ```
 
 ### Additional Examples
-For more advanced examples of RedisDict, please refer to the unit-test files in the repository. All features and functionalities are thoroughly tested in [unit tests (here)](https://github.com/Attumm/redis-dict/blob/main/tests.py#L1) Or take a look at load test for batching [load test](https://github.com/Attumm/redis-dict/blob/main/load_test.py.py#L1).
+For more advanced examples of RedisDict, please refer to the unit-test files in the repository. All features and functionalities are thoroughly tested in [unit tests (here)](https://github.com/Attumm/redis-dict/blob/main/tests.py#L1) Or take a look at load test for batching [load test](https://github.com/Attumm/redis-dict/blob/main/load_test.py#L1).
 The unit-tests can be as used as a starting point.
 
 ### Redis Encryption
