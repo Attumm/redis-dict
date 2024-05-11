@@ -540,7 +540,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         redis_dic.clear()
         self.assertEqual(len(redis_dic), 0)
 
-    def test_dict_method_pipeline_buffer_sets(self):
+    def test_dict_method_pipeline_buffer_sets(self):  # noqa: C901
         redis_dic = self.create_redis_dict()
         expected = {
             'a': 1,

@@ -88,15 +88,16 @@ def main():
     max_time = max(operation_times)
     std_dev = statistics.stdev(operation_times)
 
-    print(f"used batching: {batched}, Total operations: {OPERATIONS}, Batch-size: {BATCH_SIZE}")
-    print(f"Mean time: {mean_time:.6f} s")
-    print(f"Minimum time: {min_time:.6f} s")
-    print(f"Maximum time: {max_time:.6f} s")
-    print(f"Standard deviation: {std_dev:.6f} s")
+    # Adding 'noqa' at the end of lines to suppress the E231 warning due to a bug in pylama with Python 3.12
+    print(f"used batching: {batched}, Total operations: {OPERATIONS}, Batch-size: {BATCH_SIZE}")  # noqa: E231
+    print(f"Mean time: {mean_time:.6f} s")  # noqa: E231
+    print(f"Minimum time: {min_time:.6f} s")  # noqa: E231
+    print(f"Maximum time: {max_time:.6f} s")  # noqa: E231
+    print(f"Standard deviation: {std_dev:.6f} s")  # noqa: E231
 
     end_total = time.time()
     total_time = end_total - start_total
-    print(f"Total time: {total_time:.6f} s")
+    print(f"Total time: {total_time:.6f} s")  # noqa: E231
 
 
 if __name__ == "__main__":
