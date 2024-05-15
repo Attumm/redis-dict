@@ -1,0 +1,5 @@
+[run]
+omit =
+    */site-packages/*
+    *test.py
+    *tests.py
