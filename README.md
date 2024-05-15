@@ -1,5 +1,6 @@
 # Redis-dict
 [![CI](https://github.com/Attumm/redis-dict/actions/workflows/ci.yml/badge.svg)](https://github.com/Attumm/redis-dict/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Attumm/redis-dict/graph/badge.svg?token=Lqs7McQGEs)](https://codecov.io/gh/Attumm/redis-dict)
 [![Downloads](https://static.pepy.tech/badge/redis-dict/month)](https://pepy.tech/project/redis-dict)
 
 RedisDict is a Python library that provides a convenient and familiar interface for interacting with Redis as if it were a Python dictionary. This simple yet powerful library enables you to manage key-value pairs in Redis using native Python syntax. It supports various data types, including strings, integers, floats, booleans, lists, and dictionaries, and includes additional utility functions for more complex use cases.
