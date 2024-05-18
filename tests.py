@@ -657,6 +657,20 @@ class TestRedisDict(unittest.TestCase):
     def setUp(self):
         self.clear_test_namespace()
 
+    def test_get_redis_info(self):
+        """Ensure get_redis_info() returns a dictionary with Redis server information."""
+        result = self.r.get_redis_info()
+        self.assertIsInstance(result, dict)
+        self.assertIn('redis_version', result)
+
+    def test_sizeof(self):
+        """Verify that RedisDict's __sizeof__() method returns the correct size."""
+        self.r.clear()
+        self.r['key'] = 'value'
+        expected = self.r.to_dict().__sizeof__()
+        result = self.r.__sizeof__()
+        self.assertEqual(expected, result)
+
     def test_keys_empty(self):
         """Calling RedisDict.keys() should return an empty list."""
         keys = self.r.keys()
@@ -1050,6 +1064,30 @@ class TestRedisDict(unittest.TestCase):
         time.sleep(2)
         self.assertEqual(self.r['key10'], 'value10')
         self.assertRaises(KeyError, lambda: self.r['key11'])
+
+    def test_expire_ttl(self):
+        expected = 2
+        key, value = 'key12', 'value12'
+        self.r[key] = value
+        with self.r.expire_at(expected):
+            self.r[key] = value
+            # test within the context manager
+            result = self.r.get_ttl(key)
+            self.assertAlmostEqual(expected, result, delta=1)
+
+        # test outside the context manager
+        result = self.r.get_ttl(key)
+
+        self.assertAlmostEqual(expected, result, delta=1)
+        self.assertEqual(self.r[key], value)
+
+        time.sleep(2.2)
+        self.assertRaises(KeyError, lambda: self.r[key])
+
+        # test after expire
+        expected = None
+        result = self.r.get_ttl(key)
+        self.assertEqual(result, expected)
 
     def test_set_get_empty_tuple(self):
         key = "empty_tuple"
@@ -1615,8 +1653,4 @@ class TestRedisDictWithHypothesis(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    import sys
-
-    if sys.version_info[0] == 2:
-        unittest.TestCase.assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
     unittest.main()
