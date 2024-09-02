@@ -1,4 +1,5 @@
 import json
+from collections.abc import MutableMapping
 from datetime import timedelta
 from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
 from redis import StrictRedis
@@ -75,7 +76,7 @@ def _pre_transform_set(val: Set[Any]) -> str:
     return json.dumps(list(val))
 
 
-class RedisDict:
+class RedisDict(MutableMapping):
     """
     A Redis-backed dictionary-like data structure with support for advanced features, such as
     custom data types, pipelining, and key expiration.
