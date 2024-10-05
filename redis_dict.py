@@ -74,11 +74,11 @@ from redis import StrictRedis
 
 SENTINEL = object()
 
-TransformType = Dict[str, Callable[[str], Any]]
-PreTransformType = Dict[str, Callable[[Any], str]]
 
+DecodeType = Dict[str, Callable[[str], Any]]
+EncodeType = Dict[str, Callable[[Any], str]]
 
-def _transform_tuple(val: str) -> Tuple[Any, ...]:
+def _decode_tuple(val: str) -> Tuple[Any, ...]:
     """
     Deserialize a JSON-formatted string to a tuple.
 
@@ -94,7 +94,7 @@ def _transform_tuple(val: str) -> Tuple[Any, ...]:
     return tuple(json.loads(val))
 
 
-def _pre_transform_tuple(val: Tuple[Any, ...]) -> str:
+def _encode_tuple(val: Tuple[Any, ...]) -> str:
     """
     Serialize a tuple to a JSON-formatted string.
 
@@ -110,7 +110,7 @@ def _pre_transform_tuple(val: Tuple[Any, ...]) -> str:
     return json.dumps(list(val))
 
 
-def _transform_set(val: str) -> Set[Any]:
+def _decode_set(val: str) -> Set[Any]:
     """
     Deserialize a JSON-formatted string to a set.
 
@@ -126,7 +126,7 @@ def _transform_set(val: str) -> Set[Any]:
     return set(json.loads(val))
 
 
-def _pre_transform_set(val: Set[Any]) -> str:
+def _encode_set(val: Set[Any]) -> str:
     """
     Serialize a set to a JSON-formatted string.
 
@@ -160,21 +160,21 @@ class RedisDict:
     It aims to offer a seamless and familiar interface for developers familiar with Python dictionaries,
     enabling a smooth transition to a Redis-backed data store.
 
-    Extendable Transform Types: You can extend RedisDict by implementing your own transformation functions and classes
-    with a unique __type__. This allows RedisDict to store data in your custom format
-    which is particularly useful for scenarios such as encryption, interoperability with other systems using Redis,
-    or handling classes stored within your dictionary. To achieve this, add the __type__ name of your class to the
-    transform types, along with the necessary functions for serialization.
+    Extendable Custom Types: You can extend RedisDict by implementing adding or overwriting encoding and decoding
+    functions for storing your obj based on their  __type__. This will allow users to extend RedisDict
+    encoding and decoding of data. This will allow for working with encrypted data on redis without making changes to the code.
+    and it will allow  handling of your objects stored within your dictionary. To achieve this, add the __type__ name of your class to the
+    encoding/decoding.
 
     Attributes:
-        _transform (Dict[str, Callable[[str], Any]]): Mapping of load transformation functions of data.
-        _pre_transform (Dict[str, Callable[[Any], str]]): Mapping of storing transformation functions of data.
+        decoding_registry (Dict[str, Callable[[str], Any]]): Mapping of decoding transformation functions based on type
+        encoding_registry (Dict[str, Callable[[Any], str]]): Mapping of encoding transformation functions based on type
         namespace (str): A string used as a prefix for Redis keys to separate data in different namespaces.
         expire (Union[int, None]): An optional expiration time for keys, in seconds.
 
     """
 
-    _transform: TransformType = {
+    decoding_registry: DecodeType = {
         type('').__name__: str,
         type(1).__name__: int,
         type(0.1).__name__: float,
@@ -183,15 +183,15 @@ class RedisDict:
 
         "list": json.loads,
         "dict": json.loads,
-        "tuple": _transform_tuple,
-        type(set()).__name__: _transform_set,
+        "tuple": _decode_tuple,
+        type(set()).__name__: _decode_set,
     }
 
-    _pre_transform: PreTransformType = {
+    encoding_registry: EncodeType = {
         "list": json.dumps,
         "dict": json.dumps,
-        "tuple": _pre_transform_tuple,
-        type(set()).__name__: _pre_transform_set,
+        "tuple": _encode_tuple,
+        type(set()).__name__: _encode_set,
     }
 
     def __init__(self,
@@ -216,7 +216,6 @@ class RedisDict:
         self.get_redis: StrictRedis[Any] = self.redis
 
         self._iter: Iterator[str] = iter([])
-
         self._max_string_size: int = 500 * 1024 * 1024  # 500mb
 
     def _format_key(self, key: str) -> str:
@@ -270,7 +269,7 @@ class RedisDict:
         store_type, key = type(value).__name__, str(key)
         if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
-        value = self._pre_transform.get(store_type, lambda x: x)(value)  # type: ignore
+        value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
 
         store_value = f'{store_type}:{value}'
         formatted_key = self._format_key(key)
@@ -294,7 +293,7 @@ class RedisDict:
         if result is None:
             return False, None
         t, value = result.split(':', 1)
-        return True, self._transform.get(t, lambda x: x)(value)
+        return True, self.decoding_registry.get(t, lambda x: x)(value)
 
     def _transform(self, result: str) -> Any:
         """
@@ -307,20 +306,20 @@ class RedisDict:
             Any: The transformed Python object.
         """
         t, value = result.split(':', 1)
-        return self._transform.get(t, lambda x: x)(value)
+        return self.decoding_registry.get(t, lambda x: x)(value)
 
-    def add_type(self, k: str, pre_transform: Callable[[Any], str], transform: Callable[[str], Any]) -> None:
+    def add_type(self, k: str, encode: Callable[[Any], str], decode: Callable[[str], Any]) -> None:
         """
-        Extends redis dict types a custom type to the transform mapping.
-        for storing pre_transform function, for loading transform function.
+        Extends redis dict types a custom type to the decode mapping.
+        for storing encode function, for loading decode function.
 
         Args:
             k (str): The key representing the type, the result of `__type__` for the added object
-            pre_transform (Callable[[Any], str]): The load transformation function for the type.
-            transform (Callable[[str], Any]): The load transformation function for the type.
+            encode (Callable[[Any], str]): The function to encode data into a storable string format.
+            decode (Callable[[str], Any]): The function to decode data from stored string format back to its original type.
         """
-        self._transform[k] = transform
-        self._pre_transform[k] = pre_transform
+        self.decoding_registry[k] = decode
+        self.encoding_registry[k] = encode
 
     def __eq__(self, other: Any) -> bool:
         """
