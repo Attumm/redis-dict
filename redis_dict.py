@@ -74,9 +74,9 @@ from redis import StrictRedis
 
 SENTINEL = object()
 
-
 DecodeType = Dict[str, Callable[[str], Any]]
 EncodeType = Dict[str, Callable[[Any], str]]
+
 
 def _decode_tuple(val: str) -> Tuple[Any, ...]:
     """
@@ -160,11 +160,10 @@ class RedisDict:
     It aims to offer a seamless and familiar interface for developers familiar with Python dictionaries,
     enabling a smooth transition to a Redis-backed data store.
 
-    Extendable Custom Types: You can extend RedisDict by implementing adding or overwriting encoding and decoding
-    functions for storing your obj based on their  __type__. This will allow users to extend RedisDict
-    encoding and decoding of data. This will allow for working with encrypted data on redis without making changes to the code.
-    and it will allow  handling of your objects stored within your dictionary. To achieve this, add the __type__ name of your class to the
-    encoding/decoding.
+    Extendable Types: You can extend RedisDict by adding or overriding encoding and decoding functions.
+    This functionality enables various use cases, such as managing encrypted data in Redis,
+    To implement this, simply create and register your custom encoding and decoding functions.
+    By delegating serialization to redis-dict, reduce complexity and have simple code in the codebase.
 
     Attributes:
         decoding_registry (Dict[str, Callable[[str], Any]]): Mapping of decoding transformation functions based on type
@@ -308,18 +307,18 @@ class RedisDict:
         t, value = result.split(':', 1)
         return self.decoding_registry.get(t, lambda x: x)(value)
 
-    def add_type(self, k: str, encode: Callable[[Any], str], decode: Callable[[str], Any]) -> None:
+    def extends_type(self, class_type: str, encode: Callable[[Any], str], decode: Callable[[str], Any]) -> None:
         """
         Extends redis dict types a custom type to the decode mapping.
         for storing encode function, for loading decode function.
 
         Args:
-            k (str): The key representing the type, the result of `__type__` for the added object
+            class_type (str): The result of `__type__` will become the key for encoding and decoding functions.
             encode (Callable[[Any], str]): The function to encode data into a storable string format.
-            decode (Callable[[str], Any]): The function to decode data from stored string format back to its original type.
+            decode (Callable[[str], Any]): The function to decode data from string format back to its original type.
         """
-        self.decoding_registry[k] = decode
-        self.encoding_registry[k] = encode
+        self.decoding_registry[class_type] = decode
+        self.encoding_registry[class_type] = encode
 
     def __eq__(self, other: Any) -> bool:
         """
