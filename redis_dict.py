@@ -167,14 +167,14 @@ class RedisDict:
     transform types, along with the necessary functions for serialization.
 
     Attributes:
-        transform (Dict[str, Callable[[str], Any]]): Mapping of load transformation functions of data.
-        pre_transform (Dict[str, Callable[[Any], str]]): Mapping of storing transformation functions of data.
+        _transform (Dict[str, Callable[[str], Any]]): Mapping of load transformation functions of data.
+        _pre_transform (Dict[str, Callable[[Any], str]]): Mapping of storing transformation functions of data.
         namespace (str): A string used as a prefix for Redis keys to separate data in different namespaces.
         expire (Union[int, None]): An optional expiration time for keys, in seconds.
 
     """
 
-    transform: TransformType = {
+    _transform: TransformType = {
         type('').__name__: str,
         type(1).__name__: int,
         type(0.1).__name__: float,
@@ -187,7 +187,7 @@ class RedisDict:
         type(set()).__name__: _transform_set,
     }
 
-    pre_transform: PreTransformType = {
+    _pre_transform: PreTransformType = {
         "list": json.dumps,
         "dict": json.dumps,
         "tuple": _pre_transform_tuple,
@@ -270,7 +270,7 @@ class RedisDict:
         store_type, key = type(value).__name__, str(key)
         if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
-        value = self.pre_transform.get(store_type, lambda x: x)(value)  # type: ignore
+        value = self._pre_transform.get(store_type, lambda x: x)(value)  # type: ignore
 
         store_value = f'{store_type}:{value}'
         formatted_key = self._format_key(key)
@@ -294,7 +294,7 @@ class RedisDict:
         if result is None:
             return False, None
         t, value = result.split(':', 1)
-        return True, self.transform.get(t, lambda x: x)(value)
+        return True, self._transform.get(t, lambda x: x)(value)
 
     def _transform(self, result: str) -> Any:
         """
@@ -307,7 +307,7 @@ class RedisDict:
             Any: The transformed Python object.
         """
         t, value = result.split(':', 1)
-        return self.transform.get(t, lambda x: x)(value)
+        return self._transform.get(t, lambda x: x)(value)
 
     def add_type(self, k: str, pre_transform: Callable[[Any], str], transform: Callable[[str], Any]) -> None:
         """
@@ -319,8 +319,8 @@ class RedisDict:
             pre_transform (Callable[[Any], str]): The load transformation function for the type.
             transform (Callable[[str], Any]): The load transformation function for the type.
         """
-        self.transform[k] = transform
-        self.pre_transform[k] = pre_transform
+        self._transform[k] = transform
+        self._pre_transform[k] = pre_transform
 
     def __eq__(self, other: Any) -> bool:
         """
