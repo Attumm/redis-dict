@@ -279,7 +279,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(len(dic), len(input_items) - i)
             self.assertEqual(len(redis_dic), len(input_items) - i)
 
-        expected = "defualt item"
+        expected = "default item"
         self.assertEqual(dic.pop("item", expected), expected)
         self.assertEqual(redis_dic.pop("item", expected), expected)
 
@@ -696,18 +696,18 @@ class TestRedisDict(unittest.TestCase):
         self.assertEqual(self.r['foobar1'], 'barbar1')
         self.assertEqual(self.r['foobar2'], 'barbar2')
 
-    def test_get_nonexisting(self):
+    def test_get_non_existing(self):
         """Test that retrieving a non-existing key raises a KeyError."""
         with self.assertRaises(KeyError):
-            _ = self.r['nonexistingkey']
+            _ = self.r['non_existing_key']
 
     def test_delete(self):
         """Test deleting a key."""
-        self.r['foobargone'] = 'bars'
+        key = 'foobar_gone'
+        self.r[key] = 'bar'
 
-        del self.r['foobargone']
-
-        self.assertEqual(self.redisdb.get('foobargone'), None)
+        del self.r[key]
+        self.assertEqual(self.redisdb.get(key), None)
 
     def test_contains_empty(self):
         """Tests the __contains__ function with no keys set."""
@@ -729,17 +729,21 @@ class TestRedisDict(unittest.TestCase):
 
     def test_repr_nonempty(self):
         """Tests the __repr__ function with keys set."""
-        self.r['foobars'] = 'barrbars'
-        expected_repr = str({'foobars': 'barrbars'})
-        actual_repr = repr(self.r)
-        self.assertEqual(actual_repr, expected_repr)
+        key = 'foobar'
+        val = 'bar'
+        self.r[key] = val
+        expected = str({key: val})
+        result = repr(self.r)
+        self.assertEqual(result, expected)
 
     def test_str_nonempty(self):
         """Tests the __repr__ function with keys set."""
-        self.r['foobars'] = 'barrbars'
-        expected_str = str({'foobars': 'barrbars'})
-        actual_str = str(self.r)
-        self.assertEqual(actual_str, expected_str)
+        key = 'foobar'
+        val = 'bar'
+        self.r[key] = val
+        expected = str({key: val})
+        result = str(self.r)
+        self.assertEqual(result, expected)
 
     def test_len_empty(self):
         """Tests the __repr__ function with no keys set."""
@@ -820,7 +824,7 @@ class TestRedisDict(unittest.TestCase):
             _ = self.r.chain_get(['foo', 'bar'])
 
     def test_expire_context(self):
-        """Test adding keys with an expire value by using the contextmanager."""
+        """Test adding keys with an `expire` value by using the contextmanager."""
         with self.r.expire_at(3600):
             self.r['foobar'] = 'barbar'
 
@@ -828,7 +832,7 @@ class TestRedisDict(unittest.TestCase):
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
 
     def test_expire_context_timedelta(self):
-        """ Test adding keys with an expire value by using the contextmanager. With timedelta as argument. """
+        """ Test adding keys with an `expire` value by using the contextmanager. With timedelta as argument. """
         timedelta_one_hour = timedelta(hours=1)
         timedelta_one_minute = timedelta(minutes=1)
         hour_in_seconds = 60 * 60
@@ -845,7 +849,7 @@ class TestRedisDict(unittest.TestCase):
         self.assertAlmostEqual(minute_in_seconds, actual_ttl, delta=2)
 
     def test_expire_keyword(self):
-        """Test adding keys with an expire value by using the expire config keyword."""
+        """Test adding keys with an `expire` value by using the `expire` config keyword."""
         r = self.create_redis_dict(expire=3600)
 
         r['foobar'] = 'barbar'
@@ -853,7 +857,7 @@ class TestRedisDict(unittest.TestCase):
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
 
     def test_expire_keyword_timedelta(self):
-        """ Test adding keys with an expire value by using the expire config keyword. With timedelta as argument."""
+        """ Test adding keys with an `expire` value by using the `expire` config keyword. With timedelta as argument."""
         timedelta_one_hour = timedelta(hours=1)
         timedelta_one_minute = timedelta(minutes=1)
         hour_in_seconds = 60 * 60
@@ -1153,13 +1157,13 @@ class TestRedisDictSecurity(unittest.TestCase):
         self.clear_test_namespace()
 
     def test_unicode_key(self):
-        # Test handling of unicode keys
+        # Test handling of Unicode keys
         unicode_key = '你好'
         self.r[unicode_key] = 'value'
         self.assertEqual(self.r[unicode_key], 'value')
 
     def test_unicode_value(self):
-        # Test handling of unicode values
+        # Test handling of Unicode values
         unicode_value = '世界'
         self.r['key'] = unicode_value
         self.assertEqual(self.r['key'], unicode_value)
@@ -1486,7 +1490,7 @@ class TestRedisDictPreserveExpire(unittest.TestCase):
         value = "bar"
         redis_dict[key] = value
 
-        # Ensure the TTL (time-to-live) of the "foo" key is approximately the global expire time.
+        # Ensure the TTL (time-to-live) of the "foo" key is approximately the global `expire` time.
         actual_ttl = redis_dict.get_ttl(key)
         self.assertAlmostEqual(3600, actual_ttl, delta=1)
 
@@ -1502,7 +1506,7 @@ class TestRedisDictPreserveExpire(unittest.TestCase):
         actual_ttl_foo = redis_dict.get_ttl(key)
         self.assertAlmostEqual(3600 - time_sleeping, actual_ttl_foo, delta=1)
 
-        # Ensure the TTL of the "bar" key is also approximately the global expire time.
+        # Ensure the TTL of the "bar" key is also approximately the global `expire` time.
         actual_ttl_bar = redis_dict.get_ttl(new_key)
 
         self.assertAlmostEqual(3600, actual_ttl_bar, delta=1)
@@ -1518,7 +1522,7 @@ class TestRedisDictPreserveExpire(unittest.TestCase):
         value = "bar"
         redis_dict[key] = value
 
-        # Ensure the TTL (time-to-live) of the "foo" key is approximately the global expire time.
+        # Ensure the TTL (time-to-live) of the "foo" key is approximately the global `expire` time.
         actual_ttl = redis_dict.get_ttl(key)
         self.assertAlmostEqual(3600, actual_ttl, delta=1)
 
@@ -1534,12 +1538,12 @@ class TestRedisDictPreserveExpire(unittest.TestCase):
         actual_ttl_foo = redis_dict.get_ttl(key)
         self.assertAlmostEqual(3600, actual_ttl_foo, delta=1)
 
-        # Ensure the TTL of the "bar" key is also approximately the global expire time.
+        # Ensure the TTL of the "bar" key is also approximately the global `expire` time.
         actual_ttl_bar = redis_dict.get_ttl(new_key)
 
         self.assertAlmostEqual(3600, actual_ttl_bar, delta=1)
 
-        # Ensure the difference between the TTLs of "foo" and "bar" is no more then 1 seconds.
+        # Ensure the difference between the TTLs of "foo" and "bar" is no more than one second.
         self.assertTrue(abs(actual_ttl_foo - actual_ttl_bar) <= 1)
 
 
