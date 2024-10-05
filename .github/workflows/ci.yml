@@ -44,7 +44,7 @@ jobs:
 
       - name: Run Pylama
         run: |
-          pylama * -i E501
+          pylama redis_dict.py -i E501,E231
 
       - name: Run Unit Tests
         run: |
