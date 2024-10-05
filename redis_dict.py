@@ -1,14 +1,81 @@
+"""
+redis_dict.py
+
+RedisDict is a Python library that provides a convenient and familiar interface for
+interacting with Redis as if it were a Python dictionary. The simple yet powerful library
+enables you to manage key-value pairs in Redis using native Python syntax of dictionary. It supports
+various data types, including strings, integers, floats, booleans, lists, and dictionaries,
+and includes additional utility functions for more complex use cases.
+
+By leveraging Redis for efficient key-value storage, RedisDict allows for high-performance
+data management and is particularly useful for handling large datasets that may exceed local
+memory capacity.
+
+## Features
+
+* **Dictionary-like interface**: Use familiar Python dictionary syntax to interact with Redis.
+* **Data Type Support**: Comprehensive support for various data types, including strings,
+  integers, floats, booleans, lists, dictionaries, sets, and tuples.
+* **Pipelining support**: Use pipelines for batch operations to improve performance.
+* **Expiration Support**: Enables the setting of expiration times either globally or individually
+  per key, through the use of context managers.
+* **Efficiency and Scalability**: RedisDict is designed for use with large datasets and is
+  optimized for efficiency. It retrieves only the data needed for a particular operation,
+  ensuring efficient memory usage and fast performance.
+* **Namespace Management**: Provides simple and efficient namespace handling to help organize
+  and manage data in Redis, streamlining data access and manipulation.
+* **Distributed Computing**: With its ability to seamlessly connect to other instances or
+  servers with access to the same Redis instance, RedisDict enables easy distributed computing.
+* **Custom data types**: Add custom types and transformations to suit your specific needs.
+
+Known feature
+
+Custom extendable Validity checks on keys, and values.to support redis-dict base exceptions with messages from
+enabling detailed reporting on the reasons for specific validation failures. This refactor would allow users
+to configure which validity checks to execute, integrate custom validation functions, and specify whether
+    to raise an error on validation failures or to drop the operation and log a warning.
+
+        For example, in a caching scenario, data should only be cached if it falls within defined minimum and
+        maximum size constraints. This approach enables straightforward dictionary set operations while ensuring
+        that only meaningful data is cached: values greater than 10 MB and less than 100 MB should be cached;
+        otherwise, they will be dropped.
+
+        >>> def my_custom_validity_check(value: str) -> None:
+            \"""
+            Validates the size of the input.
+
+            Args:
+                value (str): string to validate.
+
+            Raises:
+                RedisDictValidityException: If the length of the input is not within the allowed range.
+            \"""
+            min_size = 10 * 1024:  # Minimum size: 10 KB
+            max_size = 10 * 1024 * 1024:  # Maximum size: 10 MB
+            if len(value) < min_size
+                raise RedisDictValidityException(f"value is too small: {len(value)} bytes")
+            if len(value) > max_size
+                raise RedisDictValidityException(f"value is too large: {len(value)} bytes")
+
+        >>> cache = RedisDict(namespace='cache_valid_results_for_1_minute',
+        ... expire=60,
+        ... custom_valid_values_checks=[my_custom_validity_check], # extend with new valid check
+        ... validity_exception_suppress=True) # when value is invalid, don't store, and don't raise an exception.
+        >>> too_small = "too small to cache"
+        >>> cache["1234"] = too_small  # Since the value is below 10kb, thus there is no reason to cache the value.
+        """
 import json
+
 from datetime import timedelta
 from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
-from redis import StrictRedis
-
 from contextlib import contextmanager
+
+from redis import StrictRedis
 
 SENTINEL = object()
 
-transform_type = Dict[str, Callable[[str], Any]]
-pre_transform_type = Dict[str, Callable[[Any], str]]
+TransformType = Dict[str, Callable[[str], Any]]
+PreTransformType = Dict[str, Callable[[Any], str]]
 
 
 def _transform_tuple(val: str) -> Tuple[Any, ...]:
@@ -75,6 +142,7 @@ def _pre_transform_set(val: Set[Any]) -> str:
     return json.dumps(list(val))
 
 
+# pylint: disable=R0902, R0904
 class RedisDict:
     """
     A Redis-backed dictionary-like data structure with support for advanced features, such as
@@ -92,15 +160,21 @@ class RedisDict:
     It aims to offer a seamless and familiar interface for developers familiar with Python dictionaries,
     enabling a smooth transition to a Redis-backed data store.
 
+    Extendable Transform Types: You can extend RedisDict by implementing your own transformation functions and classes
+    with a unique __type__. This allows RedisDict to store data in your custom format
+    which is particularly useful for scenarios such as encryption, interoperability with other systems using Redis,
+    or handling classes stored within your dictionary. To achieve this, add the __type__ name of your class to the
+    transform types, along with the necessary functions for serialization.
+
     Attributes:
-        transform (Dict[str, Callable[[str], Any]]): A dictionary of data type transformation functions for loading data.
-        pre_transform (Dict[str, Callable[[Any], str]]): A dictionary of data type transformation functions for storing data.
+        transform (Dict[str, Callable[[str], Any]]): Mapping of load transformation functions of data.
+        pre_transform (Dict[str, Callable[[Any], str]]): Mapping of storing transformation functions of data.
         namespace (str): A string used as a prefix for Redis keys to separate data in different namespaces.
         expire (Union[int, None]): An optional expiration time for keys, in seconds.
 
     """
 
-    transform: transform_type = {
+    transform: TransformType = {
         type('').__name__: str,
         type(1).__name__: int,
         type(0.1).__name__: float,
@@ -113,7 +187,7 @@ class RedisDict:
         type(set()).__name__: _transform_set,
     }
 
-    pre_transform: pre_transform_type = {
+    pre_transform: PreTransformType = {
         "list": json.dumps,
         "dict": json.dumps,
         "tuple": _pre_transform_tuple,
@@ -141,6 +215,10 @@ class RedisDict:
         self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
 
+        self._iter: Iterator[str] = iter([])
+
+        self._max_string_size: int = 500 * 1024 * 1024  # 500mb
+
     def _format_key(self, key: str) -> str:
         """
         Format a key with the namespace prefix.
@@ -151,7 +229,7 @@ class RedisDict:
         Returns:
             str: The formatted key with the namespace prefix.
         """
-        return '{}:{}'.format(self.namespace, str(key))
+        return f'{self.namespace}:{str(key)}'
 
     def _valid_input(self, val: Any, val_type: str) -> bool:
         """
@@ -169,7 +247,7 @@ class RedisDict:
             bool: True if the input value is valid, False otherwise.
         """
         if val_type == "str":
-            return len(val) < (500 * 1024 * 1024)
+            return len(val) < self._max_string_size
         return True
 
     def _store(self, key: str, value: Any) -> None:
@@ -179,14 +257,22 @@ class RedisDict:
         Args:
             key (str): The key to store the value.
             value (Any): The value to be stored.
+
+        Note: Validity checks could be refactored to allow for custom exceptions that inherit from ValueError,
+        providing detailed information about why a specific validation failed.
+        This would enable users to specify which validity checks should be executed, add custom validity functions,
+        and choose whether to fail on validation errors, or drop the data and only issue a warning and continue.
+        Example usecase is caching, to cache data only when it's between min and max sizes.
+        Allowing for simple dict set operation, but only cache data that makes sense.
+
+        Note:
         """
         store_type, key = type(value).__name__, str(key)
         if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
-            # TODO When needed, make valid_input, pass the reason, or throw a exception.
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
         value = self.pre_transform.get(store_type, lambda x: x)(value)  # type: ignore
 
-        store_value = '{}:{}'.format(store_type, value)
+        store_value = f'{store_type}:{value}'
         formatted_key = self._format_key(key)
 
         if self.preserve_expiration and self.redis.exists(formatted_key):
@@ -223,15 +309,18 @@ class RedisDict:
         t, value = result.split(':', 1)
         return self.transform.get(t, lambda x: x)(value)
 
-    def add_type(self, k: str, v: Callable[[str], Any]) -> None:
+    def add_type(self, k: str, pre_transform: Callable[[Any], str], transform: Callable[[str], Any]) -> None:
         """
-        Add a custom type to the transform mapping.
+        Extends redis dict types a custom type to the transform mapping.
+        for storing pre_transform function, for loading transform function.
 
         Args:
-            k (str): The key representing the type.
-            v (Callable): The transformation function for the type.
+            k (str): The key representing the type, the result of `__type__` for the added object
+            pre_transform (Callable[[Any], str]): The load transformation function for the type.
+            transform (Callable[[str], Any]): The load transformation function for the type.
         """
-        self.transform[k] = v
+        self.transform[k] = transform
+        self.pre_transform[k] = pre_transform
 
     def __eq__(self, other: Any) -> bool:
         """
@@ -327,7 +416,7 @@ class RedisDict:
         Returns:
             Iterator[str]: An iterator over the keys of the RedisDict.
         """
-        self.iter = self.iterkeys()
+        self._iter = self.iterkeys()
         return self
 
     def __repr__(self) -> str:
@@ -358,7 +447,7 @@ class RedisDict:
         Raises:
             StopIteration: If there are no more items.
         """
-        return next(self.iter)
+        return next(self._iter)
 
     def next(self) -> str:
         """
@@ -370,7 +459,29 @@ class RedisDict:
         Raises:
             StopIteration: If there are no more items.
         """
-        return self.__next__()
+        return next(self)
+
+    def _create_iter_query(self, search_term: str) -> str:
+        """
+        Create a Redis query string for iterating over keys based on the given search term.
+
+        This method constructs a query by prefixing the search term with the namespace
+        followed by a wildcard to facilitate scanning for keys that start with the
+        provided search term.
+
+        Args:
+            search_term (str): The term to search for in Redis keys.
+
+        Returns:
+            str: A formatted query string that can be used to find keys in Redis.
+
+        Example:
+            >>> d = RedisDict(namespace='foo')
+            >>> query = self._create_iter_query('bar')
+            >>> print(query)
+            'foo:bar*'
+        """
+        return f'{self.namespace}:{search_term}*'
 
     def _scan_keys(self, search_term: str = '') -> Iterator[str]:
         """
@@ -382,7 +493,8 @@ class RedisDict:
         Returns:
             Iterator[str]: An iterator of matching Redis keys.
         """
-        return self.get_redis.scan_iter(match='{}:{}{}'.format(self.namespace, search_term, '*'))
+        search_query = self._create_iter_query(search_term)
+        return self.get_redis.scan_iter(match=search_query)
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:
         """
@@ -413,7 +525,8 @@ class RedisDict:
         Note: for python2 str is needed
         """
         to_rm = len(self.namespace) + 1
-        cursor, data = self.get_redis.scan(match='{}:{}{}'.format(self.namespace, search_term, '*'), count=1)
+        search_query = self._create_iter_query(search_term)
+        _, data = self.get_redis.scan(match=search_query, count=1)
         for item in data:
             return str(item[to_rm:])
 
@@ -435,7 +548,7 @@ class RedisDict:
         to_rm = len(self.namespace) + 1
         for item in self._scan_keys():
             try:
-                yield (str(item[to_rm:]), self[item[to_rm:]])
+                yield str(item[to_rm:]), self[item[to_rm:]]
             except KeyError:
                 pass
 
@@ -488,11 +601,12 @@ class RedisDict:
         Redis pipelining is employed to group multiple commands into a single request, minimizing
         network round-trip time, latency, and I/O load, thereby enhancing the overall performance.
 
-        It is important to highlight that the clear method can be safely executed within the context of an initiated pipeline operation
+        It is important to highlight that the clear method can be safely executed within
+        the context of an initiated pipeline operation.
         """
         with self.pipeline():
             for key in self:
-                del (self[key])
+                del self[key]
 
     def pop(self, key: str, default: Union[Any, object] = SENTINEL) -> Any:
         """
@@ -516,7 +630,7 @@ class RedisDict:
                 return default
             raise
 
-        del (self[key])
+        del self[key]
         return value
 
     def popitem(self) -> Tuple[str, Any]:
@@ -594,7 +708,8 @@ class RedisDict:
             value (Optional[Any], optional): The value to be assigned to each key in the RedisDict. Defaults to None.
 
         Returns:
-            RedisDict: The current RedisDict instance, now populated with the keys from the iterable and their corresponding values.
+            RedisDict: The current RedisDict instance,populated with the keys from the iterable and their
+            corresponding values.
         """
         for key in iterable:
             self[key] = value
@@ -640,7 +755,7 @@ class RedisDict:
         Args:
             iterable (List[str]): A list of keys representing the chain.
         """
-        return self.__delitem__(':'.join(iterable))
+        del self[':'.join(iterable)]
 
     #  def expire_at(self, sec_epoch: int | timedelta) -> Iterator[None]:
     #  compatibility with Python 3.9 typing
@@ -717,7 +832,9 @@ class RedisDict:
         if len(keys) == 0:
             return {}
         to_rm = keys[0].rfind(':') + 1
-        return dict(zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None)))
+        return dict(
+            zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None))
+        )
 
     def multi_del(self, key: str) -> int:
         """
