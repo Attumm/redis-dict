@@ -131,7 +131,7 @@ class RedisDict:
         Args:
             namespace (str, optional): A prefix for keys stored in Redis.
             expire (int, timedelta, optional): Expiration time for keys in seconds.
-            preserve_expiration (bool, optional): Whether or not to preserve the expiration.
+            preserve_expiration (bool, optional): Preserve the expiration count when the key is updated.
             **redis_kwargs: Additional keyword arguments passed to StrictRedis.
         """
         self.temp_redis: Optional[StrictRedis[Any]] = None
@@ -403,14 +403,14 @@ class RedisDict:
 
     def iterkeys(self) -> Iterator[str]:
         """
-            Note: for pythone2 str is needed
+            Note: for python2 str is needed
         """
         to_rm = len(self.namespace) + 1
         return (str(item[to_rm:]) for item in self._scan_keys())
 
     def key(self, search_term: str = '') -> Optional[str]:
         """
-        Note: for pythone2 str is needed
+        Note: for python2 str is needed
         """
         to_rm = len(self.namespace) + 1
         cursor, data = self.get_redis.scan(match='{}:{}{}'.format(self.namespace, search_term, '*'), count=1)
@@ -546,7 +546,7 @@ class RedisDict:
 
         Args:
             key (str): The key to retrieve the value.
-            default (Optional[Any], optional): The value to set if the key is not found.
+            default_value (Optional[Any], optional): The value to set if the key is not found.
 
         Returns:
             Any: The value associated with the key or the default value.
@@ -575,7 +575,7 @@ class RedisDict:
         Update the RedisDict with key-value pairs from the given mapping, analogous to a dictionary's update method.
 
         Args:
-            other (Mapping[str, Any]): A mapping containing key-value pairs to update the RedisDict.
+            dic (Mapping[str, Any]): A mapping containing key-value pairs to update the RedisDict.
         """
         with self.pipeline():
             for key, value in dic.items():
@@ -746,13 +746,13 @@ class RedisDict:
     def get_ttl(self, key: str) -> Optional[int]:
         """
         Get the Time To Live (TTL) in seconds for a given key. If the key does not exist or does not have an
-        associated expire, return None.
+        associated `expire`, return None.
 
         Args:
             key (str): The key for which to get the TTL.
 
         Returns:
-            Optional[int]: The TTL in seconds if the key exists and has an expire set; otherwise, None.
+            Optional[int]: The TTL in seconds if the key exists and has an expiry set; otherwise, None.
         """
         val = self.redis.ttl(self._format_key(key))
         if val < 0:
