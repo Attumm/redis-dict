@@ -66,7 +66,6 @@ class TestRedisDict(unittest.TestCase):
 
         key = "foo"
         key2 = "bar"
-
         expected = "foobar"
 
         redis_dict[key] = EncryptedString(expected)
@@ -79,6 +78,8 @@ class TestRedisDict(unittest.TestCase):
         self.assertEqual(result_one, EncryptedString(expected))
         self.assertEqual(result_one, result_two)
 
+        result_str = result_two.value
+        self.assertEqual(result_str, expected)
 
 if __name__ == '__main__':
     unittest.main()
