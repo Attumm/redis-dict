@@ -294,8 +294,8 @@ class RedisDict:
         result = self.get_redis.get(self._format_key(key))
         if result is None:
             return False, None
-        t, value = result.split(':', 1)
-        return True, self.decoding_registry.get(t, lambda x: x)(value)
+        type_, value = result.split(':', 1)
+        return True, self.decoding_registry.get(type_, lambda x: x)(value)
 
     def _transform(self, result: str) -> Any:
         """
