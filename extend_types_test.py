@@ -26,14 +26,20 @@ class EncryptedString:
     def __repr__(self):
         return f"EncryptedString({self.value})"
 
+    def __eq__(self, other):
+        return self.value == other.value
+
 
 class TestRedisDict(unittest.TestCase):
     def setUp(self):
         self.redis_dict = RedisDict()
 
-    def test_encrypted_string_storage_and_retrieval(self):
-        """Test storing and retrieving an EncryptedString."""
-        redis_dict = RedisDict()
+    def tearDown(self):
+        self.redis_dict.clear()
+
+    def test_encrypted_string_encoding_and_decoding(self):
+        """Test adding new type and test if encoding and decoding works."""
+        redis_dict = self.redis_dict
         redis_dict.extends_type(EncryptedString, rot13_encode, rot13_decode)
         key = "foo"
         expected_type = EncryptedString.__name__
@@ -47,13 +53,32 @@ class TestRedisDict(unittest.TestCase):
         self.assertEqual(internal_result_type, expected_type)
         self.assertEqual(internal_result_value, encoded_expected)
 
-
         result = redis_dict[key]
+
         self.assertNotEqual(encoded_expected, expected)
-
         self.assertIsInstance(result, EncryptedString)
-
         self.assertEqual(result.value, expected)
+
+    def test_encoding_decoding_should_remain_equal(self):
+        """Test adding new type and test if encoding and decoding results in the same value"""
+        redis_dict = RedisDict()
+        redis_dict.extends_type(EncryptedString, rot13_encode, rot13_decode)
+
+        key = "foo"
+        key2 = "bar"
+
+        expected = "foobar"
+
+        redis_dict[key] = EncryptedString(expected)
+
+        redis_dict[key2] = redis_dict[key]
+
+        result_one = redis_dict[key]
+        result_two = redis_dict[key2]
+
+        self.assertEqual(result_one, EncryptedString(expected))
+        self.assertEqual(result_one, result_two)
+
 
 if __name__ == '__main__':
     unittest.main()
