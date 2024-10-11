@@ -310,7 +310,7 @@ class RedisDict:
         type_, value = result.split(':', 1)
         return self.decoding_registry.get(type_, lambda x: x)(value)
 
-    def extends_type(self, class_type: Type[type], encode: Callable[[Any], str], decode: Callable[[str], Any]) -> None:
+    def extends_type(self, class_type: type, encode: Callable[[Any], str], decode: Callable[[str], Any]) -> None:
         """
         Extends redis dict types a custom type to the decode mapping.
         for storing encode function, for loading decode function.
