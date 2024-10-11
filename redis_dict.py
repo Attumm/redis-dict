@@ -33,37 +33,39 @@ Known feature
 Custom extendable Validity checks on keys, and values.to support redis-dict base exceptions with messages from
 enabling detailed reporting on the reasons for specific validation failures. This refactor would allow users
 to configure which validity checks to execute, integrate custom validation functions, and specify whether
-    to raise an error on validation failures or to drop the operation and log a warning.
+to raise an error on validation failures or to drop the operation and log a warning.
 
-        For example, in a caching scenario, data should only be cached if it falls within defined minimum and
-        maximum size constraints. This approach enables straightforward dictionary set operations while ensuring
-        that only meaningful data is cached: values greater than 10 MB and less than 100 MB should be cached;
-        otherwise, they will be dropped.
+For example, in a caching scenario, data should only be cached if it falls within defined minimum and
+maximum size constraints. This approach enables straightforward dictionary set operations while ensuring
+that only meaningful data is cached: values greater than 10 MB and less than 100 MB should be cached;
+otherwise, they will be dropped.
 
-        >>> def my_custom_validity_check(value: str) -> None:
-            \"""
-            Validates the size of the input.
+>>> def my_custom_validity_check(value: str) -> None:
+    \"""
+    Validates the size of the input.
 
-            Args:
-                value (str): string to validate.
+    Args:
+        value (str): string to validate.
 
-            Raises:
-                RedisDictValidityException: If the length of the input is not within the allowed range.
-            \"""
-            min_size = 10 * 1024:  # Minimum size: 10 KB
-            max_size = 10 * 1024 * 1024:  # Maximum size: 10 MB
-            if len(value) < min_size
-                raise RedisDictValidityException(f"value is too small: {len(value)} bytes")
-            if len(value) > max_size
-                raise RedisDictValidityException(f"value is too large: {len(value)} bytes")
+    Raises:
+        RedisDictValidityException: If the length of the input is not within the allowed range.
+    \"""
+    min_size = 10 * 1024:  # Minimum size: 10 KB
+    max_size = 10 * 1024 * 1024:  # Maximum size: 10 MB
+    if len(value) < min_size
+        raise RedisDictValidityException(f"value is too small: {len(value)} bytes")
+    if len(value) > max_size
+        raise RedisDictValidityException(f"value is too large: {len(value)} bytes")
 
-        >>> cache = RedisDict(namespace='cache_valid_results_for_1_minute',
-        ... expire=60,
-        ... custom_valid_values_checks=[my_custom_validity_check], # extend with new valid check
-        ... validity_exception_suppress=True) # when value is invalid, don't store, and don't raise an exception.
-        >>> too_small = "too small to cache"
-        >>> cache["1234"] = too_small  # Since the value is below 10kb, thus there is no reason to cache the value.
-        """
+>>> cache = RedisDict(namespace='cache_valid_results_for_1_minute',
+... expire=60,
+... custom_valid_values_checks=[my_custom_validity_check], # extend with new valid check
+... validity_exception_suppress=True) # when value is invalid, don't store, and don't raise an exception.
+>>> too_small = "too small to cache"
+>>> cache["1234"] = too_small  # Since the value is below 10kb, thus there is no reason to cache the value.
+>>> cache.get("1234") is None
+>>> True
+"""
 import json
 
 from datetime import timedelta
@@ -207,7 +209,7 @@ class RedisDict:
             preserve_expiration (bool, optional): Preserve the expiration count when the key is updated.
             **redis_kwargs: Additional keyword arguments passed to StrictRedis.
         """
-        self.temp_redis: Optional[StrictRedis[Any]] = None
+
         self.namespace: str = namespace
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
@@ -216,6 +218,7 @@ class RedisDict:
 
         self._iter: Iterator[str] = iter([])
         self._max_string_size: int = 500 * 1024 * 1024  # 500mb
+        self._temp_redis: Optional[StrictRedis[Any]] = None
 
     def _format_key(self, key: str) -> str:
         """
@@ -781,13 +784,13 @@ class RedisDict:
             ContextManager: A context manager to create a Redis pipeline batching all operations within the context.
         """
         top_level = False
-        if self.temp_redis is None:
-            self.redis, self.temp_redis, top_level = self.redis.pipeline(), self.redis, True
+        if self._temp_redis is None:
+            self.redis, self._temp_redis, top_level = self.redis.pipeline(), self.redis, True
         try:
             yield
         finally:
             if top_level:
-                _, self.temp_redis, self.redis = self.redis.execute(), None, self.temp_redis  # type: ignore
+                _, self._temp_redis, self.redis = self.redis.execute(), None, self._temp_redis  # type: ignore
 
     def multi_get(self, key: str) -> List[Any]:
         """
