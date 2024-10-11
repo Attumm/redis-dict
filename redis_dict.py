@@ -69,7 +69,7 @@ otherwise, they will be dropped.
 import json
 
 from datetime import timedelta
-from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
+from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional, Type
 from contextlib import contextmanager
 
 from redis import StrictRedis
@@ -263,7 +263,7 @@ class RedisDict:
         providing detailed information about why a specific validation failed.
         This would enable users to specify which validity checks should be executed, add custom validity functions,
         and choose whether to fail on validation errors, or drop the data and only issue a warning and continue.
-        Example usecase is caching, to cache data only when it's between min and max sizes.
+        Example use case is caching, to cache data only when it's between min and max sizes.
         Allowing for simple dict set operation, but only cache data that makes sense.
 
         Note:
@@ -307,21 +307,22 @@ class RedisDict:
         Returns:
             Any: The transformed Python object.
         """
-        t, value = result.split(':', 1)
-        return self.decoding_registry.get(t, lambda x: x)(value)
+        type_, value = result.split(':', 1)
+        return self.decoding_registry.get(type_, lambda x: x)(value)
 
-    def extends_type(self, class_type: str, encode: Callable[[Any], str], decode: Callable[[str], Any]) -> None:
+    def extends_type(self, class_type: Type[type], encode: Callable[[Any], str], decode: Callable[[str], Any]) -> None:
         """
         Extends redis dict types a custom type to the decode mapping.
         for storing encode function, for loading decode function.
 
         Args:
-            class_type (str): The result of `__type__` will become the key for encoding and decoding functions.
+            class_type (Type[type]): The class whose __name__ will become the key for encoding and decoding functions.
             encode (Callable[[Any], str]): The function to encode data into a storable string format.
             decode (Callable[[str], Any]): The function to decode data from string format back to its original type.
         """
-        self.decoding_registry[class_type] = decode
-        self.encoding_registry[class_type] = encode
+        type_name = class_type.__name__
+        self.decoding_registry[type_name] = decode
+        self.encoding_registry[type_name] = encode
 
     def __eq__(self, other: Any) -> bool:
         """
