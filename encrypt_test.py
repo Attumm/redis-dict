@@ -164,16 +164,16 @@ class TestRedisDict(unittest.TestCase):
         ]
 
         for test_num, expected in enumerate(test_cases):
-            key = str(test_num)
+            key = f"test_{test_num+1}"
             redis_dict[key] = EncryptedString(expected)
             result = redis_dict[key]
-            self.assertEqual(result.value, expected)
+            self.assertEqual(result.value, expected, f"testcase {test_num+1} failed")
 
             stored_in_redis_as = redis_dict.redis.get(redis_dict._format_key(key))
             internal_result_type, internal_result_value = stored_in_redis_as.split(":", 1)
-            self.assertNotEqual(internal_result_value, expected)
-            self.assertNotEqual(internal_result_value, expected)
-            self.assertEqual(internal_result_type, expected_internal_type)
+            self.assertNotEqual(internal_result_value, expected, f"testcase {test_num+1} failed")
+            self.assertNotEqual(internal_result_value, expected, f"testcase {test_num+1} failed")
+            self.assertEqual(internal_result_type, expected_internal_type, f"testcase {test_num+1} failed")
 
 
 if __name__ == '__main__':
