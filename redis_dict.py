@@ -69,7 +69,7 @@ otherwise, they will be dropped.
 import json
 
 from datetime import timedelta
-from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional, Type
+from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
 from contextlib import contextmanager
 
 from redis import StrictRedis
