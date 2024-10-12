@@ -193,7 +193,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(dic[key], value)
 
         input_values = list(input_items.values())
-        dic_values = list(input_items.values())
+        dic_values = list(dic.values())
         result_values = list(redis_dic.itervalues())
 
         self.assertEqual(sorted(map(str, input_values)), sorted(map(str, result_values)))

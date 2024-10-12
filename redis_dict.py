@@ -28,7 +28,7 @@ memory capacity.
   servers with access to the same Redis instance, RedisDict enables easy distributed computing.
 * **Custom data types**: Add custom types and transformations to suit your specific needs.
 
-Known feature
+New feature
 
 Custom extendable Validity checks on keys, and values.to support redis-dict base exceptions with messages from
 enabling detailed reporting on the reasons for specific validation failures. This refactor would allow users
