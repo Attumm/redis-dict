@@ -48,7 +48,7 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          coverage run -m unittest discover
+          coverage run -m unittest discover -p "*tests.py"
 
       - name: Upload coverage reports to Codecov, send only once
         if: matrix.python-version == '3.12'
