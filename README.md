@@ -3,10 +3,9 @@
 [![codecov](https://codecov.io/gh/Attumm/redis-dict/graph/badge.svg?token=Lqs7McQGEs)](https://codecov.io/gh/Attumm/redis-dict)
 [![Downloads](https://static.pepy.tech/badge/redis-dict/month)](https://pepy.tech/project/redis-dict)
 
-RedisDict is a Python library that provides a convenient and familiar interface for interacting with Redis as if it were a Python dictionary. The simple yet powerful library enables you to manage key-value pairs in Redis using native Python syntax. It supports various data types, including strings, integers, floats, booleans, lists, and dictionaries, and includes additional utility functions for more complex use cases.
+RedisDict is a Python library that offers a convenient and familiar interface for interacting with Redis, treating it as if it were a Python dictionary. Its goal is to help developers write clean, Pythonic code while using Redis as a storage solution for seamless distributed computing. This simple yet powerful library utilizes Redis as a key-value store and supports various data types, including strings, integers, floats, booleans, lists, and dictionaries. Additionally, developers can extend RedisDict to work with custom objects.
 
-By leveraging Redis for efficient key-value storage, RedisDict allows for high-performance data management and is particularly useful for handling large datasets that may exceed local memory capacity.
-
+The library includes utility functions for more complex use cases such as caching, batching, and more. By leveraging Redis for efficient key-value storage, RedisDict enables high-performance data management, maintaining efficiency even with large datasets and Redis instances.
 
 ## Features
 
@@ -22,6 +21,10 @@ By leveraging Redis for efficient key-value storage, RedisDict allows for high-p
 
 ## Example
 Redis is an exceptionally fast database when used appropriately. RedisDict leverages Redis for efficient key-value storage, enabling high-performance data management.
+
+```bash
+pip install redis-dict
+```
 
 ```python
 >>> from redis_dict import RedisDict
@@ -46,11 +49,11 @@ In Redis our example looks like this.
 "str:hello world"
 ```
 
+
 ### Namespaces
 Acting as an identifier for your dictionary across different systems, RedisDict employs namespaces for organized data management. When a namespace isn't specified, "main" becomes the default. Thus allowing for data organization across systems and projects with the same redis instance.
 
 This approach also minimizes the risk of key collisions between different applications, preventing hard-to-debug issues. By leveraging namespaces, RedisDict ensures a cleaner and more maintainable data management experience for developers working on multiple projects.
-
 
 ## Advanced Features
 
@@ -60,14 +63,11 @@ Redis provides a valuable feature that enables keys to expire. RedisDict support
 1. Set a default expiration time when creating a RedisDict instance. In this example, the keys will have a default expiration time of 10 seconds. Use seconds with an integer or pass a datetime timedelta.
 
 ```python
-from redis_dict import RedisDict
-
 dic = RedisDict(expire=10)
 dic['gone'] = 'in ten seconds'
 ```
 Or, for a more Pythonic approach, use a timedelta.
 ```python
-from redis_dict import RedisDict
 from datetime import timedelta
 
 dic = RedisDict(expire=timedelta(minutes=1))
@@ -77,7 +77,6 @@ dic['gone'] = 'in a minute'
 2. Temporarily set the default expiration time within the scope using a context manager. In this example, the key 'gone' will expire after 60 seconds. The default expiration time for other keys outside the context manager remains unchanged. Either pass an integer or a timedelta.
 
 ```python
-from redis_dict import RedisDict
 dic = RedisDict()
 
 seconds = 60
@@ -132,13 +131,14 @@ print(dic["foo"]) # outputs "bar"
 ### Caching made simple
 ```python
 import time
+from datetime import timedelta
 from redis_dict import RedisDict
 
 def expensive_function(x):
-    time.sleep(2)
+    time.sleep(x)
     return x * 2
 
-cache = RedisDict(namespace="cache", expire=10)
+cache = RedisDict(namespace="cache", expire=timedelta(minutes=60))
 
 def cached_expensive_function(x):
     if x not in cache:
@@ -146,7 +146,7 @@ def cached_expensive_function(x):
     return cache[x]
 
 start_time = time.time()
-print(cached_expensive_function(5))  # Takes around 2 seconds to compute and caches the result.
+print(cached_expensive_function(5))  # Takes around 5 seconds to compute and caches the result.
 print(f"Time taken: {time.time() - start_time:.2f} seconds")
 
 start_time = time.time()
@@ -166,7 +166,7 @@ dic["name"] = "John Doe"
 dic["age"] = 32
 dic["city"] = "Amsterdam"
 
-# Get value by key
+# Get value by key, from any instance connected to the same redis/namespace
 print(dic["name"])  # Output: John Doe
 
 # Update value by key, got a year older
@@ -225,6 +225,7 @@ The unit-tests can be as used as a starting point.
 
 RedisDict supports custom type serialization. Here's how to add a new type:
 
+
 ```python
 import json
 from redis_dict import RedisDict
@@ -234,20 +235,30 @@ class Person:
         self.name = name
         self.age = age
 
-def person_encode(obj):
-    return json.dumps(obj.__dict__)
+    def encode(self) -> str:
+        return json.dumps(self.__dict__)
 
-def person_decode(json_str):
-    return Person(**json.loads(json_str))
+    @classmethod
+    def decode(cls, encoded_str: str) -> 'Person':
+        return cls(**json.loads(encoded_str))
 
 redis_dict = RedisDict()
-redis_dict.extends_type(Person, person_encode, person_decode)
 
-redis_dict["person1"] = Person(name="John", age=32)
+# Extend redis dict with the new type
+redis_dict.extends_type(Person)
+
+# RedisDict can now seamlessly handle Person instances.
+person = Person(name="John", age=32)
+redis_dict["person1"] = person
+
+result = redis_dict["person1"]
+
+assert result.name == person.name
+assert result.age == person.age
 ```
-
+For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/extend_types_tests.py).
 ### Redis Encryption
-Setup guide for configuring and utilizing encrypted Redis for redis-dict.
+Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
 [Setup guide](https://github.com/Attumm/redis-dict/blob/main/encrypted_redis.MD)
 
 ### Redis Storage Encryption

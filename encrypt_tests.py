@@ -7,22 +7,22 @@ from cryptography.hazmat.backends import default_backend
 from redis_dict import RedisDict
 
 
-class EncryptedString:
-    def __init__(self, value):
-        self.value = value
+class EncryptedString(str):
+    """
+    A class that behaves exactly like a string but has a distinct type for redis-dict encoding and decoding.
 
-    def __format__(self, format_spec):
-        return self.value
+    This class inherits from the built-in str class, automatically providing all
+    string functionality. The only difference is its class name, which allows for
+    type checking of "encrypted" strings. Used to encode and decode for storage.
 
-    def __class__(self):
-        return "EncryptedString"
-
-    def __repr__(self):
-        return f"EncryptedString({self.value})"
-
-    def __eq__(self, other):
-        return self.value == other.value
-
+    Usage:
+    >>> normal_string = "Hello, World!"
+    >>> encrypted_string = EncryptedString("Hello, World!")
+    >>> assert normal_string == encrypted_string
+    >>> assert type(encrypted_string) == EncryptedString
+    >>> assert isinstance(encrypted_string, str)
+    """
+    pass
 
 def encode(value: str, iv: bytes, key: bytes, nonce: bytes) -> str:
     cipher = Cipher(algorithms.AES(key), modes.GCM(nonce), backend=default_backend())
@@ -45,8 +45,8 @@ def decode(encrypted_value: str, iv: bytes, key: bytes, nonce: bytes) -> str:
 
 def encode_encrypted_string(iv, key, nonce):
     def encode_value(value):
-        if isinstance(value, EncryptedString):
-            value = value.value
+        #if isinstance(value, EncryptedString):
+        #    value = value.value
         return encode(value, iv, key, nonce)
     return encode_value
 
@@ -77,6 +77,14 @@ class TestRedisDict(unittest.TestCase):
     def tearDown(self):
         self.redis_dict.clear()
 
+    def helper_get_redis_internal_value(self, key):
+        sep = ":"
+        redis_dict = self.redis_dict
+
+        stored_in_redis_as = redis_dict.redis.get(redis_dict._format_key(key))
+        internal_result_type, internal_result_value = stored_in_redis_as.split(sep, 1)
+        return internal_result_type, internal_result_value
+
     def test_encrypted_string_encoding_and_decoding(self):
         """Test adding new type and test if encoding and decoding works."""
         redis_dict = self.redis_dict
@@ -101,9 +109,9 @@ class TestRedisDict(unittest.TestCase):
 
         stored_in_redis_as = redis_dict.redis.get(redis_dict._format_key(key))
 
-        internal_result_type, internal_result_value = stored_in_redis_as.split(":", 1)
-
+        internal_result_type, internal_result_value = self.helper_get_redis_internal_value(key)
         # Should be stored encrypted
+
         self.assertNotEqual(internal_result_value, expected)
 
         self.assertEqual(internal_result_type, expected_type)
@@ -113,7 +121,7 @@ class TestRedisDict(unittest.TestCase):
 
         self.assertNotEqual(encoded_expected, expected)
         self.assertIsInstance(result, EncryptedString)
-        self.assertEqual(result.value, expected)
+        self.assertEqual(result, expected)
 
     def test_encoding_decoding_should_remain_equal(self):
         """Test adding new type and test if encoding and decoding results in the same value"""
@@ -133,8 +141,7 @@ class TestRedisDict(unittest.TestCase):
         self.assertEqual(result_one, EncryptedString(expected))
         self.assertEqual(result_one, result_two)
 
-        result_str = result_two.value
-        self.assertEqual(result_str, expected)
+        self.assertEqual(result_one, expected)
 
     def test_values(self):
         """Test different values"""
@@ -167,8 +174,10 @@ class TestRedisDict(unittest.TestCase):
             key = f"test_{test_num+1}"
             redis_dict[key] = EncryptedString(expected)
             result = redis_dict[key]
-            self.assertEqual(result.value, expected, f"testcase {test_num+1} failed")
+            # Assert result is same as the expected input value
+            self.assertEqual(result, expected, f"testcase {test_num+1} failed")
 
+            # Assert that the value internally stored in Redis is encoded, and the type is correct.
             stored_in_redis_as = redis_dict.redis.get(redis_dict._format_key(key))
             internal_result_type, internal_result_value = stored_in_redis_as.split(":", 1)
             self.assertNotEqual(internal_result_value, expected, f"testcase {test_num+1} failed")

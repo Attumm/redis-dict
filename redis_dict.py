@@ -76,8 +76,23 @@ from redis import StrictRedis
 
 SENTINEL = object()
 
-DecodeType = Dict[str, Callable[[str], Any]]
-EncodeType = Dict[str, Callable[[Any], str]]
+EncodeFuncType = Callable[[Any], str]
+DecodeFuncType = Callable[[str], Any]
+
+EncodeType = Dict[str, EncodeFuncType]
+DecodeType = Dict[str, DecodeFuncType]
+
+
+def _create_default_encode(custom_encode_method: str) -> EncodeFuncType:
+    def default_encode(obj: Any) -> str:
+        return getattr(obj, custom_encode_method)()  # type: ignore[no-any-return]
+    return default_encode
+
+
+def _create_default_decode(cls: type, custom_decode_method: str) -> DecodeFuncType:
+    def default_decode(encoded_str: str) -> Any:
+        return getattr(cls, custom_decode_method)(encoded_str)
+    return default_decode
 
 
 def _decode_tuple(val: str) -> Tuple[Any, ...]:
@@ -168,8 +183,8 @@ class RedisDict:
     By delegating serialization to redis-dict, reduce complexity and have simple code in the codebase.
 
     Attributes:
-        decoding_registry (Dict[str, Callable[[str], Any]]): Mapping of decoding transformation functions based on type
-        encoding_registry (Dict[str, Callable[[Any], str]]): Mapping of encoding transformation functions based on type
+        decoding_registry (Dict[str, DecodeFuncType]): Mapping of decoding transformation functions based on type
+        encoding_registry (Dict[str, EncodeFuncType]): Mapping of encoding transformation functions based on type
         namespace (str): A string used as a prefix for Redis keys to separate data in different namespaces.
         expire (Union[int, None]): An optional expiration time for keys, in seconds.
 
@@ -215,6 +230,9 @@ class RedisDict:
         self.preserve_expiration: Optional[bool] = preserve_expiration
         self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
+
+        self.custom_encode_method = "encode"
+        self.custom_decode_method = "decode"
 
         self._iter: Iterator[str] = iter([])
         self._max_string_size: int = 500 * 1024 * 1024  # 500mb
@@ -310,16 +328,100 @@ class RedisDict:
         type_, value = result.split(':', 1)
         return self.decoding_registry.get(type_, lambda x: x)(value)
 
-    def extends_type(self, class_type: type, encode: Callable[[Any], str], decode: Callable[[str], Any]) -> None:
+    def new_type_compliance(self, class_type: type, encode_check: bool = True, decode_check: bool = True) -> None:
         """
-        Extends redis dict types a custom type to the decode mapping.
-        for storing encode function, for loading decode function.
+        Checks if a class complies with the required encoding and decoding methods.
 
         Args:
-            class_type (Type[type]): The class whose __name__ will become the key for encoding and decoding functions.
-            encode (Callable[[Any], str]): The function to encode data into a storable string format.
-            decode (Callable[[str], Any]): The function to decode data from string format back to its original type.
+            class_type (type): The class to check for compliance.
+            encode_check (bool, optional): Whether to check for the encode method. Defaults to True.
+            decode_check (bool, optional): Whether to check for the decode method. Defaults to True.
+
+        Raises:
+            NotImplementedError: If the class does not implement the required methods when the respective check is True.
         """
+        if encode_check:
+            if not (hasattr(class_type, self.custom_encode_method) and callable(
+                    getattr(class_type, self.custom_encode_method))):
+                raise NotImplementedError(
+                    f"Class {class_type.__name__} does not implement the required {self.custom_encode_method} method.")
+        if decode_check:
+            if not (hasattr(class_type, self.custom_decode_method) and callable(
+                    getattr(class_type, self.custom_decode_method))):
+                raise NotImplementedError(
+                    f"Class {class_type.__name__} does not implement the required {self.custom_decode_method} \
+                    class method.")
+
+    def extends_type(
+            self,
+            class_type: type,
+            encode: Optional[EncodeFuncType] = None,
+            decode: Optional[DecodeFuncType] = None
+    ) -> None:
+        """
+        Extends RedisDict to support a custom type in the encode/decode mapping.
+
+        This method enables serialization of instances based on their type,
+        allowing for custom types, specialized storage formats, and more.
+        There are three ways to add custom types:
+          1. Create a new class with an `encode` instance method and a `decode` class method.
+          2. Create a new class and pass encoding and decoding functions, where
+            `encode` converts the class instance to a string, and
+            `decode` takes the string and recreates the class instance.
+          3. Create a new class that already has serialization methods,
+            and configure RedisDict to use those methods through the
+            `custom_encode_method`
+            `custom_decode_method` attributes.
+
+        Args:
+            class_type (Type[type]): The class `__name__` will become the key for the encoding and decoding functions.
+            encode (Optional[EncodeFuncType]): function that encodes an object into a storable string format.
+                This function should take an instance of `class_type` as input and return a string.
+            decode (Optional[DecodeFuncType]): function that decodes a string back into an object of `class_type`.
+                This function should take a string as input and return an instance of `class_type`.
+
+        If no encoding or decoding function is provided, default to use the `encode` and `decode` methods of the class.
+
+        The `encode` method should be an instance method that converts the object to a string.
+        The `decode` method should be a class method that takes a string and returns an instance of the class.
+
+        The method names for encoding and decoding can be changed by modifying the
+        - `custom_encode_method`
+        - `custom_decode_method`
+        attributes of the RedisDict instance
+
+        Example:
+            class Person:
+                def __init__(self, name, age):
+                    self.name = name
+                    self.age = age
+
+                def encode(self) -> str:
+                    return json.dumps(self.__dict__)
+
+                @classmethod
+                def decode(cls, encoded_str: str) -> 'Person':
+                    return cls(**json.loads(encoded_str))
+
+            redis_dict.extends_type(Person)
+
+        Note:
+        You can check for compliance of a class separately using the `new_type_compliance` method:
+            self.new_type_compliance(class_type, encode_check=True, decode_check=True)
+
+        This method raises a NotImplementedError if either `encode` or `decode` is `None`
+        and the class does not implement the corresponding method.
+        """
+
+        if encode is None or decode is None:
+            if encode is None:
+                self.new_type_compliance(class_type, encode_check=True, decode_check=False)
+                encode = _create_default_encode(self.custom_encode_method)
+
+            if decode is None:
+                self.new_type_compliance(class_type,  encode_check=False, decode_check=True)
+                decode = _create_default_decode(class_type, self.custom_decode_method)
+
         type_name = class_type.__name__
         self.decoding_registry[type_name] = decode
         self.encoding_registry[type_name] = encode
