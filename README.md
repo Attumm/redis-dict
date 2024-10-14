@@ -256,6 +256,17 @@ result = redis_dict["person1"]
 assert result.name == person.name
 assert result.age == person.age
 ```
+
+```python
+from datetime import datetime
+>>> redis_dict.extends_type(datetime,  datetime.isoformat, datetime.fromisoformat)
+>>> redis_dict["now"] = datetime.now()
+>>> redis_dict
+{'now': datetime.datetime(2024, 10, 14, 18, 41, 53, 493775)}
+>>> redis_dict["now"]
+datetime.datetime(2024, 10, 14, 18, 41, 53, 493775)
+```
+
 For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/extend_types_tests.py).
 ### Redis Encryption
 Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
