@@ -37,8 +37,8 @@ class EncryptedStringClassBased(str):
 
     def __init__(self, value: str):
         self.value = value
-        self.iv = base64.b64decode(os.environ.get('ENCRYPTION_IV', ''))
-        self.key = base64.b64decode(os.environ.get('ENCRYPTION_KEY', ''))
+        self.iv = base64.b64decode(os.environ['ENCRYPTION_IV'])
+        self.key = base64.b64decode(os.environ['ENCRYPTION_KEY'])
 
     def __str__(self):
         return self.value
@@ -46,23 +46,17 @@ class EncryptedStringClassBased(str):
     def __repr__(self):
         return f"EncryptedStringClassBased('{self.value}')"
 
-    def encode1(self) -> str:
-        cipher = Cipher(algorithms.AES(self.key), modes.GCM(self.nonce), backend=default_backend())
-        encryptor = cipher.encryptor()
-        encrypted_data = encryptor.update(self.value.encode('utf-8')) + encryptor.finalize()
-        return base64.b64encode(self.iv + self.nonce + encryptor.tag + encrypted_data).decode('utf-8')
-
     def encode(self) -> str:
         cipher = Cipher(algorithms.AES(self.key), modes.GCM(self.nonce), backend=default_backend())
         encryptor = cipher.encryptor()
 
         encrypted_data = encryptor.update(self.value.encode('utf-8', errors='surrogatepass')) + encryptor.finalize()
-        return base64.b64encode(self.iv + self.nonce + encryptor.tag + encrypted_data).decode('utf-8')
+        return str(base64.b64encode(self.iv + self.nonce + encryptor.tag + encrypted_data).decode('utf-8'))
 
     @classmethod
-    def decode(cls, encrypted_value: str) -> 'EncryptedString':
-        iv = base64.b64decode(os.environ.get('ENCRYPTION_IV', ''))
-        key = base64.b64decode(os.environ.get('ENCRYPTION_KEY', ''))
+    def decode(cls, encrypted_value: str) -> 'EncryptedStringClassBased':
+        iv = base64.b64decode(os.environ['ENCRYPTION_IV'])
+        key = base64.b64decode(os.environ['ENCRYPTION_KEY'])
         nonce = cls.nonce
 
         encrypted_data = base64.b64decode(encrypted_value)
@@ -81,19 +75,18 @@ class TestRedisDictEncryptionClassBased(unittest.TestCase):
     def setUpClass(cls):
         iv = b"0123456789abcdef"  # 16 bytes
         key = b"0123456789abcdef0123456789abcdef"  # 32 bytes (256-bit key)
-        nonce = b"0123456789abcdef"  # 16 bytes
-
-        # Store original environment variables
-        cls.original_env = {
-            'ENCRYPTION_IV': os.environ.get('ENCRYPTION_IV'),
-            'ENCRYPTION_KEY': os.environ.get('ENCRYPTION_KEY')
-        }
 
         # Set test environment variables
         os.environ['ENCRYPTION_IV'] = base64.b64encode(iv).decode('utf-8')
         os.environ['ENCRYPTION_KEY'] = base64.b64encode(key).decode('utf-8')
 
+        cls.original_env = {
+            'ENCRYPTION_IV':  os.environ['ENCRYPTION_IV'],
+            'ENCRYPTION_KEY': os.environ['ENCRYPTION_KEY'],
+        }
+
     def setUp(self):
+
         self.redis_dict = RedisDict()
         self.redis_dict.extends_type(EncryptedStringClassBased)
 
@@ -112,8 +105,8 @@ class TestRedisDictEncryptionClassBased(unittest.TestCase):
         """Test adding new type and test if encoding and decoding works."""
         redis_dict = self.redis_dict
 
-        iv = b"0123456789abcdef"  # 16 bytes
-        key = b"0123456789abcdef0123456789abcdef"  # 32 bytes (256-bit key) 16 bytes
+        iv = base64.b64decode(os.environ['ENCRYPTION_IV'])
+        key = base64.b64decode(os.environ['ENCRYPTION_KEY'])
 
         encode_encrypted_function = encode_encrypted_string(iv, key, EncryptedStringClassBased.nonce)
 

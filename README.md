@@ -258,7 +258,7 @@ assert result.age == person.age
 ```
 
 ```python
-from datetime import datetime
+>>> from datetime import datetime
 >>> redis_dict.extends_type(datetime,  datetime.isoformat, datetime.fromisoformat)
 >>> redis_dict["now"] = datetime.now()
 >>> redis_dict
