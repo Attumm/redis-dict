@@ -349,8 +349,8 @@ class RedisDict:
             if not (hasattr(class_type, self.custom_decode_method) and callable(
                     getattr(class_type, self.custom_decode_method))):
                 raise NotImplementedError(
-                    f"Class {class_type.__name__} does not implement the required {self.custom_decode_method} \
-                    class method.")
+                    f"Class {class_type.__name__} does not implement the required {self.custom_decode_method} "
+                    "class method.")
 
     def extends_type(
             self,
