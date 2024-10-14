@@ -24,14 +24,16 @@ By leveraging Redis for efficient key-value storage, RedisDict allows for high-p
 Redis is an exceptionally fast database when used appropriately. RedisDict leverages Redis for efficient key-value storage, enabling high-performance data management.
 
 ```python
-from redis_dict import RedisDict
-
-dic = RedisDict()
-dic['foo'] = 42
-print(dic['foo'])  # Output: 42
-print('foo' in dic)  # Output: True
-dic["baz"] = "hello world"
-print(dic)  # Output: {'foo': 42, 'baz': 'hello world'}
+>>> from redis_dict import RedisDict
+>>> dic = RedisDict()
+>>> dic['foo'] = 42
+>>> dic['foo']
+42
+>>> 'foo' in dic
+True
+>>> dic["baz"] = "hello world"
+>>> dic
+{'foo': 42, 'baz': 'hello world'}
 ```
 In Redis our example looks like this.
 ```
