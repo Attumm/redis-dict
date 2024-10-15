@@ -3,10 +3,9 @@
 [![codecov](https://codecov.io/gh/Attumm/redis-dict/graph/badge.svg?token=Lqs7McQGEs)](https://codecov.io/gh/Attumm/redis-dict)
 [![Downloads](https://static.pepy.tech/badge/redis-dict/month)](https://pepy.tech/project/redis-dict)
 
-RedisDict is a Python library that provides a convenient and familiar interface for interacting with Redis as if it were a Python dictionary. This simple yet powerful library enables you to manage key-value pairs in Redis using native Python syntax. It supports various data types, including strings, integers, floats, booleans, lists, and dictionaries, and includes additional utility functions for more complex use cases.
+RedisDict is a Python library that offers a convenient and familiar interface for interacting with Redis, treating it as if it were a Python dictionary. Its goal is to help developers write clean, Pythonic code while using Redis as a storage solution for seamless distributed computing. This simple yet powerful library utilizes Redis as a key-value store and supports various data types, including strings, integers, floats, booleans, lists, and dictionaries. Additionally, developers can extend RedisDict to work with custom objects.
 
-By leveraging Redis for efficient key-value storage, RedisDict allows for high-performance data management and is particularly useful for handling large datasets that may exceed local memory capacity.
-
+The library includes utility functions for more complex use cases such as caching, batching, and more. By leveraging Redis for efficient key-value storage, RedisDict enables high-performance data management, maintaining efficiency even with large datasets and Redis instances.
 
 ## Features
 
@@ -17,20 +16,27 @@ By leveraging Redis for efficient key-value storage, RedisDict allows for high-p
 * Efficiency and Scalability: RedisDict is designed for use with large datasets and is optimized for efficiency. It retrieves only the data needed for a particular operation, ensuring efficient memory usage and fast performance.
 * Namespace Management: Provides simple and efficient namespace handling to help organize and manage data in Redis, streamlining data access and manipulation.
 * Distributed Computing: With its ability to seamlessly connect to other instances or servers with access to the same Redis instance, RedisDict enables easy distributed computing.
-* Custom data types: Add custom types and transformations to suit your specific needs.
+* Custom data: types: Add custom types encoding/decoding to store your data types.
+* Encryption: allows for storing data encrypted, while retaining the simple dictionary interface.
 
 ## Example
 Redis is an exceptionally fast database when used appropriately. RedisDict leverages Redis for efficient key-value storage, enabling high-performance data management.
 
-```python
-from redis_dict import RedisDict
+```bash
+pip install redis-dict
+```
 
-dic = RedisDict()
-dic['foo'] = 42
-print(dic['foo'])  # Output: 42
-print('foo' in dic)  # Output: True
-dic["baz"] = "hello world"
-print(dic)  # Output: {'foo': 42, 'baz': 'hello world'}
+```python
+>>> from redis_dict import RedisDict
+>>> dic = RedisDict()
+>>> dic['foo'] = 42
+>>> dic['foo']
+42
+>>> 'foo' in dic
+True
+>>> dic["baz"] = "hello world"
+>>> dic
+{'foo': 42, 'baz': 'hello world'}
 ```
 In Redis our example looks like this.
 ```
@@ -43,11 +49,11 @@ In Redis our example looks like this.
 "str:hello world"
 ```
 
+
 ### Namespaces
-Acting as an identifier for your dictionary across different systems, RedisDict employs namespaces for organized data management. When a namespace isn't specified, "main" becomes the default. Thus allowing for data organization accross systems and projects with the same redis instance.
+Acting as an identifier for your dictionary across different systems, RedisDict employs namespaces for organized data management. When a namespace isn't specified, "main" becomes the default. Thus allowing for data organization across systems and projects with the same redis instance.
 
 This approach also minimizes the risk of key collisions between different applications, preventing hard-to-debug issues. By leveraging namespaces, RedisDict ensures a cleaner and more maintainable data management experience for developers working on multiple projects.
-
 
 ## Advanced Features
 
@@ -81,6 +87,8 @@ with dic.expire_at(seconds):
 3. Updating keys while preserving the initial timeout In certain situations, there is a need to update the value while keeping the expiration intact. This is achievable by setting the 'preserve_expiration' to true.
 
 ```python
+import time
+
 dic = RedisDict(expire=10, preserve_expiration=True)
 dic['gone'] = 'in ten seconds'
 
@@ -93,6 +101,7 @@ dic['gone'] = 'gone in 5 seconds'
 Efficiently batch your requests using the Pipeline feature, which can be easily utilized with a context manager.
 
 ```python
+from redis_dict import RedisDict
 dic = RedisDict(namespace="example")
 
 # one round trip to redis
@@ -122,13 +131,14 @@ print(dic["foo"]) # outputs "bar"
 ### Caching made simple
 ```python
 import time
+from datetime import timedelta
 from redis_dict import RedisDict
 
 def expensive_function(x):
-    time.sleep(2)
+    time.sleep(x)
     return x * 2
 
-cache = RedisDict(namespace="cache", expire=10)
+cache = RedisDict(namespace="cache", expire=timedelta(minutes=60))
 
 def cached_expensive_function(x):
     if x not in cache:
@@ -136,7 +146,7 @@ def cached_expensive_function(x):
     return cache[x]
 
 start_time = time.time()
-print(cached_expensive_function(5))  # Takes around 2 seconds to compute and caches the result.
+print(cached_expensive_function(5))  # Takes around 5 seconds to compute and caches the result.
 print(f"Time taken: {time.time() - start_time:.2f} seconds")
 
 start_time = time.time()
@@ -156,7 +166,7 @@ dic["name"] = "John Doe"
 dic["age"] = 32
 dic["city"] = "Amsterdam"
 
-# Get value by key
+# Get value by key, from any instance connected to the same redis/namespace
 print(dic["name"])  # Output: John Doe
 
 # Update value by key, got a year older
@@ -209,10 +219,61 @@ print(dic["d"])  # Output: 4
 For more advanced examples of RedisDict, please refer to the unit-test files in the repository. All features and functionalities are thoroughly tested in [unit tests (here)](https://github.com/Attumm/redis-dict/blob/main/tests.py#L1) Or take a look at load test for batching [load test](https://github.com/Attumm/redis-dict/blob/main/load_test.py#L1).
 The unit-tests can be as used as a starting point.
 
+### Extending Types
+
+## Extending RedisDict with Custom Types
+
+RedisDict supports custom type serialization. Here's how to add a new type:
+
+
+```python
+import json
+from redis_dict import RedisDict
+
+class Person:
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+
+    def encode(self) -> str:
+        return json.dumps(self.__dict__)
+
+    @classmethod
+    def decode(cls, encoded_str: str) -> 'Person':
+        return cls(**json.loads(encoded_str))
+
+redis_dict = RedisDict()
+
+# Extend redis dict with the new type
+redis_dict.extends_type(Person)
+
+# RedisDict can now seamlessly handle Person instances.
+person = Person(name="John", age=32)
+redis_dict["person1"] = person
+
+result = redis_dict["person1"]
+
+assert result.name == person.name
+assert result.age == person.age
+```
+
+```python
+>>> from datetime import datetime
+>>> redis_dict.extends_type(datetime, datetime.isoformat, datetime.fromisoformat)
+>>> redis_dict["now"] = datetime.now()
+>>> redis_dict
+{'now': datetime.datetime(2024, 10, 14, 18, 41, 53, 493775)}
+>>> redis_dict["now"]
+datetime.datetime(2024, 10, 14, 18, 41, 53, 493775)
+```
+
+For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/extend_types_tests.py).
 ### Redis Encryption
-Setup guide for configuring and utilizing encrypted Redis for redis-dict.
+Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
 [Setup guide](https://github.com/Attumm/redis-dict/blob/main/encrypted_redis.MD)
 
+### Redis Storage Encryption
+For storing encrypted data values, it's possible to use extended types. Take a look at this [encrypted test](https://github.com/Attumm/redis-dict/blob/main/encrypt_tests.py).
 
 ### Tests
 The RedisDict library includes a comprehensive suite of tests that ensure its correctness and resilience. The test suite covers various data types, edge cases, and error handling scenarios. It also employs the Hypothesis library for property-based testing, which provides fuzz testing to evaluate the implementation

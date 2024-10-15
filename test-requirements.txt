@@ -13,6 +13,7 @@ pycparser==2.21
 pydocstyle==6.3.0
 pyflakes==3.0.1
 pylama==8.4.1
+pylint==3.2.7
 redis==4.5.4
 snowballstemmer==2.2.0
 sortedcontainers==2.4.0
