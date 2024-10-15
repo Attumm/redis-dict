@@ -328,35 +328,42 @@ class RedisDict:
         type_, value = result.split(':', 1)
         return self.decoding_registry.get(type_, lambda x: x)(value)
 
-    def new_type_compliance(self, class_type: type, encode_check: bool = True, decode_check: bool = True) -> None:
+    def new_type_compliance(
+            self,
+            class_type: type,
+            encode_method_name: Optional[str] = None,
+            decode_method_name: Optional[str] = None,
+    ) -> None:
         """
         Checks if a class complies with the required encoding and decoding methods.
 
         Args:
             class_type (type): The class to check for compliance.
-            encode_check (bool, optional): Whether to check for the encode method. Defaults to True.
-            decode_check (bool, optional): Whether to check for the decode method. Defaults to True.
+            encode_method_name (str, optional): Name of encoding method of the class for redis-dict custom types.
+            decode_method_name (str, optional): Name of decoding method of the class for redis-dict custom types.
 
         Raises:
             NotImplementedError: If the class does not implement the required methods when the respective check is True.
         """
-        if encode_check:
-            if not (hasattr(class_type, self.custom_encode_method) and callable(
-                    getattr(class_type, self.custom_encode_method))):
+        if encode_method_name is not None:
+            if not (hasattr(class_type, encode_method_name) and callable(
+                    getattr(class_type, encode_method_name))):
                 raise NotImplementedError(
-                    f"Class {class_type.__name__} does not implement the required {self.custom_encode_method} method.")
-        if decode_check:
-            if not (hasattr(class_type, self.custom_decode_method) and callable(
-                    getattr(class_type, self.custom_decode_method))):
+                    f"Class {class_type.__name__} does not implement the required {encode_method_name} method.")
+
+        if decode_method_name is not None:
+            if not (hasattr(class_type, decode_method_name) and callable(
+                    getattr(class_type, decode_method_name))):
                 raise NotImplementedError(
-                    f"Class {class_type.__name__} does not implement the required {self.custom_decode_method} "
-                    "class method.")
+                    f"Class {class_type.__name__} does not implement the required {decode_method_name} class method.")
 
     def extends_type(
             self,
             class_type: type,
             encode: Optional[EncodeFuncType] = None,
-            decode: Optional[DecodeFuncType] = None
+            decode: Optional[DecodeFuncType] = None,
+            encoding_method_name: Optional[str] = None,
+            decoding_method_name: Optional[str] = None,
     ) -> None:
         """
         Extends RedisDict to support a custom type in the encode/decode mapping.
@@ -379,6 +386,8 @@ class RedisDict:
                 This function should take an instance of `class_type` as input and return a string.
             decode (Optional[DecodeFuncType]): function that decodes a string back into an object of `class_type`.
                 This function should take a string as input and return an instance of `class_type`.
+            encoding_method_name (str, optional): Name of encoding method of the class for redis-dict custom types.
+            decoding_method_name (str, optional): Name of decoding method of the class for redis-dict custom types.
 
         If no encoding or decoding function is provided, default to use the `encode` and `decode` methods of the class.
 
@@ -414,13 +423,15 @@ class RedisDict:
         """
 
         if encode is None or decode is None:
+            encode_method_name = encoding_method_name or self.custom_encode_method
             if encode is None:
-                self.new_type_compliance(class_type, encode_check=True, decode_check=False)
-                encode = _create_default_encode(self.custom_encode_method)
+                self.new_type_compliance(class_type, encode_method_name=encode_method_name)
+                encode = _create_default_encode(encode_method_name)
 
             if decode is None:
-                self.new_type_compliance(class_type,  encode_check=False, decode_check=True)
-                decode = _create_default_decode(class_type, self.custom_decode_method)
+                decode_method_name = decoding_method_name or self.custom_decode_method
+                self.new_type_compliance(class_type,  decode_method_name=decode_method_name)
+                decode = _create_default_decode(class_type, decode_method_name)
 
         type_name = class_type.__name__
         self.decoding_registry[type_name] = decode
