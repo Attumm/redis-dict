@@ -284,7 +284,6 @@ class RedisDict:
         Example use case is caching, to cache data only when it's between min and max sizes.
         Allowing for simple dict set operation, but only cache data that makes sense.
 
-        Note:
         """
         store_type, key = type(value).__name__, str(key)
         if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
@@ -371,12 +370,14 @@ class RedisDict:
         This method enables serialization of instances based on their type,
         allowing for custom types, specialized storage formats, and more.
         There are three ways to add custom types:
-          1. Create a new class with an `encode` instance method and a `decode` class method.
-          2. Create a new class and pass encoding and decoding functions, where
+          1. Have a class with an `encode` instance method and a `decode` class method.
+          2. Have a class and pass encoding and decoding functions, where
             `encode` converts the class instance to a string, and
             `decode` takes the string and recreates the class instance.
-          3. Create a new class that already has serialization methods,
-            and configure RedisDict to use those methods through the
+          3. Have a class that already has serialization methods, that satisfies the:
+                EncodeFuncType = Callable[[Any], str]
+                DecodeFuncType = Callable[[str], Any]
+
             `custom_encode_method`
             `custom_decode_method` attributes.
 
@@ -416,7 +417,6 @@ class RedisDict:
 
         Note:
         You can check for compliance of a class separately using the `new_type_compliance` method:
-            self.new_type_compliance(class_type, encode_check=True, decode_check=True)
 
         This method raises a NotImplementedError if either `encode` or `decode` is `None`
         and the class does not implement the corresponding method.
