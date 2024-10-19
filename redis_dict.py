@@ -738,15 +738,16 @@ class RedisDict:
         Raises:
             KeyError: If the key is not found and no default value is provided.
         """
-        try:
-            value = self[key]
-        except KeyError:
-            if default is not SENTINEL:
-                return default
-            raise
+        with self.pipeline():
+            try:
+                value = self[key]
+            except KeyError:
+                if default is not SENTINEL:
+                    return default
+                raise
 
-        del self[key]
-        return value
+            del self[key]
+            return value
 
     def popitem(self) -> Tuple[str, Any]:
         """
@@ -780,11 +781,12 @@ class RedisDict:
         Returns:
             Any: The value associated with the key or the default value.
         """
-        found, value = self._load(key)
-        if not found:
-            self[key] = default_value
-            return default_value
-        return value
+        with self.pipeline():
+            found, value = self._load(key)
+            if not found:
+                self[key] = default_value
+                return default_value
+            return value
 
     def copy(self) -> Dict[str, Any]:
         """
