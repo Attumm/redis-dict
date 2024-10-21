@@ -41,6 +41,8 @@ setup(
         'Topic :: Software Development :: Object Brokering',
         'Topic :: Database :: Database Engines/Servers',
 
+        "Typing :: Typed",
+
         'License :: OSI Approved :: MIT License',
 
         'Programming Language :: Python :: 3',
