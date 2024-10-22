@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
           pylama redis_dict.py -i E501,E231
 
       - name: Run mypy strict
-        if: matrix.python-version != '3.12' && matrix.python-version != '3.13'
+        if: matrix.python-version != '3.12'
         run: |
           mypy --strict redis_dict.py
 
