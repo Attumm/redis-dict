@@ -69,7 +69,7 @@ otherwise, they will be dropped.
 import json
 
 from datetime import timedelta
-from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
+from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional, Generic, TypeVar
 from contextlib import contextmanager
 
 from redis import StrictRedis
@@ -158,9 +158,10 @@ def _encode_set(val: Set[Any]) -> str:
     """
     return json.dumps(list(val))
 
-
+_RedisValue = TypeVar("_RedisValue")
+_DefaultValue = TypeVar("_DefaultValue")
 # pylint: disable=R0902, R0904
-class RedisDict:
+class RedisDict(Generic[_RedisValue]):
     """
     A Redis-backed dictionary-like data structure with support for advanced features, such as
     custom data types, pipelining, and key expiration.
@@ -273,7 +274,7 @@ class RedisDict:
             return len(val) < self._max_string_size
         return True
 
-    def _store(self, key: str, value: Any) -> None:
+    def _store(self, key: str, value: _RedisValue) -> None:
         """
         Store a value in Redis with the given key.
 
@@ -302,7 +303,7 @@ class RedisDict:
         else:
             self.redis.set(formatted_key, store_value, ex=self.expire)
 
-    def _load(self, key: str) -> Tuple[bool, Any]:
+    def _load(self, key: str) -> Tuple[bool, Optional[_RedisValue]]:
         """
         Load a value from Redis with the given key.
 
@@ -318,7 +319,7 @@ class RedisDict:
         type_, value = result.split(':', 1)
         return True, self.decoding_registry.get(type_, lambda x: x)(value)
 
-    def _transform(self, result: str) -> Any:
+    def _transform(self, result: str) -> _RedisValue:
         """
         Transform the result string from Redis into the appropriate Python object.
 
@@ -615,7 +616,7 @@ class RedisDict:
         search_query = self._create_iter_query(search_term)
         return self.get_redis.scan_iter(match=search_query)
 
-    def get(self, key: str, default: Optional[Any] = None) -> Any:
+    def get(self, key: str, default: Optional[_DefaultValue] = None) -> Optional[Union[_RedisValue, _DefaultValue]]:
         """
         Return the value for the given key if it exists, otherwise return the default value.
         Analogous to a dictionary's get method.
@@ -660,7 +661,7 @@ class RedisDict:
         """
         return list(self.iterkeys())
 
-    def iteritems(self) -> Iterator[Tuple[str, Any]]:
+    def iteritems(self) -> Iterator[Tuple[str, _RedisValue]]:
         """
         Note: for python2 str is needed
         """
@@ -671,7 +672,7 @@ class RedisDict:
             except KeyError:
                 pass
 
-    def items(self) -> List[Tuple[str, Any]]:
+    def items(self) -> List[Tuple[str, _RedisValue]]:
         """
         Return a list of key-value pairs (tuples) in the RedisDict, analogous to a dictionary's items method.
 
@@ -680,7 +681,7 @@ class RedisDict:
         """
         return list(self.iteritems())
 
-    def values(self) -> List[Any]:
+    def values(self) -> List[_RedisValue]:
         """
         Return a list of values in the RedisDict, analogous to a dictionary's values method.
 
@@ -689,7 +690,7 @@ class RedisDict:
         """
         return list(self.itervalues())
 
-    def itervalues(self) -> Iterator[Any]:
+    def itervalues(self) -> Iterator[_RedisValue]:
         """
         Iterate over the values in the RedisDict.
 
@@ -703,7 +704,7 @@ class RedisDict:
             except KeyError:
                 pass
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, _RedisValue]:
         """
         Convert the RedisDict to a Python dictionary.
 
@@ -727,7 +728,7 @@ class RedisDict:
             for key in self:
                 del self[key]
 
-    def pop(self, key: str, default: Union[Any, object] = SENTINEL) -> Any:
+    def pop(self, key: str, default: Union[_DefaultValue, object] = SENTINEL) -> Union[_RedisValue, _DefaultValue]:
         """
         Remove the value associated with the given key and return it, or return the default value
         if the key is not found. Analogous to a dictionary's pop method.
@@ -746,13 +747,13 @@ class RedisDict:
             value = self[key]
         except KeyError:
             if default is not SENTINEL:
-                return default
+                return default # type: ignore
             raise
 
         del self[key]
         return value
 
-    def popitem(self) -> Tuple[str, Any]:
+    def popitem(self) -> Tuple[str, _RedisValue]:
         """
         Remove and return a random (key, value) pair from the RedisDict as a tuple.
         This method is analogous to the `popitem` method of a standard Python dictionary.
@@ -772,7 +773,7 @@ class RedisDict:
             except KeyError:
                 continue
 
-    def setdefault(self, key: str, default_value: Optional[Any] = None) -> Any:
+    def setdefault(self, key: str, default_value: Optional[_DefaultValue] = None) -> Optional[Union[_RedisValue, _DefaultValue]]:
         """
         Return the value associated with the given key if it exists, otherwise set the value to the
         default value and return it. Analogous to a dictionary's setdefault method.
@@ -790,7 +791,7 @@ class RedisDict:
             return default_value
         return value
 
-    def copy(self) -> Dict[str, Any]:
+    def copy(self) -> Dict[str, _RedisValue]:
         """
         Create a shallow copy of the RedisDict and return it as a standard Python dictionary.
         This method is analogous to the `copy` method of a standard Python dictionary
@@ -814,7 +815,7 @@ class RedisDict:
             for key, value in dic.items():
                 self[key] = value
 
-    def fromkeys(self, iterable: List[str], value: Optional[Any] = None) -> 'RedisDict':
+    def fromkeys(self, iterable: List[str], value: Optional[_RedisValue] = None) -> 'RedisDict[_RedisValue]':
         """
         Create a new RedisDict with keys from the provided iterable and values set to the given value.
         This method is analogous to the `fromkeys` method of a standard Python dictionary, populating
@@ -845,7 +846,7 @@ class RedisDict:
         """
         return self.to_dict().__sizeof__()
 
-    def chain_set(self, iterable: List[str], v: Any) -> None:
+    def chain_set(self, iterable: List[str], v: _RedisValue) -> None:
         """
         Set a value in the RedisDict using a chain of keys.
 
@@ -855,7 +856,7 @@ class RedisDict:
         """
         self[':'.join(iterable)] = v
 
-    def chain_get(self, iterable: List[str]) -> Any:
+    def chain_get(self, iterable: List[str]) -> _RedisValue:
         """
         Get a value from the RedisDict using a chain of keys.
 
@@ -910,7 +911,7 @@ class RedisDict:
             if top_level:
                 _, self._temp_redis, self.redis = self.redis.execute(), None, self._temp_redis  # type: ignore
 
-    def multi_get(self, key: str) -> List[Any]:
+    def multi_get(self, key: str) -> List[_RedisValue]:
         """
         Get multiple values from the RedisDict using a shared key prefix.
 
@@ -925,7 +926,7 @@ class RedisDict:
             return []
         return [self._transform(i) for i in self.redis.mget(found_keys) if i is not None]
 
-    def multi_chain_get(self, keys: List[str]) -> List[Any]:
+    def multi_chain_get(self, keys: List[str]) -> List[_RedisValue]:
         """
         Get multiple values from the RedisDict using a chain of keys.
 
@@ -937,7 +938,7 @@ class RedisDict:
         """
         return self.multi_get(':'.join(keys))
 
-    def multi_dict(self, key: str) -> Dict[str, Any]:
+    def multi_dict(self, key: str) -> Dict[str, _RedisValue]:
         """
         Get a dictionary of key-value pairs from the RedisDict using a shared key prefix.
 
