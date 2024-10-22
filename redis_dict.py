@@ -269,6 +269,14 @@ class RedisDict:
             return len(val) < self._max_string_size
         return True
 
+    def _format_value(self, key: str,  value: Any) -> str:
+        store_type, key = type(value).__name__, str(key)
+        if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
+            raise ValueError("Invalid input value or key size exceeded the maximum limit.")
+        value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
+
+        return f'{store_type}:{value}'
+
     def _store(self, key: str, value: Any) -> None:
         """
         Store a value in Redis with the given key.
@@ -285,18 +293,21 @@ class RedisDict:
         Allowing for simple dict set operation, but only cache data that makes sense.
 
         """
-        store_type, key = type(value).__name__, str(key)
-        if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
-            raise ValueError("Invalid input value or key size exceeded the maximum limit.")
-        value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
-
-        store_value = f'{store_type}:{value}'
         formatted_key = self._format_key(key)
-
+        formatted_value = self._format_value(key, value)
         if self.preserve_expiration and self.redis.exists(formatted_key):
-            self.redis.set(formatted_key, store_value, keepttl=True)
+            self.redis.set(formatted_key, formatted_value, keepttl=True)
         else:
-            self.redis.set(formatted_key, store_value, ex=self.expire)
+            self.redis.set(formatted_key, formatted_value, ex=self.expire)
+        return
+
+        if self.preserve_expiration:
+            # Try to set with KEEPTTL if exists, fall back to expire if it didn't exist
+            result = self.redis.execute_command("SET", formatted_key, formatted_value, "XX", "KEEPTTL")
+            if result is None:  # Key didn't exist
+                self.redis.execute_command("SET", formatted_key, formatted_value, "EX", self.expire)
+        else:
+            self.redis.execute_command("SET", formatted_key, formatted_value, "EX", self.expire)
 
     def _load(self, key: str) -> Tuple[bool, Any]:
         """
@@ -311,8 +322,7 @@ class RedisDict:
         result = self.get_redis.get(self._format_key(key))
         if result is None:
             return False, None
-        type_, value = result.split(':', 1)
-        return True, self.decoding_registry.get(type_, lambda x: x)(value)
+        return True, self._transform(result)
 
     def _transform(self, result: str) -> Any:
         """
@@ -781,12 +791,27 @@ class RedisDict:
         Returns:
             Any: The value associated with the key or the default value.
         """
-        with self.pipeline():
-            found, value = self._load(key)
-            if not found:
-                self[key] = default_value
-                return default_value
-            return value
+        formatted_key = self._format_key(key)
+        formatted_value = self._format_value(key, default_value)
+
+        # Options with "get" present will allow us to get the parsing from "GET" command on the "SET" command.
+        options = {"get": True}
+        if self.preserve_expiration:
+            result = self.get_redis.execute_command("SET", formatted_key, formatted_value, "NX", "GET", "KEEPTTL", **options)
+        elif self.expire is not None:
+            result = self.get_redis.execute_command("SET",formatted_key, formatted_value, "NX", "GET", "EX", self.expire, **options)
+        else:
+            result = self.get_redis.execute_command("SET", formatted_key, formatted_value, "NX", "GET", **options)
+
+        # key wasn't yet, thus it's now default value
+        if result is None:
+            return default_value
+
+        # Decode if we got bytes back
+        if isinstance(result, bytes):
+            result = result.decode("utf-8")
+
+        return self._transform(result)
 
     def copy(self) -> Dict[str, Any]:
         """
