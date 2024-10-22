@@ -299,15 +299,6 @@ class RedisDict:
             self.redis.set(formatted_key, formatted_value, keepttl=True)
         else:
             self.redis.set(formatted_key, formatted_value, ex=self.expire)
-        return
-
-        if self.preserve_expiration:
-            # Try to set with KEEPTTL if exists, fall back to expire if it didn't exist
-            result = self.redis.execute_command("SET", formatted_key, formatted_value, "XX", "KEEPTTL")
-            if result is None:  # Key didn't exist
-                self.redis.execute_command("SET", formatted_key, formatted_value, "EX", self.expire)
-        else:
-            self.redis.execute_command("SET", formatted_key, formatted_value, "EX", self.expire)
 
     def _load(self, key: str) -> Tuple[bool, Any]:
         """
@@ -796,14 +787,15 @@ class RedisDict:
 
         # Options with "get" present will allow us to get the parsing from "GET" command on the "SET" command.
         options = {"get": True}
+        args = ["SET", formatted_key, formatted_value, "NX", "GET"]
         if self.preserve_expiration:
-            result = self.get_redis.execute_command("SET", formatted_key, formatted_value, "NX", "GET", "KEEPTTL", **options)
+            args.append("KEEPTTL")
         elif self.expire is not None:
-            result = self.get_redis.execute_command("SET",formatted_key, formatted_value, "NX", "GET", "EX", self.expire, **options)
-        else:
-            result = self.get_redis.execute_command("SET", formatted_key, formatted_value, "NX", "GET", **options)
+            args.extend(["EX", self.expire])  # type: ignore  # redis.py handles both int and timedelta
 
-        # key wasn't yet, thus it's now default value
+        result = self.get_redis.execute_command(*args, **options)
+
+        # key wasn't yet set, thus it's now default value
         if result is None:
             return default_value
 
