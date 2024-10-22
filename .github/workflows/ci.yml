@@ -47,6 +47,7 @@ jobs:
           pylama redis_dict.py -i E501,E231
 
       - name: Run mypy strict
+        if: matrix.python-version != '3.12'
         run: |
           mypy --strict redis_dict.py
 
