@@ -1655,6 +1655,10 @@ class TestRedisDictWithHypothesis(unittest.TestCase):
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
+    def test_init_with_from_url(self):
+        redisd = RedisDict(redis=redis.StrictRedis.from_url("redis://127.0.0.1/0"))
+        redisd["test_key"] = "test_value"
+        self.assertEqual(redisd["test_key"], "test_value")
 
 if __name__ == '__main__':
     unittest.main()

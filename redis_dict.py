@@ -214,6 +214,7 @@ class RedisDict:
                  namespace: str = 'main',
                  expire: Union[int, timedelta, None] = None,
                  preserve_expiration: Optional[bool] = False,
+                 redis: Optional[StrictRedis] = None,
                  **redis_kwargs: Any) -> None:
         """
         Initialize a RedisDict instance.
@@ -222,13 +223,16 @@ class RedisDict:
             namespace (str, optional): A prefix for keys stored in Redis.
             expire (int, timedelta, optional): Expiration time for keys in seconds.
             preserve_expiration (bool, optional): Preserve the expiration count when the key is updated.
-            **redis_kwargs: Additional keyword arguments passed to StrictRedis.
+            redis (StrictRedis, optional): A pre-defined redis connection object
+            **redis_kwargs: Additional keyword arguments passed to StrictRedis if connection is not given.
         """
 
         self.namespace: str = namespace
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
-        self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **redis_kwargs)
+        if redis:
+            redis.connection_pool.connection_kwargs["decode_responses"] = True
+        self.redis: StrictRedis[Any] = redis or StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
 
         self.custom_encode_method = "encode"
