@@ -66,7 +66,6 @@ class RaceConditionTestRedisDict(RedisDict):
             results["after_load"] = redis.get(self._format_key(key))
             return default_value, results
 
-        # Decode if we got bytes back
         if isinstance(result, bytes):
             result = result.decode("utf-8")
 

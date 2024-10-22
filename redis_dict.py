@@ -785,21 +785,19 @@ class RedisDict:
         formatted_key = self._format_key(key)
         formatted_value = self._format_value(key, default_value)
 
-        # Options with "get" present will allow us to get the parsing from "GET" command on the "SET" command.
+        # Setting {"get": True} enables parsing of the redis result as "GET", instead of "SET" command
         options = {"get": True}
         args = ["SET", formatted_key, formatted_value, "NX", "GET"]
         if self.preserve_expiration:
             args.append("KEEPTTL")
         elif self.expire is not None:
-            args.extend(["EX", self.expire])  # type: ignore  # redis.py handles both int and timedelta
+            args.extend(["EX", self.expire])  # type: ignore
 
         result = self.get_redis.execute_command(*args, **options)
 
-        # key wasn't yet set, thus it's now default value
         if result is None:
             return default_value
 
-        # Decode if we got bytes back
         if isinstance(result, bytes):
             result = result.decode("utf-8")
 
