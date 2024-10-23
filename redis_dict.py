@@ -158,8 +158,11 @@ def _encode_set(val: Set[Any]) -> str:
     """
     return json.dumps(list(val))
 
+
 _RedisValue = TypeVar("_RedisValue")
 _DefaultValue = TypeVar("_DefaultValue")
+
+
 # pylint: disable=R0902, R0904
 class RedisDict(Generic[_RedisValue]):
     """
@@ -748,7 +751,7 @@ class RedisDict(Generic[_RedisValue]):
         value = self.get_redis.execute_command("GETDEL", formatted_key)
         if value is None:
             if default is not SENTINEL:
-                return default
+                return default  # type: ignore
             raise KeyError(formatted_key)
 
         return self._transform(value)
