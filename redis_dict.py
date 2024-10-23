@@ -739,16 +739,14 @@ class RedisDict:
         Raises:
             KeyError: If the key is not found and no default value is provided.
         """
-        with self.pipeline():
-            try:
-                value = self[key]
-            except KeyError:
-                if default is not SENTINEL:
-                    return default
-                raise
+        formatted_key = self._format_key(key)
+        value = self.get_redis.execute_command("GETDEL", formatted_key)
+        if value is None:
+            if default is not SENTINEL:
+                return default
+            raise KeyError(formatted_key)
 
-            del self[key]
-            return value
+        return self._transform(value)
 
     def popitem(self) -> Tuple[str, Any]:
         """
