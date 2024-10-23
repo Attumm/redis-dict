@@ -66,9 +66,6 @@ class RaceConditionTestRedisDict(RedisDict):
             results["after_load"] = redis.get(self._format_key(key))
             return default_value, results
 
-        if isinstance(result, bytes):
-            result = result.decode("utf-8")
-
         results["after_set"] = redis.get(self._format_key(key))
         formatted_result = self._transform(result)
         results["after_load"] = redis.get(self._format_key(key))
@@ -118,9 +115,8 @@ class TestRaceCondition(BaseRedisDictTest):
         expected_value = "expected_value"
 
         # Clear any existing value
-        self.race_redis_dict.redis.delete(self.race_redis_dict._format_key(key))
+        self.race_redis_dict.clear()
 
-        # Run test with pipelining
         value, results = self.race_redis_dict.race_condition_test_setdefault_fix(
             self.redis, key, expected_value
         )
@@ -134,9 +130,10 @@ class TestRaceCondition(BaseRedisDictTest):
         self.assertEqual(self.race_redis_dict[key], expected_value)
 
         already_set_value = "should not show"
-        value, results = self.race_redis_dict.race_condition_test_setdefault_fix(
-            self.redis, key, already_set_value
+        result_two = self.race_redis_dict.setdefault(
+             key, already_set_value
         )
+        self.assertEqual(result_two, result.split(":", 1)[1])
         self.assertEqual(self.race_redis_dict[key],expected_value)
 
     def test_setdefault_with_expire(self):

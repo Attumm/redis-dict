@@ -789,14 +789,13 @@ class RedisDict:
         if self.preserve_expiration:
             args.append("KEEPTTL")
         elif self.expire is not None:
-            args.extend(["EX", self.expire])  # type: ignore
+            expire_val = int(self.expire.total_seconds()) if isinstance(self.expire, timedelta) else self.expire
+            expire_str = str(1) if expire_val <= 1 else str(expire_val)
+            args.extend(["EX", expire_str])
 
         result = self.get_redis.execute_command(*args, **options)
         if result is None:
             return default_value
-
-        if isinstance(result, bytes):
-            result = result.decode("utf-8")
 
         return self._transform(result)
 
