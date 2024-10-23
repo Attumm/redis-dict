@@ -273,9 +273,9 @@ class RedisDict:
         store_type, key = type(value).__name__, str(key)
         if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
-        value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
+        encoded_value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
 
-        return f'{store_type}:{value}'
+        return f'{store_type}:{encoded_value}'
 
     def _store(self, key: str, value: Any) -> None:
         """
@@ -794,7 +794,6 @@ class RedisDict:
             args.extend(["EX", self.expire])  # type: ignore
 
         result = self.get_redis.execute_command(*args, **options)
-
         if result is None:
             return default_value
 
