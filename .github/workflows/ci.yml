@@ -46,6 +46,11 @@ jobs:
         run: |
           pylama redis_dict.py -i E501,E231
 
+      - name: Run mypy strict
+        if: matrix.python-version != '3.12'
+        run: |
+          mypy --strict redis_dict.py
+
       - name: Run Unit Tests
         run: |
           coverage run -m unittest discover -p "*tests.py"

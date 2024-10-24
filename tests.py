@@ -348,6 +348,114 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(dic), 2)
         self.assertEqual(len(redis_dic), 2)
 
+    def test_dict_method_setdefault_with_expire(self):
+        """Test setdefault with expiration setting"""
+        redis_dic = self.create_redis_dict(expire=3600)
+        key = "test_expire_key"
+        expected_value = "expected value"
+        other_expected_value = "other_default_value"
+
+        # Clear any existing values
+        redis_dic.clear()
+
+        # First call - should set with expiry
+        result_one = redis_dic.setdefault(
+            key, expected_value
+        )
+        self.assertEqual(result_one, expected_value)
+        # Check TTL
+        actual_ttl = redis_dic.get_ttl(key)
+        self.assertAlmostEqual(3600, actual_ttl, delta=2)
+
+        # Second call - should get existing value and maintain TTL
+        time.sleep(1)
+        result_two = redis_dic.setdefault(
+            key, other_expected_value,
+        )
+        self.assertEqual(result_one, expected_value)
+        self.assertNotEqual(result_two, other_expected_value)
+        # TTL should be ~1 second less
+        new_ttl = redis_dic.get_ttl(key)
+        self.assertAlmostEqual(3600 - 1, new_ttl, delta=2)
+
+        # Value should be unchanged
+        self.assertEqual(result_one, result_two)
+
+        self.assertEqual(expected_value, redis_dic[key])
+        del redis_dic[key]
+        with redis_dic.expire_at(timedelta(seconds=1)):
+            result_one_three = redis_dic.setdefault(
+                key, other_expected_value,
+            )
+            self.assertEqual(other_expected_value, redis_dic[key])
+        time.sleep(1.5)
+        with self.assertRaisesRegex(KeyError, key):
+            redis_dic[key]
+
+    def test_setdefault_with_preserve_ttl(self):
+        """Test setdefault with preserve_expiration=True"""
+        redis_dic = self.create_redis_dict(expire=5, preserve_expiration=True)
+        key = "test_preserve_key"
+        expected_value = "expected_value"
+        default_value = "default"
+        sleep_time = 2
+
+        redis_dic[key] = expected_value
+        initial_ttl = redis_dic.get_ttl(key)
+
+        time.sleep(sleep_time)
+        # Try setdefault - should keep original TTL
+        result = redis_dic.setdefault(
+            key, default_value
+        )
+        self.assertEqual(result, expected_value)
+
+        time.sleep(sleep_time)
+        # TTL should have been preserved, thus new_ttl+sleep_time should less than initial_ttl since sleep 1 second.
+        new_ttl = redis_dic.get_ttl(key)
+        self.assertLess(new_ttl+sleep_time, initial_ttl)
+        time.sleep(sleep_time)
+
+        # TTL should be expired, thus key and value should be missing, and thus we will set the default value.
+        with self.assertRaisesRegex(KeyError, key):
+            redis_dic[key]
+
+        expected_value_two = "expected_value_two"
+        result_two = redis_dic.setdefault(
+            key, expected_value_two
+        )
+        self.assertEqual(result_two, expected_value_two)
+        self.assertEqual(redis_dic[key], expected_value_two)
+
+    def test_setdefault_concurrent_ttl(self):
+        """Test TTL behavior with concurrent setdefault operations"""
+        redis_dic =  self.create_redis_dict(expire=3600)
+        other_redis_dic =   self.create_redis_dict(expire=1800)  # Different TTL
+
+        key = "test_concurrent_key"
+        default_value = "default"
+        other_default_value = "other_default"
+
+        redis_dic.clear()
+
+        # First operation sets with 3600s TTL
+        value1 = redis_dic.setdefault(
+            key, default_value
+        )
+
+        ttl1 = redis_dic.get_ttl(key)
+        self.assertAlmostEqual(3600, ttl1, delta=2)
+
+        # Competing operation tries with 1800s TTL
+        value2 = other_redis_dic.setdefault(
+        key, other_default_value
+        )
+
+        # Original TTL should be maintained
+        ttl2 = other_redis_dic.get_ttl(key)
+        self.assertAlmostEqual(3600, ttl2, delta=3)
+        self.assertEqual(value1, value2)  # Should get same value
+
     def test_dict_method_get(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
