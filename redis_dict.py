@@ -273,7 +273,7 @@ class RedisDict:
             return len(val) < self._max_string_size
         return True
 
-    def _store(self, key: str, value: _RedisValue) -> None:
+    def _store(self, key: str, value: Any) -> None:
         """
         Store a value in Redis with the given key.
 
