@@ -1,5 +1,8 @@
-import unittest
 import json
+import gzip
+import time
+import base64
+import unittest
 
 from datetime import datetime
 
@@ -336,10 +339,6 @@ class TestRedisDictExtendTypesFuncsAndMethods(BaseRedisDictTest):
         # Assert the RedisDict representation
         self.assertEqual(str(redis_dict), str({key: expected}))
 
-
-import gzip
-import time
-import base64
 
 class GzippedDict:
     """
