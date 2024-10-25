@@ -273,7 +273,7 @@ class RedisDict:
         if val_type == "str":
             return len(val) < self._max_string_size
         return True
-    
+
     def _format_value(self, key: str,  value: Any) -> str:
         store_type, key = type(value).__name__, str(key)
         if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
