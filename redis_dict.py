@@ -232,6 +232,7 @@ class RedisDict:
         self.preserve_expiration: Optional[bool] = preserve_expiration
         if redis:
             redis.connection_pool.connection_kwargs["decode_responses"] = True
+
         self.redis: StrictRedis[Any] = redis or StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
 
