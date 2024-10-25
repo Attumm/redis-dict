@@ -214,7 +214,7 @@ class RedisDict:
                  namespace: str = 'main',
                  expire: Union[int, timedelta, None] = None,
                  preserve_expiration: Optional[bool] = False,
-                 redis: Optional[StrictRedis[Any]] = None,
+                 redis: "Optional[StrictRedis[Any]]" = None,
                  **redis_kwargs: Any) -> None:
         """
         Initialize a RedisDict instance.
