@@ -1763,10 +1763,25 @@ class TestRedisDictWithHypothesis(unittest.TestCase):
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-    def test_init_with_from_url(self):
-        redisd = RedisDict(redis=redis.StrictRedis.from_url("redis://127.0.0.1/0"))
-        redisd["test_key"] = "test_value"
-        self.assertEqual(redisd["test_key"], "test_value")
+    def test_init_with_custom_connection(self):
+        for redis_object in (
+            redis.Redis.from_url("redis://127.0.0.1/0"),
+            redis.Redis(**redis_config), 
+            redis.Redis(host="127.0.0.1", port=6379)
+            ):
+            redis_dict = RedisDict(redis=redis_object)
+            self.assertIs(redis_dict.redis, redis_object)
+            self.assertEqual(
+                redis_object.get_connection_kwargs().get("decode_responses"),
+                True
+                )
+            redis_dict["test_key"] = "value"
+            self.assertEqual(
+                redis_dict["test_key"], 
+                redis_dict._transform(redis_object.get(redis_dict._format_key("test_key")))
+                )
+            redis_object.flushdb()
+            self.assertRaises(KeyError, lambda: redis_dict["test_key"])
 
 if __name__ == '__main__':
     unittest.main()
