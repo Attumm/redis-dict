@@ -1239,6 +1239,29 @@ class TestRedisDict(unittest.TestCase):
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
+    def test_init_redis_dict_with_redis_instance(self):
+            test_key = "test_key"
+            expected = "expected value"
+            test_inputs = {
+                "config from_url": redis.Redis.from_url("redis://127.0.0.1/0"),
+                "config from kwargs": redis.Redis(**redis_config),
+                "config passed as keywords": redis.Redis(host="127.0.0.1", port=6379),
+            }
+            for test_name, test_input in test_inputs.items():
+                assert_fail_msg = f"test with: {test_name} failed"
+
+                dict_ = RedisDict(redis=test_input)
+                dict_[test_key] = expected
+                result = dict_[test_key]
+                self.assertEqual(result, expected, msg=assert_fail_msg)
+
+                self.assertIs(dict_.redis, test_input)
+                self.assertTrue(
+                    dict_.redis.get_connection_kwargs().get("decode_responses"),
+                    msg=assert_fail_msg,
+                    )
+
+                test_input.flushdb()
 
 class TestRedisDictSecurity(unittest.TestCase):
     @classmethod
@@ -1762,7 +1785,6 @@ class TestRedisDictWithHypothesis(unittest.TestCase):
         """
         self.r[key] = value
         self.assertEqual(self.r[key], value)
-
 
 if __name__ == '__main__':
     unittest.main()
