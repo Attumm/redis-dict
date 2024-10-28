@@ -70,7 +70,7 @@ otherwise, they will be dropped.
 import json
 from datetime import datetime, time, timedelta, date
 from decimal import Decimal
-from uuid import uuid4, UUID
+from uuid import UUID
 from collections import OrderedDict, defaultdict
 import base64
 
