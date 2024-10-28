@@ -243,6 +243,7 @@ class RedisDict:
                  namespace: str = 'main',
                  expire: Union[int, timedelta, None] = None,
                  preserve_expiration: Optional[bool] = False,
+                 redis: "Optional[StrictRedis[Any]]" = None,
                  **redis_kwargs: Any) -> None:
         """
         Initialize a RedisDict instance.
@@ -251,13 +252,17 @@ class RedisDict:
             namespace (str, optional): A prefix for keys stored in Redis.
             expire (int, timedelta, optional): Expiration time for keys in seconds.
             preserve_expiration (bool, optional): Preserve the expiration count when the key is updated.
-            **redis_kwargs: Additional keyword arguments passed to StrictRedis.
+            redis (StrictRedis, optional): A pre-defined redis connection object
+            **redis_kwargs: Additional keyword arguments passed to StrictRedis if connection is not given.
         """
 
         self.namespace: str = namespace
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
-        self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **redis_kwargs)
+        if redis:
+            redis.connection_pool.connection_kwargs["decode_responses"] = True
+
+        self.redis: StrictRedis[Any] = redis or StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
 
         self.custom_encode_method = "encode"
@@ -768,15 +773,14 @@ class RedisDict:
         Raises:
             KeyError: If the key is not found and no default value is provided.
         """
-        try:
-            value = self[key]
-        except KeyError:
+        formatted_key = self._format_key(key)
+        value = self.get_redis.execute_command("GETDEL", formatted_key)
+        if value is None:
             if default is not SENTINEL:
                 return default
-            raise
+            raise KeyError(formatted_key)
 
-        del self[key]
-        return value
+        return self._transform(value)
 
     def popitem(self) -> Tuple[str, Any]:
         """
@@ -810,11 +814,24 @@ class RedisDict:
         Returns:
             Any: The value associated with the key or the default value.
         """
-        found, value = self._load(key)
-        if not found:
-            self[key] = default_value
+        formatted_key = self._format_key(key)
+        formatted_value = self._format_value(key, default_value)
+
+        # Setting {"get": True} enables parsing of the redis result as "GET", instead of "SET" command
+        options = {"get": True}
+        args = ["SET", formatted_key, formatted_value, "NX", "GET"]
+        if self.preserve_expiration:
+            args.append("KEEPTTL")
+        elif self.expire is not None:
+            expire_val = int(self.expire.total_seconds()) if isinstance(self.expire, timedelta) else self.expire
+            expire_str = str(1) if expire_val <= 1 else str(expire_val)
+            args.extend(["EX", expire_str])
+
+        result = self.get_redis.execute_command(*args, **options)
+        if result is None:
             return default_value
-        return value
+
+        return self._transform(result)
 
     def copy(self) -> Dict[str, Any]:
         """

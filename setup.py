@@ -17,7 +17,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
 
-    version='2.7.0',
+    version='3.0.0',
     py_modules=['redis_dict'],
     install_requires=['redis',],
     license='MIT',
@@ -40,6 +40,8 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: Object Brokering',
         'Topic :: Database :: Database Engines/Servers',
+
+        "Typing :: Typed",
 
         'License :: OSI Approved :: MIT License',
 
