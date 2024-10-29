@@ -10,7 +10,7 @@ The library includes utility functions for more complex use cases such as cachin
 ## Features
 
 * Dictionary-like interface: Use familiar Python dictionary syntax to interact with Redis.
-* Data Type Support: Comprehensive support for various data types, including strings, integers, floats, booleans, lists, dictionaries, sets, and tuples.
+* Data Type Support: Comprehensive support for various data types.
 * Pipelining support: Use pipelines for batch operations to improve performance.
 * Expiration Support: Enables the setting of expiration times either globally or individually per key, through the use of context managers.
 * Efficiency and Scalability: RedisDict is designed for use with large datasets and is optimized for efficiency. It retrieves only the data needed for a particular operation, ensuring efficient memory usage and fast performance.
@@ -219,9 +219,53 @@ print(dic["d"])  # Output: 4
 For more advanced examples of RedisDict, please refer to the unit-test files in the repository. All features and functionalities are thoroughly tested in [unit tests (here)](https://github.com/Attumm/redis-dict/blob/main/tests.py#L1) Or take a look at load test for batching [load test](https://github.com/Attumm/redis-dict/blob/main/load_test.py#L1).
 The unit-tests can be as used as a starting point.
 
-### Extending Types
+## Types
 
-## Extending RedisDict with Custom Types
+### standard types
+RedisDict supports a range of Python data types, from basic types to nested structures.
+Basic types are handled natively, while complex data types like lists and dictionaries, RedisDict uses JSON serialization, specifically avoiding `pickle` due to its [security vulnerabilities](https://docs.python.org/3/library/pickle.html) in distributed computing contexts.
+Although the library supports nested structures, the recommended best practice is to use RedisDict as a shallow dictionary.
+This approach optimizes Redis database performance and efficiency by ensuring that each set and get operation efficiently maps to Redis's key-value storage capabilities, while still preserving the library's Pythonic interface.
+Following types are supported: 
+`str, int, float, bool, NoneType, list, dict, tuple, set, datetime, date, time, timedelta, Decimal, complex, bytes, UUID, OrderedDict, defaultdict, frozenset`
+```python
+from redis_dict import RedisDict
+
+from uuid import UUID
+from decimal import Decimal
+from collections import OrderedDict, defaultdict
+from datetime import datetime, date, time, timedelta
+
+
+dic = RedisDict()
+
+dic["string"] = "Hello World"
+dic["number"] = 42
+dic["float"] = 3.14
+dic["bool"] = True
+dic["None"] = None
+
+dic["list"] = [1, 2, 3]
+dic["dict"] = {"a": 1, "b": 2}
+dic["tuple"] = (1, 2, 3)
+dic["set"] = {1, 2, 3}
+
+dic["datetime"] = datetime.date(2024, 1, 1, 12, 30, 45)
+dic["date"] = date(2024, 1, 1)
+dic["time"] = time(12, 30, 45)
+dic["delta"] = timedelta(days=1, hours=2)
+
+dic["decimal"] = Decimal("3.14159")
+dic["complex"] = complex(1, 2)
+dic["bytes"] = bytes([72, 101, 108, 108, 111])
+dic["uuid"] = UUID('12345678-1234-5678-1234-567812345678')
+
+dic["ordered"] = OrderedDict([('a', 1), ('b', 2)])
+dic["default"] = defaultdict(int, {'a': 1, 'b': 2})
+dic["frozen"] = frozenset([1, 2, 3])
+```
+
+### Extending RedisDict with Custom Types
 
 RedisDict supports custom type serialization. Here's how to add a new type:
 
