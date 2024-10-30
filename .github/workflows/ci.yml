@@ -44,12 +44,11 @@ jobs:
 
       - name: Run Pylama
         run: |
-          pylama redis_dict.py -i E501,E231
+          python -m pylama -i E501,E231 src
 
       - name: Run mypy strict
-        if: matrix.python-version != '3.12'
         run: |
-          mypy --strict redis_dict.py
+          mypy --strict src
 
       - name: Run Unit Tests
         run: |
