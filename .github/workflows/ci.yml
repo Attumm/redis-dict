@@ -51,6 +51,8 @@ jobs:
           mypy --strict src
 
       - name: Run Unit Tests
+        env:
+          PYTHONPATH: src
         run: |
           coverage run -m unittest discover -p "*tests.py"
 
