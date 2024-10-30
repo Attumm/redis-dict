@@ -226,15 +226,15 @@ class RedisDictJSONEncoder(json.JSONEncoder):
             needs special handling. For encoding, defaults to str() if no encoder exists
             in encoding_registry.
     """
-    def default(self, obj: Any) -> Any:
-        type_name = type(obj).__name__
+    def default(self, o: Any) -> Any:
+        type_name = type(o).__name__
         if type_name in decoding_registry:
             return {
                 "__type__": type_name,
-                "value": encoding_registry.get(type_name, lambda x: str(x))(obj)
+                "value": encoding_registry.get(type_name, lambda x: str(x))(o)
             }
         try:
-            return json.JSONEncoder.default(self, obj)
+            return json.JSONEncoder.default(self, o)
         except TypeError:
             raise TypeError(f"Object of type {type_name} is not JSON serializable")
 
@@ -248,14 +248,14 @@ class RedisDictJSONDecoder(json.JSONDecoder):
     Not perfect, better allows for types then without.
     """
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(object_hook=self.object_hook, *args, **kwargs)
+        def _object_hook(obj: Dict[Any, Any]) -> Any:
+            if "__type__" in obj and "value" in obj:
+                type_name = obj["__type__"]
+                if type_name in decoding_registry:
+                    return decoding_registry[type_name](obj["value"])
+            return obj
 
-    def object_hook(self, obj: Dict[Any, Any]) -> Any:
-        if "__type__" in obj and "value" in obj:
-            type_name = obj["__type__"]
-            if type_name in decoding_registry:
-                return decoding_registry[type_name](obj["value"])
-        return obj
+        super().__init__(object_hook=_object_hook, *args, **kwargs)
 
 
 def encode_json(obj: Any) -> str:
@@ -273,6 +273,10 @@ decoding_registry["dict"] = decode_json
 
 encoding_registry["list"] = encode_json
 decoding_registry["list"] = decode_json
+
+
+def _default_decoder(x: str) -> str:
+    return x
 
 
 # pylint: disable=R0902, R0904
@@ -430,7 +434,7 @@ class RedisDict:
             Any: The transformed Python object.
         """
         type_, value = result.split(':', 1)
-        return self.decoding_registry.get(type_, lambda x: x)(value)
+        return self.decoding_registry.get(type_, _default_decoder)(value)
 
     def new_type_compliance(
             self,
