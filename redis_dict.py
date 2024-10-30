@@ -66,9 +66,14 @@ otherwise, they will be dropped.
 >>> cache.get("1234") is None
 >>> True
 """
+# Types imports
 import json
+from datetime import datetime, time, timedelta, date
+from decimal import Decimal
+from uuid import UUID
+from collections import OrderedDict, defaultdict
+import base64
 
-from datetime import timedelta
 from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
 from contextlib import contextmanager
 
@@ -189,7 +194,6 @@ class RedisDict:
         expire (Union[int, None]): An optional expiration time for keys, in seconds.
 
     """
-
     decoding_registry: DecodeType = {
         type('').__name__: str,
         type(1).__name__: int,
@@ -201,6 +205,20 @@ class RedisDict:
         "dict": json.loads,
         "tuple": _decode_tuple,
         type(set()).__name__: _decode_set,
+
+        datetime.__name__: datetime.fromisoformat,
+        date.__name__: date.fromisoformat,
+        time.__name__: time.fromisoformat,
+        timedelta.__name__: lambda x: timedelta(seconds=float(x)),
+
+        Decimal.__name__: Decimal,
+        complex.__name__: lambda x: complex(*map(float, x.split(','))),
+        bytes.__name__: base64.b64decode,
+
+        UUID.__name__: UUID,
+        OrderedDict.__name__: lambda x: OrderedDict(json.loads(x)),
+        defaultdict.__name__: lambda x: defaultdict(type(None), json.loads(x)),
+        frozenset.__name__: lambda x: frozenset(json.loads(x)),
     }
 
     encoding_registry: EncodeType = {
@@ -208,6 +226,17 @@ class RedisDict:
         "dict": json.dumps,
         "tuple": _encode_tuple,
         type(set()).__name__: _encode_set,
+
+        datetime.__name__: datetime.isoformat,
+        date.__name__: date.isoformat,
+        time.__name__: time.isoformat,
+        timedelta.__name__: lambda x: str(x.total_seconds()),
+
+        complex.__name__: lambda x: f"{x.real},{x.imag}",
+        bytes.__name__: lambda x: base64.b64encode(x).decode('ascii'),
+        OrderedDict.__name__: lambda x: json.dumps(list(x.items())),
+        defaultdict.__name__: lambda x: json.dumps(dict(x)),
+        frozenset.__name__: lambda x: json.dumps(list(x)),
     }
 
     def __init__(self,
@@ -269,6 +298,14 @@ class RedisDict:
             return len(val) < self._max_string_size
         return True
 
+    def _format_value(self, key: str,  value: Any) -> str:
+        store_type, key = type(value).__name__, str(key)
+        if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
+            raise ValueError("Invalid input value or key size exceeded the maximum limit.")
+        encoded_value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
+
+        return f'{store_type}:{encoded_value}'
+
     def _store(self, key: str, value: Any) -> None:
         """
         Store a value in Redis with the given key.
@@ -285,18 +322,12 @@ class RedisDict:
         Allowing for simple dict set operation, but only cache data that makes sense.
 
         """
-        store_type, key = type(value).__name__, str(key)
-        if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
-            raise ValueError("Invalid input value or key size exceeded the maximum limit.")
-        value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
-
-        store_value = f'{store_type}:{value}'
         formatted_key = self._format_key(key)
-
+        formatted_value = self._format_value(key, value)
         if self.preserve_expiration and self.redis.exists(formatted_key):
-            self.redis.set(formatted_key, store_value, keepttl=True)
+            self.redis.set(formatted_key, formatted_value, keepttl=True)
         else:
-            self.redis.set(formatted_key, store_value, ex=self.expire)
+            self.redis.set(formatted_key, formatted_value, ex=self.expire)
 
     def _load(self, key: str) -> Tuple[bool, Any]:
         """
@@ -311,8 +342,7 @@ class RedisDict:
         result = self.get_redis.get(self._format_key(key))
         if result is None:
             return False, None
-        type_, value = result.split(':', 1)
-        return True, self.decoding_registry.get(type_, lambda x: x)(value)
+        return True, self._transform(result)
 
     def _transform(self, result: str) -> Any:
         """
