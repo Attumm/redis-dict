@@ -40,7 +40,7 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          pip install -r test-requirements.txt
+          pip install -r dev-requirements.txt
 
       - name: Run Pylama
         run: |
