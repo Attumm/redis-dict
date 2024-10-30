@@ -164,6 +164,117 @@ def _encode_set(val: Set[Any]) -> str:
     return json.dumps(list(val))
 
 
+decoding_registry: DecodeType = {
+    type('').__name__: str,
+    type(1).__name__: int,
+    type(0.1).__name__: float,
+    type(True).__name__: lambda x: x == "True",
+    type(None).__name__: lambda x: None,
+
+    "list": json.loads,
+    "dict": json.loads,
+    "tuple": _decode_tuple,
+    type(set()).__name__: _decode_set,
+
+    datetime.__name__: datetime.fromisoformat,
+    date.__name__: date.fromisoformat,
+    time.__name__: time.fromisoformat,
+    timedelta.__name__: lambda x: timedelta(seconds=float(x)),
+
+    Decimal.__name__: Decimal,
+    complex.__name__: lambda x: complex(*map(float, x.split(','))),
+    bytes.__name__: base64.b64decode,
+
+    UUID.__name__: UUID,
+    OrderedDict.__name__: lambda x: OrderedDict(json.loads(x)),
+    defaultdict.__name__: lambda x: defaultdict(type(None), json.loads(x)),
+    frozenset.__name__: lambda x: frozenset(json.loads(x)),
+}
+
+encoding_registry: EncodeType = {
+    "list": json.dumps,
+    "dict": json.dumps,
+    "tuple": _encode_tuple,
+    type(set()).__name__: _encode_set,
+
+    datetime.__name__: datetime.isoformat,
+    date.__name__: date.isoformat,
+    time.__name__: time.isoformat,
+    timedelta.__name__: lambda x: str(x.total_seconds()),
+
+    complex.__name__: lambda x: f"{x.real},{x.imag}",
+    bytes.__name__: lambda x: base64.b64encode(x).decode('ascii'),
+    OrderedDict.__name__: lambda x: json.dumps(list(x.items())),
+    defaultdict.__name__: lambda x: json.dumps(dict(x)),
+    frozenset.__name__: lambda x: json.dumps(list(x)),
+}
+
+
+class RedisDictJSONEncoder(json.JSONEncoder):
+    """Extends JSON encoding capabilities by reusing RedisDict type conversion.
+
+        Uses existing decoding_registry to know which types to handle specially and
+        encoding_registry (falls back to str) for converting to JSON-compatible formats.
+
+        {
+            "__type__": "TypeName",
+            "value": <encoded value>
+        }
+
+        Notes:
+            Uses decoding_registry (containing all supported types) to check if type
+            needs special handling. For encoding, defaults to str() if no encoder exists
+            in encoding_registry.
+    """
+    def default(self, obj: Any) -> Any:
+        type_name = type(obj).__name__
+        if type_name in decoding_registry:
+            return {
+                "__type__": type_name,
+                "value": encoding_registry.get(type_name, lambda x: str(x))(obj)
+            }
+        try:
+            return json.JSONEncoder.default(self, obj)
+        except TypeError:
+            raise TypeError(f"Object of type {type_name} is not JSON serializable")
+
+
+class RedisDictJSONDecoder(json.JSONDecoder):
+    """JSON decoder leveraging RedisDict existing type conversion system.
+
+    Works with RedisDictJSONEncoder to reconstruct Python objects from JSON using
+    RedisDict's decoding_registry.
+
+    Not perfect, better allows for types then without.
+    """
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(object_hook=self.object_hook, *args, **kwargs)
+
+    def object_hook(self, obj: Dict[Any, Any]) -> Any:
+        if "__type__" in obj and "value" in obj:
+            type_name = obj["__type__"]
+            if type_name in decoding_registry:
+                return decoding_registry[type_name](obj["value"])
+        return obj
+
+
+def encode_json(obj: Any) -> str:
+    """Encode a Python object to a JSON string using the existing encoding registry"""
+    return json.dumps(obj, cls=RedisDictJSONEncoder)
+
+
+def decode_json(s: str) -> Any:
+    """Decode a JSON string to a Python object using the existing decoding registry"""
+    return json.loads(s, cls=RedisDictJSONDecoder)
+
+
+encoding_registry["dict"] = encode_json
+decoding_registry["dict"] = decode_json
+
+encoding_registry["list"] = encode_json
+decoding_registry["list"] = decode_json
+
+
 # pylint: disable=R0902, R0904
 class RedisDict:
     """
@@ -194,50 +305,9 @@ class RedisDict:
         expire (Union[int, None]): An optional expiration time for keys, in seconds.
 
     """
-    decoding_registry: DecodeType = {
-        type('').__name__: str,
-        type(1).__name__: int,
-        type(0.1).__name__: float,
-        type(True).__name__: lambda x: x == "True",
-        type(None).__name__: lambda x: None,
 
-        "list": json.loads,
-        "dict": json.loads,
-        "tuple": _decode_tuple,
-        type(set()).__name__: _decode_set,
-
-        datetime.__name__: datetime.fromisoformat,
-        date.__name__: date.fromisoformat,
-        time.__name__: time.fromisoformat,
-        timedelta.__name__: lambda x: timedelta(seconds=float(x)),
-
-        Decimal.__name__: Decimal,
-        complex.__name__: lambda x: complex(*map(float, x.split(','))),
-        bytes.__name__: base64.b64decode,
-
-        UUID.__name__: UUID,
-        OrderedDict.__name__: lambda x: OrderedDict(json.loads(x)),
-        defaultdict.__name__: lambda x: defaultdict(type(None), json.loads(x)),
-        frozenset.__name__: lambda x: frozenset(json.loads(x)),
-    }
-
-    encoding_registry: EncodeType = {
-        "list": json.dumps,
-        "dict": json.dumps,
-        "tuple": _encode_tuple,
-        type(set()).__name__: _encode_set,
-
-        datetime.__name__: datetime.isoformat,
-        date.__name__: date.isoformat,
-        time.__name__: time.isoformat,
-        timedelta.__name__: lambda x: str(x.total_seconds()),
-
-        complex.__name__: lambda x: f"{x.real},{x.imag}",
-        bytes.__name__: lambda x: base64.b64encode(x).decode('ascii'),
-        OrderedDict.__name__: lambda x: json.dumps(list(x.items())),
-        defaultdict.__name__: lambda x: json.dumps(dict(x)),
-        frozenset.__name__: lambda x: json.dumps(list(x)),
-    }
+    encoding_registry: EncodeType = encoding_registry
+    decoding_registry: DecodeType = decoding_registry
 
     def __init__(self,
                  namespace: str = 'main',
