@@ -1,4 +1,4 @@
-from importlib.metadata import version
+from importlib.metadata import version, PackageNotFoundError
 
 from .core import RedisDict
 from .core import encode_json, decode_json
@@ -11,5 +11,7 @@ __all__ = [
     'encoding_registry', 'decoding_registry',
     'RedisDictJSONEncoder', 'RedisDictJSONDecoder'
 ]
-
-__version__ = version("redis-dict")
+try:
+    __version__ = version("redis-dict")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
