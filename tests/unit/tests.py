@@ -178,9 +178,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         for key in redis_dic:
             self.assertTrue(key in input_items)
 
-        for key in redis_dic.iterkeys():
-            self.assertTrue(key in input_items)
-
         for key in redis_dic.keys():
             self.assertTrue(key in input_items)
 
@@ -188,18 +185,14 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(input_items[key], value)
             self.assertEqual(dic[key], value)
 
-        for key, value in redis_dic.iteritems():
-            self.assertEqual(input_items[key], value)
-            self.assertEqual(dic[key], value)
-
         input_values = list(input_items.values())
         dic_values = list(dic.values())
-        result_values = list(redis_dic.itervalues())
+        result_values = list(redis_dic.values())
 
         self.assertEqual(sorted(map(str, input_values)), sorted(map(str, result_values)))
         self.assertEqual(sorted(map(str, dic_values)), sorted(map(str, result_values)))
 
-        result_values = list(redis_dic.itervalues())
+        result_values = list(redis_dic.values())
         self.assertEqual(sorted(map(str, input_values)), sorted(map(str, result_values)))
         self.assertEqual(sorted(map(str, dic_values)), sorted(map(str, result_values)))
 
@@ -780,9 +773,9 @@ class TestRedisDict(unittest.TestCase):
         self.assertEqual(expected, result)
 
     def test_keys_empty(self):
-        """Calling RedisDict.keys() should return an empty list."""
+        """Calling RedisDict.keys() should return an empty Iterator."""
         keys = self.r.keys()
-        self.assertEqual(keys, [])
+        self.assertEqual(list(keys), [])
 
     def test_set_and_get_foobar(self):
         """Test setting a key and retrieving it."""
@@ -1536,7 +1529,7 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertTrue(d == d2)
         self.assertTrue(d == rd)
         self.assertTrue(d.items() == d2.items())
-        self.assertTrue(list(d.items()) == rd.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
 
         d["foo1"] = "bar1"
 
@@ -1544,7 +1537,7 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertTrue(d != d2)
         self.assertTrue(d != rd)
         self.assertTrue(d.items() != d2.items())
-        self.assertTrue(list(d.items()) != rd.items())
+        self.assertTrue(list(d.items()) != list(rd.items()))
 
         # Modifying 'd2' and 'rd'
         d2["foo1"] = "bar1"
@@ -1554,7 +1547,7 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertTrue(d == d2)
         self.assertTrue(d == rd)
         self.assertTrue(d.items() == d2.items())
-        self.assertTrue(list(d.items()) == rd.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
 
         d.clear()
         d2.clear()
@@ -1568,15 +1561,15 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertTrue(d == d2)
         self.assertTrue(d == rd)
         self.assertTrue(d.items() == d2.items())
-        self.assertTrue(list(d.items()) == rd.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
 
         d.clear()
 
         # Testing for inequality after clear
-        self.assertTrue(d != d2)
-        self.assertTrue(d != rd)
-        self.assertTrue(d.items() != d2.items())
-        self.assertTrue(list(d.items()) != rd.items())
+        self.assertFalse(d == d2)
+        self.assertFalse(d == rd)
+        self.assertFalse(d.items() == d2.items())
+        self.assertFalse(list(d.items()) == list(rd.items()))
 
         d2.clear()
         rd.clear()
@@ -1585,7 +1578,7 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertTrue(d == d2)
         self.assertTrue(d == rd)
         self.assertTrue(d.items() == d2.items())
-        self.assertTrue(list(d.items()) == rd.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
 
 
 class TestRedisDictPreserveExpire(unittest.TestCase):

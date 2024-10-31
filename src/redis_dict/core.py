@@ -558,7 +558,7 @@ class RedisDict:
         """
         if len(self) != len(other):
             return False
-        for key, value in self.iteritems():
+        for key, value in self.items():
             if value != other.get(key, SENTINEL):
                 return False
         return True
@@ -640,7 +640,7 @@ class RedisDict:
         Returns:
             Iterator[str]: An iterator over the keys of the RedisDict.
         """
-        self._iter = self.iterkeys()
+        self._iter = self.keys()
         return self
 
     def __repr__(self) -> str:
@@ -737,9 +737,12 @@ class RedisDict:
             return default
         return item
 
-    def iterkeys(self) -> Iterator[str]:
+    def keys(self) -> Iterator[str]:
         """
-            Note: for python2 str is needed
+        Return a Iterator of keys in the RedisDict, analogous to a dictionary's keys method.
+
+        Returns:
+            Iterator[str]: A list of keys in the RedisDict.
         """
         to_rm = len(self.namespace) + 1
         return (str(item[to_rm:]) for item in self._scan_keys())
@@ -756,18 +759,12 @@ class RedisDict:
 
         return None
 
-    def keys(self) -> List[str]:
+    def items(self) -> Iterator[Tuple[str, Any]]:
         """
-        Return a list of keys in the RedisDict, analogous to a dictionary's keys method.
+        Return a list of key-value pairs (tuples) in the RedisDict, analogous to a dictionary's items method.
 
         Returns:
-            List[str]: A list of keys in the RedisDict.
-        """
-        return list(self.iterkeys())
-
-    def iteritems(self) -> Iterator[Tuple[str, Any]]:
-        """
-        Note: for python2 str is needed
+            Iterator[Tuple[str, Any]]: A list of key-value pairs in the RedisDict.
         """
         to_rm = len(self.namespace) + 1
         for item in self._scan_keys():
@@ -776,30 +773,12 @@ class RedisDict:
             except KeyError:
                 pass
 
-    def items(self) -> List[Tuple[str, Any]]:
-        """
-        Return a list of key-value pairs (tuples) in the RedisDict, analogous to a dictionary's items method.
-
-        Returns:
-            List[Tuple[str, Any]]: A list of key-value pairs in the RedisDict.
-        """
-        return list(self.iteritems())
-
-    def values(self) -> List[Any]:
+    def values(self) -> Iterator[Any]:
         """
         Return a list of values in the RedisDict, analogous to a dictionary's values method.
 
         Returns:
             List[Any]: A list of values in the RedisDict.
-        """
-        return list(self.itervalues())
-
-    def itervalues(self) -> Iterator[Any]:
-        """
-        Iterate over the values in the RedisDict.
-
-        Returns:
-            Iterator[Any]: An iterator of values in the RedisDict.
         """
         to_rm = len(self.namespace) + 1
         for item in self._scan_keys():
