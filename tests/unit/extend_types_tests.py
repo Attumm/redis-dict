@@ -36,6 +36,18 @@ class BaseRedisDictTest(unittest.TestCase):
 
     def tearDown(self):
         self.redis_dict.clear()
+        new_types = [
+            'Customer',
+            'GzippedDict',
+            'Person',
+            'CompressedString',
+            'EncryptedStringClassBased',
+            'EncryptedRot13String',
+            'EncryptedString',
+        ]
+        for extend_type in new_types:
+            self.redis_dict.encoding_registry.pop(extend_type, None)
+            self.redis_dict.decoding_registry.pop(extend_type, None)
 
     def helper_get_redis_internal_value(self, key):
         sep = self.redis_dict_seperator

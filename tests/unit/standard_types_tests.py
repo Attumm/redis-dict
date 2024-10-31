@@ -10,9 +10,10 @@ from collections import OrderedDict, defaultdict
 
 from redis_dict import RedisDict
 
+import src.redis_dict.type_management
 
 sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
-from redis_dict.core import _default_decoder
+from redis_dict.type_management import _default_decoder
 
 
 class TypeCodecTests(unittest.TestCase):
@@ -35,7 +36,6 @@ class TypeCodecTests(unittest.TestCase):
         """
         Instances are colliding during unit tests, refactor encoding/decoding registeries and turn the test back on
         """
-        return
         test_types = {i[1] for i in test_cases}
         registry_types = set(self.dic.decoding_registry.keys())
 

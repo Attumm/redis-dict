@@ -1,14 +1,8 @@
-import unittest
-from datetime import datetime, date, time, timedelta
-from decimal import Decimal
-from collections import OrderedDict, defaultdict
-from uuid import UUID
+import sys
 import json
-from typing import Any
+import unittest
 
-from redis_dict import encoding_registry, decoding_registry
-from redis_dict import RedisDictJSONEncoder, RedisDictJSONDecoder
-from redis_dict import encode_json, decode_json
+from typing import Any
 
 from collections import Counter, ChainMap
 from dataclasses import dataclass
@@ -17,6 +11,14 @@ from pathlib import Path
 from queue import Queue, PriorityQueue
 from typing import NamedTuple
 from enum import Enum
+
+from datetime import datetime, date, time, timedelta
+from decimal import Decimal
+from collections import OrderedDict, defaultdict
+from uuid import UUID
+
+sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
+from redis_dict.type_management import  encode_json, decode_json, RedisDictJSONEncoder, RedisDictJSONDecoder
 
 
 class TestJsonEncoding(unittest.TestCase):
