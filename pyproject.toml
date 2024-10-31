@@ -103,6 +103,7 @@ show_missing = true
 [tool.mypy]
 python_version = "3.8"
 strict = true
+mypy_path = "src"
 files = ["src"]
 
 [tool.pylama]
