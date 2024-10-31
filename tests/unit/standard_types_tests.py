@@ -34,7 +34,7 @@ class TypeCodecTests(unittest.TestCase):
 
     def _ensure_testcases_have_all_types(self, test_cases):
         """
-        Instances are colliding during unit tests, refactor encoding/decoding registeries and turn the test back on
+        Ensure the testcases tests all the current standard types.
         """
         test_types = {i[1] for i in test_cases}
         registry_types = set(self.dic.decoding_registry.keys())

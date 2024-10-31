@@ -178,6 +178,16 @@ class RedisDict:
         return True
 
     def _format_value(self, key: str,  value: Any) -> str:
+        """
+        Formats a valid value with the type and encoded representation of the value.
+
+        Args:
+            key (str): The key of the value to be formatted.
+            value (Any): The value to be encoded and formatted.
+
+        Returns:
+            str: The formatted value with the type and encoded representation of the value.
+        """
         store_type, key = type(value).__name__, str(key)
         if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")

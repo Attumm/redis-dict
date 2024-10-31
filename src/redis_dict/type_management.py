@@ -171,7 +171,7 @@ class RedisDictJSONDecoder(json.JSONDecoder):
     """JSON decoder leveraging RedisDict existing type conversion system.
 
     Works with RedisDictJSONEncoder to reconstruct Python objects from JSON using
-    RedisDict's decoding_registry.
+    RedisDict decoding_registry.
 
     Not perfect, better allows for types then without.
     """
