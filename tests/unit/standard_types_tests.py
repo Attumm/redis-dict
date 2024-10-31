@@ -1,12 +1,18 @@
 import sys
 import unittest
 
-from uuid import UUID, uuid4
+from pathlib import Path
+from uuid import UUID
+from pathlib import Path
 from decimal import Decimal
 from datetime import datetime, date, time, timedelta, timezone
 from collections import OrderedDict, defaultdict
 
 from redis_dict import RedisDict
+
+
+sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
+from redis_dict.core import _default_decoder
 
 
 class TypeCodecTests(unittest.TestCase):
@@ -20,7 +26,7 @@ class TypeCodecTests(unittest.TestCase):
 
         self.assertIsInstance(encoded_value, str)
 
-        result = self.dic.decoding_registry.get(expected_type, lambda x: x)(encoded_value)
+        result = self.dic.decoding_registry.get(expected_type, _default_decoder)(encoded_value)
 
         self.assertEqual(type(result).__name__, expected_type)
         self.assertEqual(expected_value, result)
