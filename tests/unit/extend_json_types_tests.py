@@ -16,9 +16,7 @@ from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from queue import Queue, PriorityQueue
 from typing import NamedTuple
-from enum import Enum, EnumType
-import socket
-
+from enum import Enum
 
 
 class TestJsonEncoding(unittest.TestCase):
