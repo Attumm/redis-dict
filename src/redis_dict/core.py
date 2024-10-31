@@ -73,9 +73,9 @@ from contextlib import contextmanager
 
 from redis import StrictRedis
 
-from .type_management import SENTINEL, EncodeFuncType, DecodeFuncType, EncodeType, DecodeType
-from .type_management import _create_default_encode, _create_default_decode, _default_decoder
-from .type_management import encoding_registry, decoding_registry
+from redis_dict.type_management import SENTINEL, EncodeFuncType, DecodeFuncType, EncodeType, DecodeType
+from redis_dict.type_management import _create_default_encode, _create_default_decode, _default_decoder
+from redis_dict.type_management import encoding_registry, decoding_registry
 
 
 # pylint: disable=R0902, R0904
