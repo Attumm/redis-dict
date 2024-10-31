@@ -75,7 +75,8 @@ from redis import StrictRedis
 
 from redis_dict.type_management import SENTINEL, EncodeFuncType, DecodeFuncType, EncodeType, DecodeType
 from redis_dict.type_management import _create_default_encode, _create_default_decode, _default_decoder
-from redis_dict.type_management import encoding_registry, decoding_registry
+from redis_dict.type_management import encoding_registry as enc_reg
+from redis_dict.type_management import decoding_registry as dec_reg
 
 
 # pylint: disable=R0902, R0904
@@ -109,8 +110,8 @@ class RedisDict:
 
     """
 
-    encoding_registry: EncodeType = encoding_registry
-    decoding_registry: DecodeType = decoding_registry
+    encoding_registry: EncodeType = enc_reg
+    decoding_registry: DecodeType = dec_reg
 
     def __init__(self,
                  namespace: str = 'main',
@@ -538,7 +539,7 @@ class RedisDict:
 
     def keys(self) -> Iterator[str]:
         """
-        Return a Iterator of keys in the RedisDict, analogous to a dictionary's keys method.
+        Return an Iterator of keys in the RedisDict, analogous to a dictionary's keys method.
 
         Returns:
             Iterator[str]: A list of keys in the RedisDict.
