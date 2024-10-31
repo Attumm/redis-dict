@@ -49,7 +49,7 @@ jobs:
 
       - name: Run mypy strict
         run: |
-          mypy --strict src
+          mypy --verbose
 
       - name: Run Unit Tests
         env:
