@@ -10,6 +10,16 @@ from redis_dict import encoding_registry, decoding_registry
 from redis_dict import RedisDictJSONEncoder, RedisDictJSONDecoder
 from redis_dict import encode_json, decode_json
 
+from collections import Counter, ChainMap
+from dataclasses import dataclass
+from ipaddress import IPv4Address, IPv6Address
+from pathlib import Path
+from queue import Queue, PriorityQueue
+from typing import NamedTuple
+from enum import Enum, EnumType
+import socket
+
+
 
 class TestJsonEncoding(unittest.TestCase):
     def setUp(self):
@@ -272,11 +282,58 @@ class TestJsonEncoding(unittest.TestCase):
                         self.assertEqual(expected_value, result_value)
 
                         # Ordered dict, becomes regular dictionary. Since the idea is to extend json types fixing this
-                        # is outside of the scope of this feature
+                        # issue is not within the scope of this feature
                         if test_case_title == "list of dicts with OrderedDict/defaultdict, frozenset/time, timedelta/dict":
                             continue
                         self.assertEqual(type(expected_value), type(result_value))
 
+    def test_potential_candidates(self):
+        """Test cases for types that could be added encoding/decoding in the future"""
+
+        @dataclass
+        class DataClassType:
+            name: str
+            value: int
+
+        class NamedTupleType(NamedTuple):
+            name: str
+            value: int
+
+        class EnumType_(Enum):
+            ONE = 1
+            TWO = 2
+
+        potential_candidates = [
+        #    (Counter(['a', 'b', 'a']), "Counter"), Encodes into other type
+            (ChainMap({'a': 1}, {'b': 2}), "ChainMap"),
+            (Queue(), "Queue"),
+            (PriorityQueue(), "PriorityQueue"),
+
+            (IPv4Address('192.168.1.1'), "IPv4Address"),
+            (IPv6Address('2001:db8::1'), "IPv6Address"),
+
+            (Path('/foo/bar.txt'), "Path"),
+
+            (DataClassType("test", 42), "DataClass"),
+            #(NamedTupleType("test", 42), "NamedTuple"),  Encodes into other type
+            (EnumType_.ONE, "Enum"),
+
+            #(re_compile(r'\d+'), "Pattern"),
+            #(memoryview(b'Hello'), "memoryview"),
+        ]
+
+        for test_case_input, test_case_title in potential_candidates:
+            with self.subTest(f"Testing potential candidate: {test_case_title}"):
+
+                # fails with json out of the box
+                with self.assertRaises(TypeError, msg=test_case_title):
+                    result = json.dumps(test_case_input)
+                    print(result)
+
+                # Since these types are not yet added
+                with self.assertRaises(TypeError,  msg=test_case_title):
+                    result = json.dumps(test_case_input, cls=RedisDictJSONEncoder)
+                    print(result)
 
 if __name__ == '__main__':
     unittest.main()
