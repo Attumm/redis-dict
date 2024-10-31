@@ -38,9 +38,10 @@ jobs:
           pip install --upgrade pip setuptools
           pip install -r requirements.txt
 
-      - name: Install test dependencies
+      - name: Install dev dependencies
         run: |
-          pip install -r dev-requirements.txt
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
 
       - name: Run Pylama
         run: |

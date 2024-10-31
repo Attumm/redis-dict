@@ -103,10 +103,7 @@ show_missing = true
 [tool.mypy]
 python_version = "3.8"
 strict = true
-mypy_path = "src"
 files = ["src"]
-namespace_packages = true
-explicit_package_bases = true
 
 [tool.pylama]
 ignore = "E501,E231"
