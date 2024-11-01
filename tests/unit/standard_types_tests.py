@@ -1,12 +1,19 @@
 import sys
 import unittest
 
-from uuid import UUID, uuid4
+from pathlib import Path
+from uuid import UUID
+from pathlib import Path
 from decimal import Decimal
 from datetime import datetime, date, time, timedelta, timezone
 from collections import OrderedDict, defaultdict
 
 from redis_dict import RedisDict
+
+import src.redis_dict.type_management
+
+sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
+from redis_dict.type_management import _default_decoder
 
 
 class TypeCodecTests(unittest.TestCase):
@@ -20,16 +27,15 @@ class TypeCodecTests(unittest.TestCase):
 
         self.assertIsInstance(encoded_value, str)
 
-        result = self.dic.decoding_registry.get(expected_type, lambda x: x)(encoded_value)
+        result = self.dic.decoding_registry.get(expected_type, _default_decoder)(encoded_value)
 
         self.assertEqual(type(result).__name__, expected_type)
         self.assertEqual(expected_value, result)
 
     def _ensure_testcases_have_all_types(self, test_cases):
         """
-        Instances are colliding during unit tests, refactor encoding/decoding registeries and turn the test back on
+        Ensure the testcases tests all the current standard types.
         """
-        return
         test_types = {i[1] for i in test_cases}
         registry_types = set(self.dic.decoding_registry.keys())
 

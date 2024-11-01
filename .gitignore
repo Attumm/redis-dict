@@ -7,9 +7,13 @@ build
 dist
 venv
 .venv
+.venv_*
+dev_venv
 
 .hypothesis/
 
-
-.coverage
+.coverage*
 htmlcov
+
+
+.idea/

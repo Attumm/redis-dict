@@ -40,13 +40,23 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          pip install -r test-requirements.txt
+          pip install -r dev-requirements.txt
 
       - name: Run Pylama
         run: |
-          pylama redis_dict.py -i E501,E231
+          python -m pylama -i E501,E231 src
+
+      - name: Run mypy strict
+        run: |
+          mypy
+
+      - name: Doctype Check
+        run: |
+          darglint src/redis_dict/
 
       - name: Run Unit Tests
+        env:
+          PYTHONPATH: src
         run: |
           coverage run -m unittest discover -p "*tests.py"
 

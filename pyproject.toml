@@ -1,0 +1,133 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "redis-dict"
+version = "3.0.0"
+description = "Dictionary with Redis as storage backend"
+authors = [
+    {name = "Melvin Bijman", email = "bijman.m.m@gmail.com"},
+]
+readme = "README.md"
+
+requires-python = ">=3.8"
+license = {text = "MIT"}
+dependencies = [
+    "redis>=4.0.0",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Topic :: Internet",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Database",
+    "Topic :: System :: Distributed Computing",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Object Brokering",
+    "Topic :: Database :: Database Engines/Servers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+
+keywords = [
+    "redis", "python", "dictionary", "dict", "key-value",
+    "database", "caching", "distributed-computing",
+    "dictionary-interface", "large-datasets",
+    "scientific-computing", "data-persistence",
+    "high-performance", "scalable", "pipelining",
+    "batching", "big-data", "data-types",
+    "distributed-algorithms", "encryption",
+    "data-management",
+]
+
+[project.optional-dependencies]
+dev = [
+    "coverage==5.5",
+    "hypothesis==6.70.1",
+
+    "mypy>=1.8.0",
+    "mypy-extensions>=1.0.0",
+    "types-pyOpenSSL>=24.0.0.0",
+    "types-redis>=4.6.0",
+    "typing_extensions>=4.5.0",
+
+    "pylama>=8.4.1",
+    "pycodestyle==2.10.0",
+    "pydocstyle==6.3.0",
+    "pyflakes==3.0.1",
+    "pylint==3.2.7",
+    "mccabe==0.7.0",
+
+    "attrs==22.2.0",
+    "cffi==1.15.1",
+    "cryptography==43.0.1",
+    "exceptiongroup==1.1.1",
+    "future==0.18.3",
+    "pycparser==2.21",
+    "snowballstemmer==2.2.0",
+    "sortedcontainers==2.4.0",
+    "tomli==2.0.1",
+    "setuptools>=68.0.0",
+    "darglint",
+    "pydocstyle",
+]
+
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "sphinx-autodoc-typehints",
+    "tomli",
+    "myst-parser",
+]
+
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["redis_dict"]
+
+[tool.setuptools.package-data]
+redis_dict = ["py.typed"]
+
+[tool.coverage.run]
+source = ["redis_dict"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+
+[tool.mypy]
+python_version = "3.8"
+strict = true
+mypy_path = "src"
+files = ["src"]
+namespace_packages = true
+explicit_package_bases = true
+
+[tool.pylama]
+ignore = "E501,E231"
+skip = "*/.tox/*,*/.env/*,build/*"
+linters = "pycodestyle,pyflakes,mccabe"
+max_line_length = 120
+paths = ["src/redis_dict"]
+
+[project.urls]
+Homepage = "https://github.com/Attumm/redisdict"
+Documentation = "https://github.com/Attumm/redisdict#readme"
+Repository = "https://github.com/Attumm/redisdict.git"
+Changelog = "https://github.com/Attumm/redisdict/releases"

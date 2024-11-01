@@ -1,5 +1,8 @@
-import unittest
 import json
+import gzip
+import time
+import base64
+import unittest
 
 from datetime import datetime
 
@@ -33,6 +36,18 @@ class BaseRedisDictTest(unittest.TestCase):
 
     def tearDown(self):
         self.redis_dict.clear()
+        new_types = [
+            'Customer',
+            'GzippedDict',
+            'Person',
+            'CompressedString',
+            'EncryptedStringClassBased',
+            'EncryptedRot13String',
+            'EncryptedString',
+        ]
+        for extend_type in new_types:
+            self.redis_dict.encoding_registry.pop(extend_type, None)
+            self.redis_dict.decoding_registry.pop(extend_type, None)
 
     def helper_get_redis_internal_value(self, key):
         sep = self.redis_dict_seperator
@@ -335,6 +350,251 @@ class TestRedisDictExtendTypesFuncsAndMethods(BaseRedisDictTest):
 
         # Assert the RedisDict representation
         self.assertEqual(str(redis_dict), str({key: expected}))
+
+
+class GzippedDict:
+    """
+    A class that can encode its attributes to a compressed string and decode from a compressed string,
+    optimized for the fastest possible gzipping.
+
+    Methods:
+        encode: Compresses and encodes the object's attributes to a base64 string using the fastest settings.
+        decode: Creates a new object from a compressed and encoded base64 string.
+    """
+
+    def __init__(self, name, age, address):
+        self.name = name
+        self.age = age
+        self.address = address
+
+    def encode(self) -> str:
+        """
+        Encodes the object's attributes to a compressed base64 string using the fastest possible settings.
+
+        Returns:
+            str: A base64 encoded string of the compressed object attributes.
+        """
+        json_data = json.dumps(self.__dict__, separators=(',', ':'))
+        compressed_data = gzip.compress(json_data.encode('utf-8'), compresslevel=1)
+        return base64.b64encode(compressed_data).decode('ascii')
+
+    @classmethod
+    def decode(cls, encoded_str: str) -> 'GzippedDict':
+        """
+        Creates a new object from a compressed and encoded base64 string.
+
+        Args:
+            encoded_str (str): A base64 encoded string of compressed object attributes.
+
+        Returns:
+            GzippedDict: A new instance of the class with decoded attributes.
+        """
+        json_data = gzip.decompress(base64.b64decode(encoded_str)).decode('utf-8')
+        attributes = json.loads(json_data)
+        return cls(**attributes)
+
+
+class TestRedisDictExtendTypesGzipped(BaseRedisDictTest):
+
+    def test_gzipped_dict_encoding_and_decoding(self):
+        """Test adding new type and test if encoding and decoding works."""
+        self.redis_dict.extends_type(GzippedDict)
+
+        redis_dict = self.redis_dict
+        key = "person"
+        expected = GzippedDict("John Doe", 30, "123 Main St, Anytown, USA 12345")
+        expected_type = GzippedDict.__name__
+
+        # Store GzippedDict that should be encoded
+        redis_dict[key] = expected
+
+        # Assert the stored value is correctly encoded
+        internal_result_type, internal_result_value = self.helper_get_redis_internal_value(key)
+
+        self.assertNotEqual(internal_result_value, expected.__dict__)
+        self.assertEqual(internal_result_type, expected_type)
+        self.assertIsInstance(internal_result_value, str)
+
+        # Assert the result from getting the value is decoding correctly
+        result = redis_dict[key]
+        self.assertIsInstance(result, GzippedDict)
+        self.assertDictEqual(result.__dict__, expected.__dict__)
+
+    def test_encoding_decoding_should_remain_equal(self):
+        """Test adding new type and test if encoding and decoding results in the same value"""
+        redis_dict = self.redis_dict
+        self.redis_dict.extends_type(GzippedDict)
+
+        key = "person1"
+        key2 = "person2"
+        expected = GzippedDict("Jane Doe", 28, "456 Elm St, Othertown, USA 67890")
+
+        redis_dict[key] = expected
+
+        # Decodes the value, And stores the value encoded. Seamless usage of new type.
+        redis_dict[key2] = redis_dict[key]
+
+        result_one = redis_dict[key]
+        result_two = redis_dict[key2]
+
+        # Assert the single encoded decoded value is the same as double encoding decoded value.
+        self.assertDictEqual(result_one.__dict__, expected.__dict__)
+        self.assertDictEqual(result_one.__dict__, result_two.__dict__)
+        self.assertEqual(result_one.name, expected.name)
+
+
+class CompressedString(str):
+    """
+    A string subclass that provides methods for encoding (compressing) and decoding (decompressing) its content.
+
+    Methods:
+        encode: Compresses the string content and returns a base64 encoded string.
+        decode: Creates a new CompressedString instance from a compressed and encoded base64 string.
+    """
+
+    def compress(self) -> str:
+        """
+        Compresses the string content and returns a base64 encoded string.
+
+        Returns:
+            str: A base64 encoded string of the compressed content.
+        """
+        compressed_data = gzip.compress(self.encode('utf-8'), compresslevel=1)
+        return base64.b64encode(compressed_data).decode('ascii')
+
+    @classmethod
+    def decompress(cls, compressed_str: str) -> 'CompressedString':
+        """
+        Creates a new CompressedString instance from a compressed and encoded base64 string.
+
+        Args:
+            compressed_str (str): A base64 encoded string of compressed content.
+
+        Returns:
+            CompressedString: A new instance of the class with decompressed content.
+        """
+        decompressed_data = gzip.decompress(base64.b64decode(compressed_str)).decode('utf-8')
+        return cls(decompressed_data)
+
+
+class TestRedisDictExtendTypesCompressed(BaseRedisDictTest):
+
+    def test_compressed_string_encoding_and_decoding(self):
+        """Test adding new type and test if encoding and decoding works."""
+        redis_dict = self.redis_dict
+        redis_dict.extends_type(CompressedString,encoding_method_name='compress', decoding_method_name='decompress')
+        key = "message"
+        expected = CompressedString("This is a test message that will be compressed and stored in Redis.")
+        expected_type = CompressedString.__name__
+
+        # Store CompressedString that should be encoded
+        redis_dict[key] = expected
+
+        # Assert the stored value is correctly encoded
+        internal_result_type, internal_result_value = self.helper_get_redis_internal_value(key)
+
+        self.assertNotEqual(internal_result_value, expected)
+        self.assertEqual(internal_result_type, expected_type)
+        self.assertIsInstance(internal_result_value, str)
+
+        # Assert the result from getting the value is decoding correctly
+        result = redis_dict[key]
+        self.assertIsInstance(result, CompressedString)
+        self.assertEqual(result, expected)
+
+    def test_encoding_decoding_should_remain_equal(self):
+        """Test adding new type and test if encoding and decoding results in the same value"""
+        redis_dict = self.redis_dict
+        redis_dict.extends_type(CompressedString, encoding_method_name='compress', decoding_method_name='decompress')
+
+        key = "message1"
+        key2 = "message2"
+        expected = CompressedString("Another test message to ensure consistent encoding and decoding.")
+
+        redis_dict[key] = expected
+
+        # Decodes the value, And stores the value encoded. Seamless usage of new type.
+        redis_dict[key2] = redis_dict[key]
+
+        result_one = redis_dict[key]
+        result_two = redis_dict[key2]
+
+        # Assert the single encoded decoded value is the same as double encoding decoded value.
+        self.assertEqual(result_one, expected)
+        self.assertEqual(result_one, result_two)
+        self.assertEqual(result_one[:10], expected[:10])
+
+    def test_compression_size_reduction(self):
+        """Test that compression significantly reduces the size of stored data"""
+        redis_dict = self.redis_dict
+        redis_dict.extends_type(CompressedString, encoding_method_name='compress', decoding_method_name='decompress')
+        key = "large_message"
+
+        # Create a large string with some repetitive content to ensure good compression
+        large_string = "This is a test message. " * 1000 + "Some unique content to mix things up."
+        expected = CompressedString(large_string)
+
+        # Store the large CompressedString
+        redis_dict[key] = expected
+
+        # Get the internal (compressed) value
+        internal_result_type, internal_result_value = self.helper_get_redis_internal_value(key)
+
+        # Calculate sizes
+        original_size = len(large_string)
+        compressed_size = len(internal_result_value)
+
+        # Print sizes for information (optional)
+        print(f"Original size: {original_size} bytes")
+        print(f"Compressed size: {compressed_size} bytes")
+        print(f"Compression ratio: {compressed_size / original_size:.2f}")
+
+        # Assert that compression achieved significant size reduction
+        self.assertLess(compressed_size, original_size * 0.5, "Compression should reduce size by at least 50%")
+
+        # Verify that we can still recover the original string
+        decoded = redis_dict[key]
+        self.assertEqual(decoded, expected)
+        self.assertEqual(len(decoded), original_size)
+
+
+    def test_compression_timing_comparison(self):
+            """Compare timing of operations between compressed and uncompressed strings"""
+            redis_dict = self.redis_dict # A new instance for regular strings
+
+            key_compressed = "compressed"
+            key = "regular"
+
+            # Create a large string with some repetitive content
+            large_string = "This is a test message. " * 1000 + "Some unique content to mix things up."
+            compressed_string = CompressedString(large_string)
+
+            # Timing for setting compressed string
+            start_time = time.time()
+            redis_dict[key_compressed] = compressed_string
+            compressed_set_time = time.time() - start_time
+
+            # Timing for setting regular string
+            start_time = time.time()
+            redis_dict[key] = large_string
+            regular_set_time = time.time() - start_time
+
+            # Timing for getting compressed string
+            start_time = time.time()
+            _ = redis_dict[key_compressed]
+            compressed_get_time = time.time() - start_time
+
+            # Timing for getting regular string
+            start_time = time.time()
+            _ = redis_dict[key]
+            regular_get_time = time.time() - start_time
+
+            # Print timing results
+            print(f"Compressed string set time: {compressed_set_time:.6f} seconds")
+            print(f"Regular string set time: {regular_set_time:.6f} seconds")
+            print(f"Compressed string get time: {compressed_get_time:.6f} seconds")
+            print(f"Regular string get time: {regular_get_time:.6f} seconds")
+
 
 
 class TestNewTypeComplianceFailures(BaseRedisDictTest):

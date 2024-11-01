@@ -1,174 +1,23 @@
-"""
-redis_dict.py
+"""Redis Dict module."""
+from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type
 
-RedisDict is a Python library that provides a convenient and familiar interface for
-interacting with Redis as if it were a Python dictionary. The simple yet powerful library
-enables you to manage key-value pairs in Redis using native Python syntax of dictionary. It supports
-various data types, including strings, integers, floats, booleans, lists, and dictionaries,
-and includes additional utility functions for more complex use cases.
-
-By leveraging Redis for efficient key-value storage, RedisDict allows for high-performance
-data management and is particularly useful for handling large datasets that may exceed local
-memory capacity.
-
-## Features
-
-* **Dictionary-like interface**: Use familiar Python dictionary syntax to interact with Redis.
-* **Data Type Support**: Comprehensive support for various data types, including strings,
-  integers, floats, booleans, lists, dictionaries, sets, and tuples.
-* **Pipelining support**: Use pipelines for batch operations to improve performance.
-* **Expiration Support**: Enables the setting of expiration times either globally or individually
-  per key, through the use of context managers.
-* **Efficiency and Scalability**: RedisDict is designed for use with large datasets and is
-  optimized for efficiency. It retrieves only the data needed for a particular operation,
-  ensuring efficient memory usage and fast performance.
-* **Namespace Management**: Provides simple and efficient namespace handling to help organize
-  and manage data in Redis, streamlining data access and manipulation.
-* **Distributed Computing**: With its ability to seamlessly connect to other instances or
-  servers with access to the same Redis instance, RedisDict enables easy distributed computing.
-* **Custom data types**: Add custom types and transformations to suit your specific needs.
-
-New feature
-
-Custom extendable Validity checks on keys, and values.to support redis-dict base exceptions with messages from
-enabling detailed reporting on the reasons for specific validation failures. This refactor would allow users
-to configure which validity checks to execute, integrate custom validation functions, and specify whether
-to raise an error on validation failures or to drop the operation and log a warning.
-
-For example, in a caching scenario, data should only be cached if it falls within defined minimum and
-maximum size constraints. This approach enables straightforward dictionary set operations while ensuring
-that only meaningful data is cached: values greater than 10 MB and less than 100 MB should be cached;
-otherwise, they will be dropped.
-
->>> def my_custom_validity_check(value: str) -> None:
-    \"""
-    Validates the size of the input.
-
-    Args:
-        value (str): string to validate.
-
-    Raises:
-        RedisDictValidityException: If the length of the input is not within the allowed range.
-    \"""
-    min_size = 10 * 1024:  # Minimum size: 10 KB
-    max_size = 10 * 1024 * 1024:  # Maximum size: 10 MB
-    if len(value) < min_size
-        raise RedisDictValidityException(f"value is too small: {len(value)} bytes")
-    if len(value) > max_size
-        raise RedisDictValidityException(f"value is too large: {len(value)} bytes")
-
->>> cache = RedisDict(namespace='cache_valid_results_for_1_minute',
-... expire=60,
-... custom_valid_values_checks=[my_custom_validity_check], # extend with new valid check
-... validity_exception_suppress=True) # when value is invalid, don't store, and don't raise an exception.
->>> too_small = "too small to cache"
->>> cache["1234"] = too_small  # Since the value is below 10kb, thus there is no reason to cache the value.
->>> cache.get("1234") is None
->>> True
-"""
-# Types imports
-import json
-from datetime import datetime, time, timedelta, date
-from decimal import Decimal
-from uuid import UUID
-from collections import OrderedDict, defaultdict
-import base64
-
-from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
+from datetime import timedelta
 from contextlib import contextmanager
+from collections.abc import Mapping
 
 from redis import StrictRedis
 
-SENTINEL = object()
-
-EncodeFuncType = Callable[[Any], str]
-DecodeFuncType = Callable[[str], Any]
-
-EncodeType = Dict[str, EncodeFuncType]
-DecodeType = Dict[str, DecodeFuncType]
-
-
-def _create_default_encode(custom_encode_method: str) -> EncodeFuncType:
-    def default_encode(obj: Any) -> str:
-        return getattr(obj, custom_encode_method)()  # type: ignore[no-any-return]
-    return default_encode
-
-
-def _create_default_decode(cls: type, custom_decode_method: str) -> DecodeFuncType:
-    def default_decode(encoded_str: str) -> Any:
-        return getattr(cls, custom_decode_method)(encoded_str)
-    return default_decode
-
-
-def _decode_tuple(val: str) -> Tuple[Any, ...]:
-    """
-    Deserialize a JSON-formatted string to a tuple.
-
-    This function takes a JSON-formatted string, deserializes it to a list, and
-    then converts the list to a tuple.
-
-    Args:
-        val (str): A JSON-formatted string representing a list.
-
-    Returns:
-        Tuple[Any, ...]: A tuple with the deserialized values from the input string.
-    """
-    return tuple(json.loads(val))
-
-
-def _encode_tuple(val: Tuple[Any, ...]) -> str:
-    """
-    Serialize a tuple to a JSON-formatted string.
-
-    This function takes a tuple, converts it to a list, and then serializes
-    the list to a JSON-formatted string.
-
-    Args:
-        val (Tuple[Any, ...]): A tuple with values to be serialized.
-
-    Returns:
-        str: A JSON-formatted string representing the input tuple.
-    """
-    return json.dumps(list(val))
-
-
-def _decode_set(val: str) -> Set[Any]:
-    """
-    Deserialize a JSON-formatted string to a set.
-
-    This function takes a JSON-formatted string, deserializes it to a list, and
-    then converts the list to a set.
-
-    Args:
-        val (str): A JSON-formatted string representing a list.
-
-    Returns:
-        set[Any]: A set with the deserialized values from the input string.
-    """
-    return set(json.loads(val))
-
-
-def _encode_set(val: Set[Any]) -> str:
-    """
-    Serialize a set to a JSON-formatted string.
-
-    This function takes a set, converts it to a list, and then serializes the
-    list to a JSON-formatted string.
-
-    Args:
-        val (set[Any]): A set with values to be serialized.
-
-    Returns:
-        str: A JSON-formatted string representing the input set.
-    """
-    return json.dumps(list(val))
+from redis_dict.type_management import SENTINEL, EncodeFuncType, DecodeFuncType, EncodeType, DecodeType
+from redis_dict.type_management import _create_default_encode, _create_default_decode, _default_decoder
+from redis_dict.type_management import encoding_registry as enc_reg
+from redis_dict.type_management import decoding_registry as dec_reg
 
 
 # pylint: disable=R0902, R0904
 class RedisDict:
-    """
-    A Redis-backed dictionary-like data structure with support for advanced features, such as
-    custom data types, pipelining, and key expiration.
+    """Python dictionary with Redis as backend.
+
+    With support for advanced features, such as custom data types, pipelining, and key expiration.
 
     This class provides a dictionary-like interface that interacts with a Redis database, allowing
     for efficient storage and retrieval of key-value pairs. It supports various data types, including
@@ -194,70 +43,35 @@ class RedisDict:
         expire (Union[int, None]): An optional expiration time for keys, in seconds.
 
     """
-    decoding_registry: DecodeType = {
-        type('').__name__: str,
-        type(1).__name__: int,
-        type(0.1).__name__: float,
-        type(True).__name__: lambda x: x == "True",
-        type(None).__name__: lambda x: None,
 
-        "list": json.loads,
-        "dict": json.loads,
-        "tuple": _decode_tuple,
-        type(set()).__name__: _decode_set,
-
-        datetime.__name__: datetime.fromisoformat,
-        date.__name__: date.fromisoformat,
-        time.__name__: time.fromisoformat,
-        timedelta.__name__: lambda x: timedelta(seconds=float(x)),
-
-        Decimal.__name__: Decimal,
-        complex.__name__: lambda x: complex(*map(float, x.split(','))),
-        bytes.__name__: base64.b64decode,
-
-        UUID.__name__: UUID,
-        OrderedDict.__name__: lambda x: OrderedDict(json.loads(x)),
-        defaultdict.__name__: lambda x: defaultdict(type(None), json.loads(x)),
-        frozenset.__name__: lambda x: frozenset(json.loads(x)),
-    }
-
-    encoding_registry: EncodeType = {
-        "list": json.dumps,
-        "dict": json.dumps,
-        "tuple": _encode_tuple,
-        type(set()).__name__: _encode_set,
-
-        datetime.__name__: datetime.isoformat,
-        date.__name__: date.isoformat,
-        time.__name__: time.isoformat,
-        timedelta.__name__: lambda x: str(x.total_seconds()),
-
-        complex.__name__: lambda x: f"{x.real},{x.imag}",
-        bytes.__name__: lambda x: base64.b64encode(x).decode('ascii'),
-        OrderedDict.__name__: lambda x: json.dumps(list(x.items())),
-        defaultdict.__name__: lambda x: json.dumps(dict(x)),
-        frozenset.__name__: lambda x: json.dumps(list(x)),
-    }
+    encoding_registry: EncodeType = enc_reg
+    decoding_registry: DecodeType = dec_reg
 
     def __init__(self,
                  namespace: str = 'main',
                  expire: Union[int, timedelta, None] = None,
                  preserve_expiration: Optional[bool] = False,
+                 redis: "Optional[StrictRedis[Any]]" = None,
                  **redis_kwargs: Any) -> None:
-        """
-        Initialize a RedisDict instance.
+        """Initialize a RedisDict instance.
+
+        Init the RedisDict instance.
 
         Args:
-            namespace (str, optional): A prefix for keys stored in Redis.
-            expire (int, timedelta, optional): Expiration time for keys in seconds.
-            preserve_expiration (bool, optional): Preserve the expiration count when the key is updated.
-            **redis_kwargs: Additional keyword arguments passed to StrictRedis.
+            namespace (str): A prefix for keys stored in Redis.
+            expire (Union[int, timedelta, None], optional): Expiration time for keys.
+            preserve_expiration (Optional[bool], optional): Preserve expiration on key updates.
+            redis (Optional[StrictRedis[Any]], optional): A Redis connection instance.
+            **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.
         """
 
         self.namespace: str = namespace
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
-        self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **redis_kwargs)
+        if redis:
+            redis.connection_pool.connection_kwargs["decode_responses"] = True
+
+        self.redis: StrictRedis[Any] = redis or StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
 
         self.custom_encode_method = "encode"
@@ -288,7 +102,7 @@ class RedisDict:
         length does not exceed the maximum allowed size (500 MB).
 
         Args:
-            val (Union[str, int, float, bool]): The input value to be validated.
+            val (Any): The input value to be validated.
             val_type (str): The type of the input value ("str", "int", "float", or "bool").
 
         Returns:
@@ -298,7 +112,19 @@ class RedisDict:
             return len(val) < self._max_string_size
         return True
 
-    def _format_value(self, key: str,  value: Any) -> str:
+    def _format_value(self, key: str, value: Any) -> str:
+        """Format a valid value with the type and encoded representation of the value.
+
+        Args:
+            key (str): The key of the value to be formatted.
+            value (Any): The value to be encoded and formatted.
+
+        Raises:
+            ValueError: If the value or key fail validation.
+
+        Returns:
+            str: The formatted value with the type and encoded representation of the value.
+        """
         store_type, key = type(value).__name__, str(key)
         if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
@@ -355,7 +181,7 @@ class RedisDict:
             Any: The transformed Python object.
         """
         type_, value = result.split(':', 1)
-        return self.decoding_registry.get(type_, lambda x: x)(value)
+        return self.decoding_registry.get(type_, _default_decoder)(value)
 
     def new_type_compliance(
             self,
@@ -363,8 +189,7 @@ class RedisDict:
             encode_method_name: Optional[str] = None,
             decode_method_name: Optional[str] = None,
     ) -> None:
-        """
-        Checks if a class complies with the required encoding and decoding methods.
+        """Check if a class complies with the required encoding and decoding methods.
 
         Args:
             class_type (type): The class to check for compliance.
@@ -386,6 +211,7 @@ class RedisDict:
                 raise NotImplementedError(
                     f"Class {class_type.__name__} does not implement the required {decode_method_name} class method.")
 
+    # pylint: disable=too-many-arguments
     def extends_type(
             self,
             class_type: type,
@@ -394,31 +220,21 @@ class RedisDict:
             encoding_method_name: Optional[str] = None,
             decoding_method_name: Optional[str] = None,
     ) -> None:
-        """
-        Extends RedisDict to support a custom type in the encode/decode mapping.
+        """Extend RedisDict to support a custom type in the encode/decode mapping.
 
         This method enables serialization of instances based on their type,
         allowing for custom types, specialized storage formats, and more.
         There are three ways to add custom types:
-          1. Have a class with an `encode` instance method and a `decode` class method.
-          2. Have a class and pass encoding and decoding functions, where
-            `encode` converts the class instance to a string, and
-            `decode` takes the string and recreates the class instance.
-          3. Have a class that already has serialization methods, that satisfies the:
-                EncodeFuncType = Callable[[Any], str]
-                DecodeFuncType = Callable[[str], Any]
+        1. Have a class with an `encode` instance method and a `decode` class method.
+        2. Have a class and pass encoding and decoding functions, where
+        `encode` converts the class instance to a string, and
+        `decode` takes the string and recreates the class instance.
+        3. Have a class that already has serialization methods, that satisfies the:
+        EncodeFuncType = Callable[[Any], str]
+        DecodeFuncType = Callable[[str], Any]
 
-            `custom_encode_method`
-            `custom_decode_method` attributes.
-
-        Args:
-            class_type (Type[type]): The class `__name__` will become the key for the encoding and decoding functions.
-            encode (Optional[EncodeFuncType]): function that encodes an object into a storable string format.
-                This function should take an instance of `class_type` as input and return a string.
-            decode (Optional[DecodeFuncType]): function that decodes a string back into an object of `class_type`.
-                This function should take a string as input and return an instance of `class_type`.
-            encoding_method_name (str, optional): Name of encoding method of the class for redis-dict custom types.
-            decoding_method_name (str, optional): Name of decoding method of the class for redis-dict custom types.
+        `custom_encode_method`
+        `custom_decode_method`
 
         If no encoding or decoding function is provided, default to use the `encode` and `decode` methods of the class.
 
@@ -445,11 +261,21 @@ class RedisDict:
 
             redis_dict.extends_type(Person)
 
-        Note:
-        You can check for compliance of a class separately using the `new_type_compliance` method:
+        Args:
+            class_type (type): The class `__name__` will become the key for the encoding and decoding functions.
+            encode (Optional[EncodeFuncType]): function that encodes an object into a storable string format.
+            decode (Optional[DecodeFuncType]): function that decodes a string back into an object of `class_type`.
+            encoding_method_name (str, optional): Name of encoding method of the class for redis-dict custom types.
+            decoding_method_name (str, optional): Name of decoding method of the class for redis-dict custom types.
 
-        This method raises a NotImplementedError if either `encode` or `decode` is `None`
-        and the class does not implement the corresponding method.
+        Raises:
+            NotImplementedError
+
+        Note:
+            You can check for compliance of a class separately using the `new_type_compliance` method:
+
+            This method raises a NotImplementedError if either `encode` or `decode` is `None`
+            and the class does not implement the corresponding method.
         """
 
         if encode is None or decode is None:
@@ -460,7 +286,7 @@ class RedisDict:
 
             if decode is None:
                 decode_method_name = decoding_method_name or self.custom_decode_method
-                self.new_type_compliance(class_type,  decode_method_name=decode_method_name)
+                self.new_type_compliance(class_type, decode_method_name=decode_method_name)
                 decode = _create_default_decode(class_type, decode_method_name)
 
         type_name = class_type.__name__
@@ -479,7 +305,7 @@ class RedisDict:
         """
         if len(self) != len(other):
             return False
-        for key, value in self.iteritems():
+        for key, value in self.items():
             if value != other.get(key, SENTINEL):
                 return False
         return True
@@ -561,7 +387,7 @@ class RedisDict:
         Returns:
             Iterator[str]: An iterator over the keys of the RedisDict.
         """
-        self._iter = self.iterkeys()
+        self._iter = self.keys()
         return self
 
     def __repr__(self) -> str:
@@ -582,15 +408,102 @@ class RedisDict:
         """
         return str(self.to_dict())
 
+    def __or__(self, other: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Implements the | operator (dict union).
+        Returns a new dictionary with items from both dictionaries.
+
+        Args:
+            other (Dict[str, Any]): The dictionary to merge with.
+
+        Raises:
+            TypeError: If other does not adhere to Mapping.
+
+        Returns:
+            Dict[str, Any]: A new dictionary containing items from both dictionaries.
+        """
+        if not isinstance(other, Mapping):
+            raise TypeError(f"unsupported operand type(s) for |: '{type(other).__name__}' and 'RedisDict'")
+
+        result = {}
+        result.update(self.to_dict())
+        result.update(other)
+        return result
+
+    def __ror__(self, other: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Implements the reverse | operator.
+        Called when RedisDict is on the right side of |.
+
+        Args:
+            other (Dict[str, Any]): The dictionary to merge with.
+
+        Raises:
+            TypeError: If other does not adhere to Mapping.
+
+        Returns:
+            Dict[str, Any]: A new dictionary containing items from both dictionaries.
+        """
+        if not isinstance(other, Mapping):
+            raise TypeError(f"unsupported operand type(s) for |: 'RedisDict' and '{type(other).__name__}'")
+
+        result = {}
+        result.update(other)
+        result.update(self.to_dict())
+        return result
+
+    def __ior__(self, other: Dict[str, Any]) -> 'RedisDict':
+        """
+        Implements the |= operator (in-place union).
+        Modifies the current dictionary by adding items from other.
+
+        Args:
+            other (Dict[str, Any]): The dictionary to merge with.
+
+        Raises:
+            TypeError: If other does not adhere to Mapping.
+
+        Returns:
+            RedisDict: The modified RedisDict instance.
+        """
+        if not isinstance(other, Mapping):
+            raise TypeError(f"unsupported operand type(s) for |: '{type(other).__name__}' and 'RedisDict'")
+
+        self.update(other)
+        return self
+
+    @classmethod
+    def __class_getitem__(cls: Type['RedisDict'], key: Any) -> Type['RedisDict']:
+        """
+        Enables type hinting support like RedisDict[str, Any].
+
+        Args:
+            key (Any): The type parameter(s) used in the type hint.
+
+        Returns:
+            Type[RedisDict]: The class itself, enabling type hint usage.
+        """
+        return cls
+
+    def __reversed__(self) -> Iterator[str]:
+        """
+        Implements reversed() built-in:
+        Returns an iterator over dictionary keys in reverse insertion order.
+
+        Warning:
+            RedisDict Currently does not support 'insertion order' as property thus also not reversed.
+
+        Returns:
+            Iterator[str]: An iterator yielding the dictionary keys in reverse order.
+        """
+        return reversed(list(self.keys()))
+
     def __next__(self) -> str:
         """
         Get the next item in the iterator.
 
         Returns:
             str: The next item in the iterator.
-
-        Raises:
-            StopIteration: If there are no more items.
         """
         return next(self._iter)
 
@@ -601,8 +514,6 @@ class RedisDict:
         Returns:
             str: The next item in the iterator.
 
-        Raises:
-            StopIteration: If there are no more items.
         """
         return next(self)
 
@@ -633,7 +544,7 @@ class RedisDict:
         Scan for Redis keys matching the given search term.
 
         Args:
-            search_term (str, optional): A search term to filter keys. Defaults to ''.
+            search_term (str): A search term to filter keys. Defaults to ''.
 
         Returns:
             Iterator[str]: An iterator of matching Redis keys.
@@ -642,8 +553,8 @@ class RedisDict:
         return self.get_redis.scan_iter(match=search_query)
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:
-        """
-        Return the value for the given key if it exists, otherwise return the default value.
+        """Return the value for the given key if it exists, otherwise return the default value.
+
         Analogous to a dictionary's get method.
 
         Args:
@@ -651,23 +562,30 @@ class RedisDict:
             default (Optional[Any], optional): The value to return if the key is not found.
 
         Returns:
-            Optional[Any]: The value associated with the key or the default value.
+            Any: The value associated with the key or the default value.
         """
         found, item = self._load(key)
         if not found:
             return default
         return item
 
-    def iterkeys(self) -> Iterator[str]:
-        """
-            Note: for python2 str is needed
+    def keys(self) -> Iterator[str]:
+        """Return an Iterator of keys in the RedisDict, analogous to a dictionary's keys method.
+
+        Returns:
+            Iterator[str]: A list of keys in the RedisDict.
         """
         to_rm = len(self.namespace) + 1
         return (str(item[to_rm:]) for item in self._scan_keys())
 
     def key(self, search_term: str = '') -> Optional[str]:
-        """
-        Note: for python2 str is needed
+        """Return the first value for search_term if it exists, otherwise return None.
+
+        Args:
+            search_term (str): A search term to filter keys. Defaults to ''.
+
+        Returns:
+            str: The first key associated with the given search term.
         """
         to_rm = len(self.namespace) + 1
         search_query = self._create_iter_query(search_term)
@@ -677,18 +595,11 @@ class RedisDict:
 
         return None
 
-    def keys(self) -> List[str]:
-        """
-        Return a list of keys in the RedisDict, analogous to a dictionary's keys method.
+    def items(self) -> Iterator[Tuple[str, Any]]:
+        """Return a list of key-value pairs (tuples) in the RedisDict, analogous to a dictionary's items method.
 
-        Returns:
-            List[str]: A list of keys in the RedisDict.
-        """
-        return list(self.iterkeys())
-
-    def iteritems(self) -> Iterator[Tuple[str, Any]]:
-        """
-        Note: for python2 str is needed
+        Yields:
+            Iterator[Tuple[str, Any]]: A list of key-value pairs in the RedisDict.
         """
         to_rm = len(self.namespace) + 1
         for item in self._scan_keys():
@@ -697,30 +608,13 @@ class RedisDict:
             except KeyError:
                 pass
 
-    def items(self) -> List[Tuple[str, Any]]:
-        """
-        Return a list of key-value pairs (tuples) in the RedisDict, analogous to a dictionary's items method.
+    def values(self) -> Iterator[Any]:
+        """Analogous to a dictionary's values method.
 
-        Returns:
-            List[Tuple[str, Any]]: A list of key-value pairs in the RedisDict.
-        """
-        return list(self.iteritems())
+        Return a list of values in the RedisDict,
 
-    def values(self) -> List[Any]:
-        """
-        Return a list of values in the RedisDict, analogous to a dictionary's values method.
-
-        Returns:
+        Yields:
             List[Any]: A list of values in the RedisDict.
-        """
-        return list(self.itervalues())
-
-    def itervalues(self) -> Iterator[Any]:
-        """
-        Iterate over the values in the RedisDict.
-
-        Returns:
-            Iterator[Any]: An iterator of values in the RedisDict.
         """
         to_rm = len(self.namespace) + 1
         for item in self._scan_keys():
@@ -730,8 +624,7 @@ class RedisDict:
                 pass
 
     def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert the RedisDict to a Python dictionary.
+        """Convert the RedisDict to a Python dictionary.
 
         Returns:
             Dict[str, Any]: A dictionary with the same key-value pairs as the RedisDict.
@@ -739,8 +632,7 @@ class RedisDict:
         return dict(self.items())
 
     def clear(self) -> None:
-        """
-        Remove all key-value pairs from the RedisDict in one batch operation using pipelining.
+        """Remove all key-value pairs from the RedisDict in one batch operation using pipelining.
 
         This method mimics the behavior of the `clear` method from a standard Python dictionary.
         Redis pipelining is employed to group multiple commands into a single request, minimizing
@@ -754,33 +646,33 @@ class RedisDict:
                 del self[key]
 
     def pop(self, key: str, default: Union[Any, object] = SENTINEL) -> Any:
-        """
+        """Analogous to a dictionary's pop method.
+
         Remove the value associated with the given key and return it, or return the default value
-        if the key is not found. Analogous to a dictionary's pop method.
+        if the key is not found.
 
         Args:
             key (str): The key to remove the value.
             default (Optional[Any], optional): The value to return if the key is not found.
 
         Returns:
-            Optional[Any]: The value associated with the key or the default value.
+            Any: The value associated with the key or the default value.
 
         Raises:
             KeyError: If the key is not found and no default value is provided.
         """
-        try:
-            value = self[key]
-        except KeyError:
+        formatted_key = self._format_key(key)
+        value = self.get_redis.execute_command("GETDEL", formatted_key)
+        if value is None:
             if default is not SENTINEL:
                 return default
-            raise
+            raise KeyError(formatted_key)
 
-        del self[key]
-        return value
+        return self._transform(value)
 
     def popitem(self) -> Tuple[str, Any]:
-        """
-        Remove and return a random (key, value) pair from the RedisDict as a tuple.
+        """Remove and return a random (key, value) pair from the RedisDict as a tuple.
+
         This method is analogous to the `popitem` method of a standard Python dictionary.
 
         Returns:
@@ -799,7 +691,8 @@ class RedisDict:
                 continue
 
     def setdefault(self, key: str, default_value: Optional[Any] = None) -> Any:
-        """
+        """Get value under key, and if not present set default value.
+
         Return the value associated with the given key if it exists, otherwise set the value to the
         default value and return it. Analogous to a dictionary's setdefault method.
 
@@ -810,15 +703,28 @@ class RedisDict:
         Returns:
             Any: The value associated with the key or the default value.
         """
-        found, value = self._load(key)
-        if not found:
-            self[key] = default_value
+        formatted_key = self._format_key(key)
+        formatted_value = self._format_value(key, default_value)
+
+        # Setting {"get": True} enables parsing of the redis result as "GET", instead of "SET" command
+        options = {"get": True}
+        args = ["SET", formatted_key, formatted_value, "NX", "GET"]
+        if self.preserve_expiration:
+            args.append("KEEPTTL")
+        elif self.expire is not None:
+            expire_val = int(self.expire.total_seconds()) if isinstance(self.expire, timedelta) else self.expire
+            expire_str = str(1) if expire_val <= 1 else str(expire_val)
+            args.extend(["EX", expire_str])
+
+        result = self.get_redis.execute_command(*args, **options)
+        if result is None:
             return default_value
-        return value
+
+        return self._transform(result)
 
     def copy(self) -> Dict[str, Any]:
-        """
-        Create a shallow copy of the RedisDict and return it as a standard Python dictionary.
+        """Create a shallow copy of the RedisDict and return it as a standard Python dictionary.
+
         This method is analogous to the `copy` method of a standard Python dictionary
 
         Returns:
@@ -841,7 +747,8 @@ class RedisDict:
                 self[key] = value
 
     def fromkeys(self, iterable: List[str], value: Optional[Any] = None) -> 'RedisDict':
-        """
+        """Create a new RedisDict from an iterable of key-value pairs.
+
         Create a new RedisDict with keys from the provided iterable and values set to the given value.
         This method is analogous to the `fromkeys` method of a standard Python dictionary, populating
         the RedisDict with the keys from the iterable and setting their corresponding values to the
@@ -861,10 +768,11 @@ class RedisDict:
         return self
 
     def __sizeof__(self) -> int:
-        """
-        Return the approximate size of the RedisDict in memory, in bytes.
+        """Return the approximate size of the RedisDict in memory, in bytes.
+
         This method is analogous to the `__sizeof__` method of a standard Python dictionary, estimating
         the memory consumption of the RedisDict based on the serialized in-memory representation.
+        Should be changed to redis view of the size.
 
         Returns:
             int: The approximate size of the RedisDict in memory, in bytes.
@@ -906,13 +814,12 @@ class RedisDict:
     #  compatibility with Python 3.9 typing
     @contextmanager
     def expire_at(self, sec_epoch: Union[int, timedelta]) -> Iterator[None]:
-        """
-        Context manager to set the expiration time for keys in the RedisDict.
+        """Context manager to set the expiration time for keys in the RedisDict.
 
         Args:
             sec_epoch (int, timedelta): The expiration duration is set using either an integer or a timedelta.
 
-        Returns:
+        Yields:
             ContextManager: A context manager during which the expiration time is the time set.
         """
         self.expire, temp = sec_epoch, self.expire
@@ -924,7 +831,7 @@ class RedisDict:
         """
         Context manager to create a Redis pipeline for batch operations.
 
-        Returns:
+        Yields:
             ContextManager: A context manager to create a Redis pipeline batching all operations within the context.
         """
         top_level = False
@@ -1006,7 +913,8 @@ class RedisDict:
         return dict(self.redis.info())
 
     def get_ttl(self, key: str) -> Optional[int]:
-        """
+        """Get the Time To Live from Redis.
+
         Get the Time To Live (TTL) in seconds for a given key. If the key does not exist or does not have an
         associated `expire`, return None.
 

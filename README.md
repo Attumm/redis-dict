@@ -1,4 +1,5 @@
 # Redis-dict
+[![PyPI](https://img.shields.io/pypi/v/redis-dict.svg)](https://pypi.org/project/redis-dict/)
 [![CI](https://github.com/Attumm/redis-dict/actions/workflows/ci.yml/badge.svg)](https://github.com/Attumm/redis-dict/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Attumm/redis-dict/graph/badge.svg?token=Lqs7McQGEs)](https://codecov.io/gh/Attumm/redis-dict)
 [![Downloads](https://static.pepy.tech/badge/redis-dict/month)](https://pepy.tech/project/redis-dict)
@@ -52,7 +53,6 @@ In Redis our example looks like this.
 
 ### Namespaces
 Acting as an identifier for your dictionary across different systems, RedisDict employs namespaces for organized data management. When a namespace isn't specified, "main" becomes the default. Thus allowing for data organization across systems and projects with the same redis instance.
-
 This approach also minimizes the risk of key collisions between different applications, preventing hard-to-debug issues. By leveraging namespaces, RedisDict ensures a cleaner and more maintainable data management experience for developers working on multiple projects.
 
 ## Advanced Features
@@ -101,7 +101,6 @@ dic['gone'] = 'gone in 5 seconds'
 Efficiently batch your requests using the Pipeline feature, which can be easily utilized with a context manager.
 
 ```python
-from redis_dict import RedisDict
 dic = RedisDict(namespace="example")
 
 # one round trip to redis
@@ -229,13 +228,10 @@ This approach optimizes Redis database performance and efficiency by ensuring th
 Following types are supported: 
 `str, int, float, bool, NoneType, list, dict, tuple, set, datetime, date, time, timedelta, Decimal, complex, bytes, UUID, OrderedDict, defaultdict, frozenset`
 ```python
-from redis_dict import RedisDict
-
 from uuid import UUID
 from decimal import Decimal
 from collections import OrderedDict, defaultdict
 from datetime import datetime, date, time, timedelta
-
 
 dic = RedisDict()
 
@@ -265,6 +261,32 @@ dic["default"] = defaultdict(int, {'a': 1, 'b': 2})
 dic["frozen"] = frozenset([1, 2, 3])
 ```
 
+
+
+### Nested types
+Nested Types
+RedisDict supports nested structures with mixed types through JSON serialization. The feature works by utilizing JSON encoding and decoding under the hood. While this represents an upgrade in functionality, the feature is not fully implemented and should be used with caution. For optimal performance, using shallow dictionaries is recommended.
+```python
+from datetime import datetime, timedelta
+
+dic["mixed"] = [1, "foobar", 3.14, [1, 2, 3], datetime.now()]
+
+dic['dic'] = {"elapsed_time": timedelta(hours=60)}
+```
+
+### JSON Encoding - Decoding
+The nested type support in RedisDict is implemented using custom JSON encoders and decoders. These JSON encoders and decoders are built on top of RedisDict's own encoding and decoding functionality, extending it for JSON compatibility. Since JSON serialization was a frequently requested feature, these enhanced encoders and decoders are available for use in other projects:
+```python
+import json
+from datetime import datetime
+from redis_dict import RedisDictJSONDecoder, RedisDictJSONEncoder
+
+data = [1, "foobar", 3.14, [1, 2, 3], datetime.now()]
+encoded = json.dumps(data, cls=RedisDictJSONEncoder)
+result = json.loads(encoded, cls=RedisDictJSONDecoder)
+```
+
+
 ### Extending RedisDict with Custom Types
 
 RedisDict supports custom type serialization. Here's how to add a new type:
@@ -272,7 +294,6 @@ RedisDict supports custom type serialization. Here's how to add a new type:
 
 ```python
 import json
-from redis_dict import RedisDict
 
 class Person:
     def __init__(self, name, age):
@@ -301,23 +322,13 @@ assert result.name == person.name
 assert result.age == person.age
 ```
 
-```python
->>> from datetime import datetime
->>> redis_dict.extends_type(datetime, datetime.isoformat, datetime.fromisoformat)
->>> redis_dict["now"] = datetime.now()
->>> redis_dict
-{'now': datetime.datetime(2024, 10, 14, 18, 41, 53, 493775)}
->>> redis_dict["now"]
-datetime.datetime(2024, 10, 14, 18, 41, 53, 493775)
-```
-
-For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/extend_types_tests.py).
+For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/tests/unit/extend_types_tests.py).
 ### Redis Encryption
 Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
-[Setup guide](https://github.com/Attumm/redis-dict/blob/main/encrypted_redis.MD)
+[Setup guide](https://github.com/Attumm/redis-dict/blob/main/docs/tutorials/encrypted_redis.MD)
 
 ### Redis Storage Encryption
-For storing encrypted data values, it's possible to use extended types. Take a look at this [encrypted test](https://github.com/Attumm/redis-dict/blob/main/encrypt_tests.py).
+For storing encrypted data values, it's possible to use extended types. Take a look at this [encrypted test](https://github.com/Attumm/redis-dict/blob/main/tests/unit/encrypt_tests.py).
 
 ### Tests
 The RedisDict library includes a comprehensive suite of tests that ensure its correctness and resilience. The test suite covers various data types, edge cases, and error handling scenarios. It also employs the Hypothesis library for property-based testing, which provides fuzz testing to evaluate the implementation
@@ -325,19 +336,16 @@ The RedisDict library includes a comprehensive suite of tests that ensure its co
 ### Redis config
 To configure RedisDict using your Redis config.
 
-Configure both the host and port.
+Configure both the host and port. Or configuration with a setting dictionary.
 ```python
 dic = RedisDict(host='127.0.0.1', port=6380)
-```
 
-Configuration with a dictionary.
-```python
 redis_config = {
     'host': '127.0.0.1',
     'port': 6380,
 }
 
-dic = RedisDict(**redis_config)
+confid_dic = RedisDict(**redis_config)
 ```
 
 ## Installation
@@ -348,4 +356,3 @@ pip install redis-dict
 ### Note
 * Please be aware that this project is currently being utilized by various organizations in their production environments. If you have any questions or concerns, feel free to raise issues
 * This project only uses redis as dependency
-
