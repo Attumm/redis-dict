@@ -2,13 +2,16 @@ from typing import Any
 
 import sys
 import time
+import json
 import unittest
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import redis
 
 from redis_dict import RedisDict
+from redis_dict import RedisDictJSONEncoder, RedisDictJSONDecoder
+
 from hypothesis import given, strategies as st
 
 # !! Make sure you don't have keys within redis named like this, they will be deleted.
@@ -1442,6 +1445,29 @@ class TestRedisDict(unittest.TestCase):
         value = [1, "foobar", 3.14, [1, 2, 3]]
         self.r[key] = value
         self.assertEqual(self.r[key], value)
+
+    def test_set_get_mixed_type_list_readme(self):
+        key = "mixed_type_list"
+        now = datetime.now()
+        value = [1, "foobar", 3.14, [1, 2, 3], now]
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    def test_set_get_dict_with_timedelta_readme(self):
+        key = "dic_with_timedelta"
+        value = {"elapsed_time": timedelta(hours=60)}
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    def test_json_encoder_decoder_readme(self):
+        """Test the custom JSON encoder and decoder"""
+        now = datetime.now()
+        expected = [1, "foobar", 3.14, [1, 2, 3], now]
+
+        encoded = json.dumps(expected, cls=RedisDictJSONEncoder)
+        result = json.loads(encoded, cls=RedisDictJSONDecoder)
+
+        self.assertEqual(result, expected)
 
     @unittest.skip
     def test_set_get_mixed_type_set(self):

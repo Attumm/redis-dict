@@ -261,6 +261,32 @@ dic["default"] = defaultdict(int, {'a': 1, 'b': 2})
 dic["frozen"] = frozenset([1, 2, 3])
 ```
 
+
+
+### Nested types
+Nested Types
+RedisDict supports nested structures with mixed types through JSON serialization. The feature works by utilizing JSON encoding and decoding under the hood. While this represents an upgrade in functionality, the feature is not fully implemented and should be used with caution. For optimal performance, using shallow dictionaries is recommended.
+```python
+from datetime import datetime, timedelta
+
+dic["mixed"] = [1, "foobar", 3.14, [1, 2, 3], datetime.now()]
+
+dic['dic'] = {"elapsed_time": timedelta(hours=60)}
+```
+
+### JSON Encoding - Decoding
+The nested type support in RedisDict is implemented using custom JSON encoders and decoders. These JSON encoders and decoders are built on top of RedisDict's own encoding and decoding functionality, extending it for JSON compatibility. Since JSON serialization was a frequently requested feature, these enhanced encoders and decoders are available for use in other projects:
+```python
+import json
+from datetime import datetime
+from redis_dict import RedisDictJSONDecoder, RedisDictJSONEncoder
+
+data = [1, "foobar", 3.14, [1, 2, 3], datetime.now()]
+encoded = json.dumps(data, cls=RedisDictJSONEncoder)
+result = json.loads(encoded, cls=RedisDictJSONDecoder)
+```
+
+
 ### Extending RedisDict with Custom Types
 
 RedisDict supports custom type serialization. Here's how to add a new type:
