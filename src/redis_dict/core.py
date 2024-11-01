@@ -1,8 +1,9 @@
 """Redis Dict module."""
-from typing import Any, Dict, Iterator, List, Tuple, Union, Optional
+from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type
 
 from datetime import timedelta
 from contextlib import contextmanager
+from collections.abc import Mapping
 
 from redis import StrictRedis
 
@@ -406,6 +407,87 @@ class RedisDict:
             str: A string representation of the RedisDict.
         """
         return str(self.to_dict())
+
+    def __or__(self, other: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Implements the | operator (dict union).
+        Returns a new dictionary with items from both dictionaries.
+
+        Args:
+            other (Dict[str, Any]): The dictionary to merge with.
+
+        Returns:
+            Dict[str, Any]: A new dictionary containing items from both dictionaries.
+        """
+        if not isinstance(other, Mapping):
+            return NotImplemented
+
+        result = {}
+        result.update(self.to_dict())
+        result.update(other)
+        return result
+
+    def __ror__(self, other: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Implements the reverse | operator.
+        Called when RedisDict is on the right side of |.
+
+        Args:
+            other (Dict[str, Any]): The dictionary to merge with.
+
+        Returns:
+            Dict[str, Any]: A new dictionary containing items from both dictionaries.
+        """
+        if not isinstance(other, Mapping):
+            return NotImplemented
+
+        result = {}
+        result.update(other)
+        result.update(self.to_dict())
+        return result
+
+    def __ior__(self, other: Dict[str, Any]) -> 'RedisDict':
+        """
+        Implements the |= operator (in-place union).
+        Modifies the current dictionary by adding items from other.
+
+        Args:
+            other (Dict[str, Any]): The dictionary to merge with.
+
+        Returns:
+            RedisDict: The modified RedisDict instance.
+        """
+        if not isinstance(other, Mapping):
+            return NotImplemented
+
+        self.update(other)
+        return self
+
+    @classmethod
+    def __class_getitem__(cls: Type['RedisDict'], key: Any) -> Type['RedisDict']:
+        """
+        Enables type hinting support like RedisDict[str, Any].
+
+        Args:
+            key (Any): The type parameter(s) used in the type hint.
+
+        Returns:
+            Type[RedisDict]: The class itself, enabling type hint usage.
+        """
+        return cls
+
+    def __reversed__(self) -> Iterator[str]:
+        """
+        Implements reversed() built-in:
+        Returns an iterator over dictionary keys in reverse insertion order.
+
+        Warning:
+            RedisDict Currently does not support 'insertion order' as property thus also not reversed.
+
+        Returns:
+            Iterator[str]: An iterator yielding the dictionary keys in reverse order.
+        """
+        return reversed(list(self.keys()))
 
     def __next__(self) -> str:
         """

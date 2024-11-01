@@ -1,3 +1,5 @@
+from typing import Any
+
 import time
 import unittest
 from datetime import timedelta
@@ -42,16 +44,12 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
     def setUp(self):
         self.clear_test_namespace()
 
-    @unittest.skip
     def test_python3_all_methods_from_dictionary_are_implemented(self):
-        import sys
-        if sys.version_info[0] == 3:
-            redis_dic = self.create_redis_dict()
-            dic = dict()
+        redis_dic = self.create_redis_dict()
+        dic = dict()
 
-            # reversed is currently not supported
-            self.assertEqual(set(dir({})) - set(dir(RedisDict)), set())
-            self.assertEqual(len(set(dir(dic)) - set(dir(redis_dic))), 0)
+        self.assertEqual(set(dir({})) - set(dir(RedisDict)), set())
+        self.assertEqual(len(set(dir(dic)) - set(dir(redis_dic))), 0)
 
     def test_input_items(self):
         """Calling RedisDict.keys() should return an empty list."""
@@ -311,6 +309,160 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             dic.popitem()
         with self.assertRaises(KeyError):
             redis_dic.popitem()
+
+    def test_dict_method_or(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+            "new_bool": False,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_items), 5)
+
+        redis_result = redis_dic | additional_items
+        dict_result = dic | additional_items
+
+        self.assertEqual(len(redis_result), len(dict_result))
+        self.assertEqual(dict(redis_result), dict_result)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(dict(redis_dic), dict(dic))
+
+    def test_dict_method_ror(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+            "new_bool": False,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_items), 5)
+
+        redis_result = additional_items | redis_dic
+        dict_result = additional_items | dic
+
+        self.assertEqual(len(redis_result), len(dict_result))
+        self.assertEqual(dict(redis_result), dict_result)
+
+        # Verify original dicts weren't modified
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(dict(redis_dic), dict(dic))
+
+    def test_dict_method_ior(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+            "new_bool": False,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_items), 5)
+
+        redis_dic |= additional_items
+        dic |= additional_items
+
+        self.assertEqual(len(redis_dic), len(dic))
+        self.assertEqual(dict(redis_dic), dict(dic))
+
+    @unittest.skip
+    def test_dict_method_reversed(self):
+        """
+        RedisDict Currently does not support insertion order as property thus also not reversed.
+        """
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_items), 5)
+
+        redis_reversed = list(reversed(redis_dic))
+        dict_reversed = list(reversed(dic))
+
+        self.assertEqual(redis_reversed, dict_reversed)
+
+    def test_dict_method_class_getitem(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(dic), 5)
+        self.assertEqual(len(input_items), 5)
+
+        def accepts_redis_dict(d: RedisDict[str, Any]) -> None:
+            self.assertIsInstance(d, RedisDict)
+
+        accepts_redis_dict(redis_dic)  # Should not raise TypeError
 
     def test_dict_method_setdefault(self):
         redis_dic = self.create_redis_dict()
@@ -1218,7 +1370,13 @@ class TestRedisDict(unittest.TestCase):
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-    @unittest.skip  # this highlights that sets, and tuples not fully supported
+    def test_set_get_mixed_type_list(self):
+        key = "mixed_type_list"
+        value = [1, "foobar", 3.14, [1, 2, 3]]
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @unittest.skip
     def test_set_get_mixed_type_set(self):
         key = "mixed_type_set"
         value = {1, "foobar", 3.14, (1, 2, 3)}
@@ -1227,6 +1385,13 @@ class TestRedisDict(unittest.TestCase):
 
     @unittest.skip  # this highlights that sets, and tuples not fully supported
     def test_set_get_nested_tuple(self):
+        key = "nested_tuple"
+        value = (1, (2, 3), (4, 5))
+        self.r[key] = value
+        self.assertEqual(self.r[key], value)
+
+    @unittest.skip  # this highlights that sets, and tuples not fully supported
+    def test_set_get_nested_tuple_triple(self):
         key = "nested_tuple"
         value = (1, (2, 3), (4, (5, 6)))
         self.r[key] = value
