@@ -1,23 +1,30 @@
-
 import time
+from datetime import datetime
+
 from redis_dict import RedisDict
 
-d = RedisDict(namespace='app_name2')
-assert 'random' not in d
-d['random'] = 4
-assert d['random'] == 4
-assert 'random' in d
-del d['random']
-assert 'random' not in d
+dic = RedisDict(namespace='assert_test')
+assert 'random' not in dic
+dic['random'] = 4
+assert dic['random'] == 4
+assert 'random' in dic
+del dic['random']
+assert 'random' not in dic
+
+now = datetime.now()
+dic['datetime'] = now
+assert dic['datetime'] == now
+dic.clear()
+
 deep = ['key', 'key1', 'key2']
 deep_val = 'mister'
-d.chain_set(deep, deep_val)
+dic.chain_set(deep, deep_val)
 
-assert deep_val == d.chain_get(deep)
-d.chain_del(deep)
+assert deep_val == dic.chain_get(deep)
+dic.chain_del(deep)
 
 try:
-    d.chain_get(deep)
+    dic.chain_get(deep)
 except KeyError:
     pass
 except Exception:
@@ -25,21 +32,21 @@ except Exception:
 else:
     print('failed to throw KeyError')
 
-assert 'random' not in d
-d['random'] = 4
+assert 'random' not in dic
+dic['random'] = 4
 dd = RedisDict(namespace='app_name_too')
 assert len(dd) == 0
 
 dd['random'] = 5
 
-assert d['random'] == 4
-assert 'random' in d
+assert dic['random'] == 4
+assert 'random' in dic
 
 assert dd['random'] == 5
 assert 'random' in dd
 
-del d['random']
-assert 'random' not in d
+del dic['random']
+assert 'random' not in dic
 
 assert dd['random'] == 5
 assert 'random' in dd

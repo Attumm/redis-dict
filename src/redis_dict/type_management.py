@@ -1,3 +1,5 @@
+"""Type management module."""
+
 import json
 import base64
 from collections import OrderedDict, defaultdict
@@ -141,20 +143,31 @@ encoding_registry: EncodeType = {
 class RedisDictJSONEncoder(json.JSONEncoder):
     """Extends JSON encoding capabilities by reusing RedisDict type conversion.
 
-        Uses existing decoding_registry to know which types to handle specially and
-        encoding_registry (falls back to str) for converting to JSON-compatible formats.
+    Uses existing decoding_registry to know which types to handle specially and
+    encoding_registry (falls back to str) for converting to JSON-compatible formats.
 
-        {
-            "__type__": "TypeName",
-            "value": <encoded value>
-        }
+    {
+        "__type__": "TypeName",
+        "value": <encoded value>
+    }
 
-        Notes:
-            Uses decoding_registry (containing all supported types) to check if type
-            needs special handling. For encoding, defaults to str() if no encoder exists
-            in encoding_registry.
+    Notes:
+        Uses decoding_registry (containing all supported types) to check if type
+        needs special handling. For encoding, defaults to str() if no encoder exists
+        in encoding_registry.
     """
     def default(self, o: Any) -> Any:
+        """Overwrite default from json encoder.
+
+        Args:
+            o (Any): Object to be serialized.
+
+        Raises:
+            TypeError: If the object `o` cannot be serialized.
+
+        Returns:
+            Any: Serialized value.
+        """
         type_name = type(o).__name__
         if type_name in decoding_registry:
             return {
@@ -173,9 +186,17 @@ class RedisDictJSONDecoder(json.JSONDecoder):
     Works with RedisDictJSONEncoder to reconstruct Python objects from JSON using
     RedisDict decoding_registry.
 
-    Not perfect, better allows for types then without.
+    Still needs work but allows for more types than without.
     """
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Overwrite the __init__ method from JSON decoder.
+
+        Args:
+            *args (Any): Positional arguments for initialization.
+            **kwargs (Any): Keyword arguments for initialization.
+
+        """
         def _object_hook(obj: Dict[Any, Any]) -> Any:
             if "__type__" in obj and "value" in obj:
                 type_name = obj["__type__"]
@@ -187,16 +208,41 @@ class RedisDictJSONDecoder(json.JSONDecoder):
 
 
 def encode_json(obj: Any) -> str:
-    """Encode a Python object to a JSON string using the existing encoding registry"""
+    """
+    Encode a Python object to a JSON string using the existing encoding registry.
+
+    Args:
+        obj (Any): The Python object to be encoded.
+
+    Returns:
+        str: The JSON-encoded string representation of the object.
+    """
     return json.dumps(obj, cls=RedisDictJSONEncoder)
 
 
 def decode_json(s: str) -> Any:
-    """Decode a JSON string to a Python object using the existing decoding registry"""
+    """
+    Decode a JSON string to a Python object using the existing decoding registry.
+
+    Args:
+        s (str): The JSON string to be decoded.
+
+    Returns:
+        Any: The decoded Python object.
+    """
     return json.loads(s, cls=RedisDictJSONDecoder)
 
 
 def _default_decoder(x: str) -> str:
+    """
+    Pass-through decoder that returns the input string unchanged.
+
+    Args:
+        x (str): The input string.
+
+    Returns:
+        str: The same input string.
+    """
     return x
 
 

@@ -1,3 +1,4 @@
+"""__init__ module for redis dict."""
 from importlib.metadata import version, PackageNotFoundError
 
 from .core import RedisDict

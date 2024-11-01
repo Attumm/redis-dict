@@ -3,6 +3,7 @@ attrs==22.2.0
 cffi==1.15.1
 coverage==5.5
 cryptography==43.0.1
+darglint==1.8.1
 dill==0.3.9
 exceptiongroup==1.1.1
 future==0.18.3

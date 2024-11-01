@@ -76,8 +76,18 @@ dev = [
     "snowballstemmer==2.2.0",
     "sortedcontainers==2.4.0",
     "tomli==2.0.1",
-    "setuptools>=68.0.0"
+    "setuptools>=68.0.0",
+    "darglint",
+    "pydocstyle",
 ]
+
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "sphinx-autodoc-typehints",
+    "tomli",
+]
+
 
 [tool.setuptools]
 package-dir = {"" = "src"}
