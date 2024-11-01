@@ -1,32 +1,4 @@
-"""Redis Dict module.
-
-RedisDict is a Python library that provides a convenient and familiar interface for
-interacting with Redis as if it were a Python dictionary. The simple yet powerful library
-enables you to manage key-value pairs in Redis using native Python syntax of dictionary. It supports
-various data types, including strings, integers, floats, booleans, lists, and dictionaries,
-and includes additional utility functions for more complex use cases.
-
-By leveraging Redis for efficient key-value storage, RedisDict allows for high-performance
-data management and is particularly useful for handling large datasets that may exceed local
-memory capacity.
-
-## Features
-
-* **Dictionary-like interface**: Use familiar Python dictionary syntax to interact with Redis.
-* **Data Type Support**: Comprehensive support for various data types, including strings,
-  integers, floats, booleans, lists, dictionaries, sets, and tuples.
-* **Pipelining support**: Use pipelines for batch operations to improve performance.
-* **Expiration Support**: Enables the setting of expiration times either globally or individually
-  per key, through the use of context managers.
-* **Efficiency and Scalability**: RedisDict is designed for use with large datasets and is
-  optimized for efficiency. It retrieves only the data needed for a particular operation,
-  ensuring efficient memory usage and fast performance.
-* **Namespace Management**: Provides simple and efficient namespace handling to help organize
-  and manage data in Redis, streamlining data access and manipulation.
-* **Distributed Computing**: With its ability to seamlessly connect to other instances or
-  servers with access to the same Redis instance, RedisDict enables easy distributed computing.
-* **Custom data types**: Add custom types and transformations to suit your specific needs.
-"""
+"""Redis Dict module."""
 from typing import Any, Dict, Iterator, List, Tuple, Union, Optional
 
 from datetime import timedelta
@@ -139,7 +111,7 @@ class RedisDict:
             return len(val) < self._max_string_size
         return True
 
-    def _format_value(self, key: str,  value: Any) -> str:
+    def _format_value(self, key: str, value: Any) -> str:
         """Format a valid value with the type and encoded representation of the value.
 
         Args:
@@ -238,6 +210,7 @@ class RedisDict:
                 raise NotImplementedError(
                     f"Class {class_type.__name__} does not implement the required {decode_method_name} class method.")
 
+    # pylint: disable=too-many-arguments
     def extends_type(
             self,
             class_type: type,
@@ -251,25 +224,16 @@ class RedisDict:
         This method enables serialization of instances based on their type,
         allowing for custom types, specialized storage formats, and more.
         There are three ways to add custom types:
-          1. Have a class with an `encode` instance method and a `decode` class method.
-          2. Have a class and pass encoding and decoding functions, where
-            `encode` converts the class instance to a string, and
-            `decode` takes the string and recreates the class instance.
-          3. Have a class that already has serialization methods, that satisfies the:
-                EncodeFuncType = Callable[[Any], str]
-                DecodeFuncType = Callable[[str], Any]
+        1. Have a class with an `encode` instance method and a `decode` class method.
+        2. Have a class and pass encoding and decoding functions, where
+        `encode` converts the class instance to a string, and
+        `decode` takes the string and recreates the class instance.
+        3. Have a class that already has serialization methods, that satisfies the:
+        EncodeFuncType = Callable[[Any], str]
+        DecodeFuncType = Callable[[str], Any]
 
-            `custom_encode_method`
-            `custom_decode_method` attributes.
-
-        Args:
-            class_type (type): The class `__name__` will become the key for the encoding and decoding functions.
-            encode (Optional[EncodeFuncType]): function that encodes an object into a storable string format.
-                This function should take an instance of `class_type` as input and return a string.
-            decode (Optional[DecodeFuncType]): function that decodes a string back into an object of `class_type`.
-                This function should take a string as input and return an instance of `class_type`.
-            encoding_method_name (str, optional): Name of encoding method of the class for redis-dict custom types.
-            decoding_method_name (str, optional): Name of decoding method of the class for redis-dict custom types.
+        `custom_encode_method`
+        `custom_decode_method`
 
         If no encoding or decoding function is provided, default to use the `encode` and `decode` methods of the class.
 
@@ -296,11 +260,21 @@ class RedisDict:
 
             redis_dict.extends_type(Person)
 
-        Note:
-        You can check for compliance of a class separately using the `new_type_compliance` method:
+        Args:
+            class_type (type): The class `__name__` will become the key for the encoding and decoding functions.
+            encode (Optional[EncodeFuncType]): function that encodes an object into a storable string format.
+            decode (Optional[DecodeFuncType]): function that decodes a string back into an object of `class_type`.
+            encoding_method_name (str, optional): Name of encoding method of the class for redis-dict custom types.
+            decoding_method_name (str, optional): Name of decoding method of the class for redis-dict custom types.
 
-        This method raises a NotImplementedError if either `encode` or `decode` is `None`
-        and the class does not implement the corresponding method.
+        Raises:
+            NotImplementedError
+
+        Note:
+            You can check for compliance of a class separately using the `new_type_compliance` method:
+
+            This method raises a NotImplementedError if either `encode` or `decode` is `None`
+            and the class does not implement the corresponding method.
         """
 
         if encode is None or decode is None:
@@ -311,7 +285,7 @@ class RedisDict:
 
             if decode is None:
                 decode_method_name = decoding_method_name or self.custom_decode_method
-                self.new_type_compliance(class_type,  decode_method_name=decode_method_name)
+                self.new_type_compliance(class_type, decode_method_name=decode_method_name)
                 decode = _create_default_decode(class_type, decode_method_name)
 
         type_name = class_type.__name__

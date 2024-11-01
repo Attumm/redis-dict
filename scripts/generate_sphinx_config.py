@@ -1,5 +1,3 @@
-# scripts/generate_sphinx_config.py
-
 import tomli
 import os
 from pathlib import Path
@@ -9,34 +7,43 @@ def generate_configs():
     """Generate Sphinx configuration files from pyproject.toml."""
     print("Current working directory:", os.getcwd())
 
-    # Get absolute paths
     root_dir = Path(os.getcwd())
-    src_dir = root_dir / 'src'
+    package_dir = root_dir / 'src' / 'redis_dict'
     docs_dir = root_dir / 'docs'
 
-    print(f"Source directory: {src_dir}")
+    print(f"Package directory: {package_dir}")
     print(f"Docs directory: {docs_dir}")
 
-    # Read project configuration
     with open('pyproject.toml', 'rb') as f:
         config = tomli.load(f)
 
     project_info = config['project']
 
-    # Ensure docs directory exists
     docs_path = Path('docs')
     docs_path.mkdir(exist_ok=True)
     source_path = docs_path / 'source'
     source_path.mkdir(exist_ok=True)
 
-    # Generate Sphinx configuration
+    docs_path = Path('docs')
+    docs_path.mkdir(exist_ok=True)
+    source_path = docs_path / 'source'
+    source_path.mkdir(exist_ok=True)
+
+    tutorials_source = docs_path / 'tutorials'
+    tutorials_source.mkdir(exist_ok=True)
+
+    tutorials_build = source_path / 'tutorials'
+    tutorials_build.mkdir(exist_ok=True)
+
     conf_content = f"""
 import os
 import sys
 
-# Add absolute path to the source directory
-src_path = os.path.abspath('{src_dir}')
+# Add the package directory to Python path
+package_path = os.path.abspath('{package_dir}')
+src_path = os.path.dirname(package_path)
 print(f"Adding to path: {{src_path}}")
+print(f"Package path: {{package_path}}")
 sys.path.insert(0, src_path)
 
 project = "{project_info['name']}"
@@ -48,36 +55,63 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    'sphinx_autodoc_typehints'
+    'sphinx_autodoc_typehints',
+    'myst_parser',
 ]
 
-# Show the path being used
+myst_update_mathjax = False
+myst_enable_extensions = [
+    "colon_fence",
+    "deflist",
+]
+myst_heading_anchors = 3
+
+html_extra_path = ['../tutorials']
+
 def setup(app):
     print(f"Python path: {{sys.path}}")
 
 html_theme = 'sphinx_rtd_theme'
 """
 
-    # Generate main documentation file with proper RST formatting
-    index_content = """
-Redis Dict Documentation
-=====================
+    index_content = """Redis Dict Documentation
+========================
+
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: API Reference
 
    modules
+   redis_dict
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+"""
+
+    index_content1 = """
+Redis Dict Documentation
+=====================
+
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Contents:
+
+    modules
 
 Indices and Tables
 ================
 
 * :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 """
 
-    # Generate Makefile
     makefile_content = """
 # Minimal makefile for Sphinx documentation
 SPHINXOPTS    ?=
@@ -94,7 +128,6 @@ help:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 """
 
-    # Write files
     with open(source_path / 'conf.py', 'w') as f:
         f.write(conf_content)
 

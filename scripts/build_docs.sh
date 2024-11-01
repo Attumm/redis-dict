@@ -3,15 +3,17 @@ set -e
 
 rm -rf docs/Makefile docs/build/* docs/source/*
 
-python3 -m venv docs_venv
+#python3 -m venv .venv_docs
 
-source dev_venv/bin/activate
+source .venv_docs/bin/activate
 pip install --upgrade pip
 pip install -e ".[docs]"
 
+pip freeze
+
 python3 scripts/generate_sphinx_config.py
 
-sphinx-apidoc -o docs/source src
+sphinx-apidoc -o docs/source src/redis_dict
 
 cd docs
 make html

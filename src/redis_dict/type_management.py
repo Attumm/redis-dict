@@ -121,6 +121,8 @@ decoding_registry: DecodeType = {
     defaultdict.__name__: lambda x: defaultdict(type(None), json.loads(x)),
     frozenset.__name__: lambda x: frozenset(json.loads(x)),
 }
+
+
 encoding_registry: EncodeType = {
     "list": json.dumps,
     "dict": json.dumps,
@@ -146,12 +148,16 @@ class RedisDictJSONEncoder(json.JSONEncoder):
     Uses existing decoding_registry to know which types to handle specially and
     encoding_registry (falls back to str) for converting to JSON-compatible formats.
 
-    {
-        "__type__": "TypeName",
-        "value": <encoded value>
-    }
+    Example:
+        The encoded format looks like::
+
+            {
+                "__type__": "TypeName",
+                "value": <encoded value>
+            }
 
     Notes:
+
         Uses decoding_registry (containing all supported types) to check if type
         needs special handling. For encoding, defaults to str() if no encoder exists
         in encoding_registry.
@@ -172,7 +178,7 @@ class RedisDictJSONEncoder(json.JSONEncoder):
         if type_name in decoding_registry:
             return {
                 "__type__": type_name,
-                "value": encoding_registry.get(type_name, lambda x: str(x))(o)
+                "value": encoding_registry.get(type_name, _default_encoder)(o)
             }
         try:
             return json.JSONEncoder.default(self, o)
@@ -244,6 +250,19 @@ def _default_decoder(x: str) -> str:
         str: The same input string.
     """
     return x
+
+
+def _default_encoder(x: Any) -> str:
+    """
+    Takes x and returns the result str of the object.
+
+    Args:
+        x (Any): The input object
+
+    Returns:
+        str: output of str of the object
+    """
+    return str(x)
 
 
 encoding_registry["dict"] = encode_json
