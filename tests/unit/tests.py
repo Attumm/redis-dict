@@ -1,7 +1,9 @@
 from typing import Any
 
+import sys
 import time
 import unittest
+
 from datetime import timedelta
 
 import redis
@@ -17,10 +19,6 @@ redis_config = {
     'port': 6379,
     'db': 11,
 }
-
-import sys
-import unittest
-from functools import wraps
 
 
 def skip_before_python39(test_item):
@@ -372,6 +370,12 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(dic), 5)
         self.assertEqual(dict(redis_dic), dict(dic))
 
+        with self.assertRaises(TypeError):
+            dic | [1, 2]
+
+        with self.assertRaises(TypeError):
+            redis_dic | [1, 2]
+
     @skip_before_python39
     def test_dict_method_ror(self):
         redis_dic = self.create_redis_dict()
@@ -409,6 +413,12 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(dic), 5)
         self.assertEqual(dict(redis_dic), dict(dic))
 
+        with self.assertRaises(TypeError):
+            [1, 2] | dic
+
+        with self.assertRaises(TypeError):
+             [1, 2] | redis_dic
+
     @skip_before_python39
     def test_dict_method_ior(self):
         redis_dic = self.create_redis_dict()
@@ -440,6 +450,34 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
         self.assertEqual(len(redis_dic), len(dic))
         self.assertEqual(dict(redis_dic), dict(dic))
+
+        with self.assertRaises(TypeError):
+            dic |= [1, 2]
+
+        with self.assertRaises(TypeError):
+            redis_dic |= [1, 2]
+
+
+    def test_dict_method_reversed_(self):
+        """
+        RedisDict Currently does not support insertion order as property thus also not reversed.
+        This test only test `reversed` can be called.
+        """
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "bool": True,
+            "None": None,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+        redis_reversed = sorted(reversed(redis_dic))
+        dict_reversed = sorted(reversed(dic))
+
+        self.assertEqual(redis_reversed, dict_reversed)
 
     @unittest.skip
     def test_dict_method_reversed(self):
@@ -491,7 +529,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         def accepts_redis_dict(d: RedisDict[str, Any]) -> None:
             self.assertIsInstance(d, RedisDict)
 
-        accepts_redis_dict(redis_dic)  # Should not raise TypeError
+        accepts_redis_dict(redis_dic)
 
     def test_dict_method_setdefault(self):
         redis_dic = self.create_redis_dict()

@@ -416,11 +416,14 @@ class RedisDict:
         Args:
             other (Dict[str, Any]): The dictionary to merge with.
 
+        Raises:
+            TypeError: If other does not adhere to Mapping.
+
         Returns:
             Dict[str, Any]: A new dictionary containing items from both dictionaries.
         """
         if not isinstance(other, Mapping):
-            return NotImplemented
+            raise TypeError(f"unsupported operand type(s) for |: '{type(other).__name__}' and 'RedisDict'")
 
         result = {}
         result.update(self.to_dict())
@@ -435,11 +438,14 @@ class RedisDict:
         Args:
             other (Dict[str, Any]): The dictionary to merge with.
 
+        Raises:
+            TypeError: If other does not adhere to Mapping.
+
         Returns:
             Dict[str, Any]: A new dictionary containing items from both dictionaries.
         """
         if not isinstance(other, Mapping):
-            return NotImplemented
+            raise TypeError(f"unsupported operand type(s) for |: 'RedisDict' and '{type(other).__name__}'")
 
         result = {}
         result.update(other)
@@ -454,11 +460,14 @@ class RedisDict:
         Args:
             other (Dict[str, Any]): The dictionary to merge with.
 
+        Raises:
+            TypeError: If other does not adhere to Mapping.
+
         Returns:
             RedisDict: The modified RedisDict instance.
         """
         if not isinstance(other, Mapping):
-            return NotImplemented
+            raise TypeError(f"unsupported operand type(s) for |: '{type(other).__name__}' and 'RedisDict'")
 
         self.update(other)
         return self
