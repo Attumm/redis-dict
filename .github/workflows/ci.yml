@@ -50,6 +50,10 @@ jobs:
         run: |
           mypy
 
+      - name: Doctype Check
+        run: |
+          darglint src/redis_dict/
+
       - name: Run Unit Tests
         env:
           PYTHONPATH: src
