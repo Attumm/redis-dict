@@ -18,6 +18,32 @@ redis_config = {
     'db': 11,
 }
 
+import sys
+import unittest
+from functools import wraps
+
+
+def skip_before_python39(test_item):
+    """
+    Decorator to skip tests for Python versions before 3.9
+    where dictionary union operations are not supported.
+
+    Can be used to decorate both test methods and test classes.
+
+    Args:
+        test_item: The test method or class to be decorated
+
+    Returns:
+        The decorated test item that will be skipped if Python version < 3.9
+    """
+    reason = "Dictionary union operators (|, |=) require Python 3.9+"
+
+    if sys.version_info < (3, 9):
+        if isinstance(test_item, type):
+            return unittest.skip(reason)(test_item)
+        return unittest.skip(reason)(test_item)
+    return test_item
+
 
 class TestRedisDictBehaviorDict(unittest.TestCase):
     @classmethod
@@ -310,6 +336,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(KeyError):
             redis_dic.popitem()
 
+    @skip_before_python39
     def test_dict_method_or(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -345,6 +372,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(dic), 5)
         self.assertEqual(dict(redis_dic), dict(dic))
 
+    @skip_before_python39
     def test_dict_method_ror(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -381,6 +409,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(dic), 5)
         self.assertEqual(dict(redis_dic), dict(dic))
 
+    @skip_before_python39
     def test_dict_method_ior(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
