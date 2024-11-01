@@ -325,7 +325,7 @@ assert result.age == person.age
 For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/tests/unit/extend_types_tests.py).
 ### Redis Encryption
 Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
-[Setup guide](https://github.com/Attumm/redis-dict/blob/main/docs/encrypted_redis.MD)
+[Setup guide](https://github.com/Attumm/redis-dict/blob/main/docs/tutorials/encrypted_redis.MD)
 
 ### Redis Storage Encryption
 For storing encrypted data values, it's possible to use extended types. Take a look at this [encrypted test](https://github.com/Attumm/redis-dict/blob/main/tests/unit/encrypt_tests.py).
