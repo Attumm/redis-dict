@@ -143,7 +143,8 @@ encoding_registry: EncodeType = {
 
 
 class RedisDictJSONEncoder(json.JSONEncoder):
-    """Extends JSON encoding capabilities by reusing RedisDict type conversion.
+    """
+    Extends JSON encoding capabilities by reusing RedisDict type conversion.
 
     Uses existing decoding_registry to know which types to handle specially and
     encoding_registry (falls back to str) for converting to JSON-compatible formats.
@@ -157,11 +158,11 @@ class RedisDictJSONEncoder(json.JSONEncoder):
             }
 
     Notes:
-
         Uses decoding_registry (containing all supported types) to check if type
         needs special handling. For encoding, defaults to str() if no encoder exists
         in encoding_registry.
     """
+
     def default(self, o: Any) -> Any:
         """Overwrite default from json encoder.
 
@@ -187,13 +188,15 @@ class RedisDictJSONEncoder(json.JSONEncoder):
 
 
 class RedisDictJSONDecoder(json.JSONDecoder):
-    """JSON decoder leveraging RedisDict existing type conversion system.
+    """
+    JSON decoder leveraging RedisDict existing type conversion system.
 
     Works with RedisDictJSONEncoder to reconstruct Python objects from JSON using
     RedisDict decoding_registry.
 
     Still needs work but allows for more types than without.
     """
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
         Overwrite the __init__ method from JSON decoder.
@@ -254,7 +257,7 @@ def _default_decoder(x: str) -> str:
 
 def _default_encoder(x: Any) -> str:
     """
-    Takes x and returns the result str of the object.
+    Take x and returns the result str of the object.
 
     Args:
         x (Any): The input object
