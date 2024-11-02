@@ -53,7 +53,8 @@ class RedisDict:
                  preserve_expiration: Optional[bool] = False,
                  redis: "Optional[StrictRedis[Any]]" = None,
                  **redis_kwargs: Any) -> None:
-        """Initialize a RedisDict instance.
+        """
+        Initialize a RedisDict instance.
 
         Init the RedisDict instance.
 
@@ -220,7 +221,8 @@ class RedisDict:
             encoding_method_name: Optional[str] = None,
             decoding_method_name: Optional[str] = None,
     ) -> None:
-        """Extend RedisDict to support a custom type in the encode/decode mapping.
+        """
+        Extend RedisDict to support a custom type in the encode/decode mapping.
 
         This method enables serialization of instances based on their type,
         allowing for custom types, specialized storage formats, and more.
@@ -409,8 +411,8 @@ class RedisDict:
         return str(self.to_dict())
 
     def __or__(self, other: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Implements the | operator (dict union).
+        """Implement the | operator (dict union).
+
         Returns a new dictionary with items from both dictionaries.
 
         Args:
@@ -432,7 +434,8 @@ class RedisDict:
 
     def __ror__(self, other: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Implements the reverse | operator.
+        Implement the reverse | operator.
+
         Called when RedisDict is on the right side of |.
 
         Args:
@@ -454,7 +457,8 @@ class RedisDict:
 
     def __ior__(self, other: Dict[str, Any]) -> 'RedisDict':
         """
-        Implements the |= operator (in-place union).
+        Implement the |= operator (in-place union).
+
         Modifies the current dictionary by adding items from other.
 
         Args:
@@ -475,7 +479,7 @@ class RedisDict:
     @classmethod
     def __class_getitem__(cls: Type['RedisDict'], key: Any) -> Type['RedisDict']:
         """
-        Enables type hinting support like RedisDict[str, Any].
+        Enable type hinting support like RedisDict[str, Any].
 
         Args:
             key (Any): The type parameter(s) used in the type hint.
@@ -487,7 +491,8 @@ class RedisDict:
 
     def __reversed__(self) -> Iterator[str]:
         """
-        Implements reversed() built-in:
+        Implement reversed() built-in.
+
         Returns an iterator over dictionary keys in reverse insertion order.
 
         Warning:
