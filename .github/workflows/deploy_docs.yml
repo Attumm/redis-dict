@@ -2,17 +2,13 @@ name: Build and Deploy Documentation
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: ["main"]
   workflow_dispatch:
-
 
 permissions:
   id-token: write
   pages: write
   contents: read
-
 
 concurrency:
   group: "pages"
