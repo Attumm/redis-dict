@@ -1,0 +1,1116 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>redis_dict.core &mdash; redis-dict  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            redis-dict
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">redis_dict</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../redis_dict.html">redis_dict package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">redis-dict</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">redis_dict.core</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for redis_dict.core</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Redis Dict module.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Mapping</span>
+
+<span class="kn">from</span> <span class="nn">redis</span> <span class="kn">import</span> <span class="n">StrictRedis</span>
+
+<span class="kn">from</span> <span class="nn">redis_dict.type_management</span> <span class="kn">import</span> <span class="n">SENTINEL</span><span class="p">,</span> <span class="n">EncodeFuncType</span><span class="p">,</span> <span class="n">DecodeFuncType</span><span class="p">,</span> <span class="n">EncodeType</span><span class="p">,</span> <span class="n">DecodeType</span>
+<span class="kn">from</span> <span class="nn">redis_dict.type_management</span> <span class="kn">import</span> <span class="n">_create_default_encode</span><span class="p">,</span> <span class="n">_create_default_decode</span><span class="p">,</span> <span class="n">_default_decoder</span>
+<span class="kn">from</span> <span class="nn">redis_dict.type_management</span> <span class="kn">import</span> <span class="n">encoding_registry</span> <span class="k">as</span> <span class="n">enc_reg</span>
+<span class="kn">from</span> <span class="nn">redis_dict.type_management</span> <span class="kn">import</span> <span class="n">decoding_registry</span> <span class="k">as</span> <span class="n">dec_reg</span>
+
+
+<span class="c1"># pylint: disable=R0902, R0904</span>
+<div class="viewcode-block" id="RedisDict">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict">[docs]</a>
+<span class="k">class</span> <span class="nc">RedisDict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Python dictionary with Redis as backend.</span>
+
+<span class="sd">    With support for advanced features, such as custom data types, pipelining, and key expiration.</span>
+
+<span class="sd">    This class provides a dictionary-like interface that interacts with a Redis database, allowing</span>
+<span class="sd">    for efficient storage and retrieval of key-value pairs. It supports various data types, including</span>
+<span class="sd">    strings, integers, floats, lists, dictionaries, tuples, sets, and user-defined types. The class</span>
+<span class="sd">    leverages the power of Redis pipelining to minimize network round-trip time, latency, and I/O load,</span>
+<span class="sd">    thereby optimizing performance for batch operations. Additionally, it allows for the management of</span>
+<span class="sd">    key expiration through the use of context managers.</span>
+
+<span class="sd">    The RedisDict class is designed to be analogous to a standard Python dictionary while providing</span>
+<span class="sd">    enhanced functionality, such as support for a wider range of data types and efficient batch operations.</span>
+<span class="sd">    It aims to offer a seamless and familiar interface for developers familiar with Python dictionaries,</span>
+<span class="sd">    enabling a smooth transition to a Redis-backed data store.</span>
+
+<span class="sd">    Extendable Types: You can extend RedisDict by adding or overriding encoding and decoding functions.</span>
+<span class="sd">    This functionality enables various use cases, such as managing encrypted data in Redis,</span>
+<span class="sd">    To implement this, simply create and register your custom encoding and decoding functions.</span>
+<span class="sd">    By delegating serialization to redis-dict, reduce complexity and have simple code in the codebase.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        decoding_registry (Dict[str, DecodeFuncType]): Mapping of decoding transformation functions based on type</span>
+<span class="sd">        encoding_registry (Dict[str, EncodeFuncType]): Mapping of encoding transformation functions based on type</span>
+<span class="sd">        namespace (str): A string used as a prefix for Redis keys to separate data in different namespaces.</span>
+<span class="sd">        expire (Union[int, None]): An optional expiration time for keys, in seconds.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">encoding_registry</span><span class="p">:</span> <span class="n">EncodeType</span> <span class="o">=</span> <span class="n">enc_reg</span>
+    <span class="n">decoding_registry</span><span class="p">:</span> <span class="n">DecodeType</span> <span class="o">=</span> <span class="n">dec_reg</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;main&#39;</span><span class="p">,</span>
+                 <span class="n">expire</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">preserve_expiration</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">redis</span><span class="p">:</span> <span class="s2">&quot;Optional[StrictRedis[Any]]&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">redis_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize a RedisDict instance.</span>
+
+<span class="sd">        Init the RedisDict instance.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            namespace (str): A prefix for keys stored in Redis.</span>
+<span class="sd">            expire (Union[int, timedelta, None], optional): Expiration time for keys.</span>
+<span class="sd">            preserve_expiration (Optional[bool], optional): Preserve expiration on key updates.</span>
+<span class="sd">            redis (Optional[StrictRedis[Any]], optional): A Redis connection instance.</span>
+<span class="sd">            **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">namespace</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expire</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">expire</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">preserve_expiration</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="n">preserve_expiration</span>
+        <span class="k">if</span> <span class="n">redis</span><span class="p">:</span>
+            <span class="n">redis</span><span class="o">.</span><span class="n">connection_pool</span><span class="o">.</span><span class="n">connection_kwargs</span><span class="p">[</span><span class="s2">&quot;decode_responses&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="p">:</span> <span class="n">StrictRedis</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">redis</span> <span class="ow">or</span> <span class="n">StrictRedis</span><span class="p">(</span><span class="n">decode_responses</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">redis_kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">get_redis</span><span class="p">:</span> <span class="n">StrictRedis</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">custom_encode_method</span> <span class="o">=</span> <span class="s2">&quot;encode&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">custom_decode_method</span> <span class="o">=</span> <span class="s2">&quot;decode&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_iter</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">([])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_max_string_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>  <span class="c1"># 500mb</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_temp_redis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">StrictRedis</span><span class="p">[</span><span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_format_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Format a key with the namespace prefix.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key to be formatted.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The formatted key with the namespace prefix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="si">}</span><span class="s1">:</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_valid_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">val_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check if the input value is valid based on the specified value type.</span>
+
+<span class="sd">        This method ensures that the input value is within the acceptable constraints for the given</span>
+<span class="sd">        value type. For example, when the value type is &quot;str&quot;, the method checks that the string</span>
+<span class="sd">        length does not exceed the maximum allowed size (500 MB).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            val (Any): The input value to be validated.</span>
+<span class="sd">            val_type (str): The type of the input value (&quot;str&quot;, &quot;int&quot;, &quot;float&quot;, or &quot;bool&quot;).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if the input value is valid, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">val_type</span> <span class="o">==</span> <span class="s2">&quot;str&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_string_size</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">_format_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format a valid value with the type and encoded representation of the value.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key of the value to be formatted.</span>
+<span class="sd">            value (Any): The value to be encoded and formatted.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If the value or key fail validation.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The formatted value with the type and encoded representation of the value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">store_type</span><span class="p">,</span> <span class="n">key</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid_input</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">store_type</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid_input</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid input value or key size exceeded the maximum limit.&quot;</span><span class="p">)</span>
+        <span class="n">encoded_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoding_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">store_type</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">)(</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">store_type</span><span class="si">}</span><span class="s1">:</span><span class="si">{</span><span class="n">encoded_value</span><span class="si">}</span><span class="s1">&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Store a value in Redis with the given key.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key to store the value.</span>
+<span class="sd">            value (Any): The value to be stored.</span>
+
+<span class="sd">        Note: Validity checks could be refactored to allow for custom exceptions that inherit from ValueError,</span>
+<span class="sd">        providing detailed information about why a specific validation failed.</span>
+<span class="sd">        This would enable users to specify which validity checks should be executed, add custom validity functions,</span>
+<span class="sd">        and choose whether to fail on validation errors, or drop the data and only issue a warning and continue.</span>
+<span class="sd">        Example use case is caching, to cache data only when it&#39;s between min and max sizes.</span>
+<span class="sd">        Allowing for simple dict set operation, but only cache data that makes sense.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">formatted_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_key</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">formatted_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_value</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">preserve_expiration</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">formatted_key</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">formatted_key</span><span class="p">,</span> <span class="n">formatted_value</span><span class="p">,</span> <span class="n">keepttl</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">formatted_key</span><span class="p">,</span> <span class="n">formatted_value</span><span class="p">,</span> <span class="n">ex</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">expire</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load a value from Redis with the given key.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key to retrieve the value.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: A tuple containing a boolean indicating whether the value was found and the value itself.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_redis</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_format_key</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Transform the result string from Redis into the appropriate Python object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            result (str): The result string from Redis.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Any: The transformed Python object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">type_</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoding_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">type_</span><span class="p">,</span> <span class="n">_default_decoder</span><span class="p">)(</span><span class="n">value</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RedisDict.new_type_compliance">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.new_type_compliance">[docs]</a>
+    <span class="k">def</span> <span class="nf">new_type_compliance</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">class_type</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span>
+            <span class="n">encode_method_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">decode_method_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if a class complies with the required encoding and decoding methods.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            class_type (type): The class to check for compliance.</span>
+<span class="sd">            encode_method_name (str, optional): Name of encoding method of the class for redis-dict custom types.</span>
+<span class="sd">            decode_method_name (str, optional): Name of decoding method of the class for redis-dict custom types.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            NotImplementedError: If the class does not implement the required methods when the respective check is True.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">encode_method_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">class_type</span><span class="p">,</span> <span class="n">encode_method_name</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">callable</span><span class="p">(</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">class_type</span><span class="p">,</span> <span class="n">encode_method_name</span><span class="p">))):</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Class </span><span class="si">{</span><span class="n">class_type</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> does not implement the required </span><span class="si">{</span><span class="n">encode_method_name</span><span class="si">}</span><span class="s2"> method.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">decode_method_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">class_type</span><span class="p">,</span> <span class="n">decode_method_name</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">callable</span><span class="p">(</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">class_type</span><span class="p">,</span> <span class="n">decode_method_name</span><span class="p">))):</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Class </span><span class="si">{</span><span class="n">class_type</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> does not implement the required </span><span class="si">{</span><span class="n">decode_method_name</span><span class="si">}</span><span class="s2"> class method.&quot;</span><span class="p">)</span></div>
+
+
+    <span class="c1"># pylint: disable=too-many-arguments</span>
+<div class="viewcode-block" id="RedisDict.extends_type">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.extends_type">[docs]</a>
+    <span class="k">def</span> <span class="nf">extends_type</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">class_type</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span>
+            <span class="n">encode</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EncodeFuncType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">decode</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DecodeFuncType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">encoding_method_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">decoding_method_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extend RedisDict to support a custom type in the encode/decode mapping.</span>
+
+<span class="sd">        This method enables serialization of instances based on their type,</span>
+<span class="sd">        allowing for custom types, specialized storage formats, and more.</span>
+<span class="sd">        There are three ways to add custom types:</span>
+<span class="sd">        1. Have a class with an `encode` instance method and a `decode` class method.</span>
+<span class="sd">        2. Have a class and pass encoding and decoding functions, where</span>
+<span class="sd">        `encode` converts the class instance to a string, and</span>
+<span class="sd">        `decode` takes the string and recreates the class instance.</span>
+<span class="sd">        3. Have a class that already has serialization methods, that satisfies the:</span>
+<span class="sd">        EncodeFuncType = Callable[[Any], str]</span>
+<span class="sd">        DecodeFuncType = Callable[[str], Any]</span>
+
+<span class="sd">        `custom_encode_method`</span>
+<span class="sd">        `custom_decode_method`</span>
+
+<span class="sd">        If no encoding or decoding function is provided, default to use the `encode` and `decode` methods of the class.</span>
+
+<span class="sd">        The `encode` method should be an instance method that converts the object to a string.</span>
+<span class="sd">        The `decode` method should be a class method that takes a string and returns an instance of the class.</span>
+
+<span class="sd">        The method names for encoding and decoding can be changed by modifying the</span>
+<span class="sd">        - `custom_encode_method`</span>
+<span class="sd">        - `custom_decode_method`</span>
+<span class="sd">        attributes of the RedisDict instance</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            class Person:</span>
+<span class="sd">                def __init__(self, name, age):</span>
+<span class="sd">                    self.name = name</span>
+<span class="sd">                    self.age = age</span>
+
+<span class="sd">                def encode(self) -&gt; str:</span>
+<span class="sd">                    return json.dumps(self.__dict__)</span>
+
+<span class="sd">                @classmethod</span>
+<span class="sd">                def decode(cls, encoded_str: str) -&gt; &#39;Person&#39;:</span>
+<span class="sd">                    return cls(**json.loads(encoded_str))</span>
+
+<span class="sd">            redis_dict.extends_type(Person)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            class_type (type): The class `__name__` will become the key for the encoding and decoding functions.</span>
+<span class="sd">            encode (Optional[EncodeFuncType]): function that encodes an object into a storable string format.</span>
+<span class="sd">            decode (Optional[DecodeFuncType]): function that decodes a string back into an object of `class_type`.</span>
+<span class="sd">            encoding_method_name (str, optional): Name of encoding method of the class for redis-dict custom types.</span>
+<span class="sd">            decoding_method_name (str, optional): Name of decoding method of the class for redis-dict custom types.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            NotImplementedError</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            You can check for compliance of a class separately using the `new_type_compliance` method:</span>
+
+<span class="sd">            This method raises a NotImplementedError if either `encode` or `decode` is `None`</span>
+<span class="sd">            and the class does not implement the corresponding method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">encode</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">decode</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">encode_method_name</span> <span class="o">=</span> <span class="n">encoding_method_name</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">custom_encode_method</span>
+            <span class="k">if</span> <span class="n">encode</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">new_type_compliance</span><span class="p">(</span><span class="n">class_type</span><span class="p">,</span> <span class="n">encode_method_name</span><span class="o">=</span><span class="n">encode_method_name</span><span class="p">)</span>
+                <span class="n">encode</span> <span class="o">=</span> <span class="n">_create_default_encode</span><span class="p">(</span><span class="n">encode_method_name</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">decode</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">decode_method_name</span> <span class="o">=</span> <span class="n">decoding_method_name</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">custom_decode_method</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">new_type_compliance</span><span class="p">(</span><span class="n">class_type</span><span class="p">,</span> <span class="n">decode_method_name</span><span class="o">=</span><span class="n">decode_method_name</span><span class="p">)</span>
+                <span class="n">decode</span> <span class="o">=</span> <span class="n">_create_default_decode</span><span class="p">(</span><span class="n">class_type</span><span class="p">,</span> <span class="n">decode_method_name</span><span class="p">)</span>
+
+        <span class="n">type_name</span> <span class="o">=</span> <span class="n">class_type</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">decoding_registry</span><span class="p">[</span><span class="n">type_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">decode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">encoding_registry</span><span class="p">[</span><span class="n">type_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">encode</span></div>
+
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compare the current RedisDict with another object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            other (Any): The object to compare with.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if equal, False otherwise</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">SENTINEL</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compare the current RedisDict with another object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            other (Any): The object to compare with.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: False if equal, True otherwise</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the value associated with the given key, analogous to a dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            item (str): The key to retrieve the value.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Any: The value associated with the key.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            KeyError: If the key is not found.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">found</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="k">def</span> <span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the value associated with the given key, analogous to a dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key to store the value.</span>
+<span class="sd">            value (Any): The value to be stored.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_store</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Delete the value associated with the given key, analogous to a dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key to delete the value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_format_key</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check if the given key exists in the RedisDict, analogous to a dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key to check for existence.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if the key exists, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load</span><span class="p">(</span><span class="n">key</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the number of items in the RedisDict, analogous to a dictionary.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: The number of items in the RedisDict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_keys</span><span class="p">()))</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return an iterator over the keys of the RedisDict, analogous to a dictionary.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Iterator[str]: An iterator over the keys of the RedisDict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_iter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a string representation of the RedisDict.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: A string representation of the RedisDict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a string representation of the RedisDict.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: A string representation of the RedisDict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__or__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Implements the | operator (dict union).</span>
+<span class="sd">        Returns a new dictionary with items from both dictionaries.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            other (Dict[str, Any]): The dictionary to merge with.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError: If other does not adhere to Mapping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict[str, Any]: A new dictionary containing items from both dictionaries.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unsupported operand type(s) for |: &#39;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&#39; and &#39;RedisDict&#39;&quot;</span><span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="k">def</span> <span class="fm">__ror__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Implements the reverse | operator.</span>
+<span class="sd">        Called when RedisDict is on the right side of |.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            other (Dict[str, Any]): The dictionary to merge with.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError: If other does not adhere to Mapping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict[str, Any]: A new dictionary containing items from both dictionaries.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unsupported operand type(s) for |: &#39;RedisDict&#39; and &#39;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="k">def</span> <span class="fm">__ior__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s1">&#39;RedisDict&#39;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Implements the |= operator (in-place union).</span>
+<span class="sd">        Modifies the current dictionary by adding items from other.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            other (Dict[str, Any]): The dictionary to merge with.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError: If other does not adhere to Mapping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            RedisDict: The modified RedisDict instance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unsupported operand type(s) for |: &#39;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&#39; and &#39;RedisDict&#39;&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">__class_getitem__</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="s1">&#39;RedisDict&#39;</span><span class="p">],</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="s1">&#39;RedisDict&#39;</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Enables type hinting support like RedisDict[str, Any].</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (Any): The type parameter(s) used in the type hint.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Type[RedisDict]: The class itself, enabling type hint usage.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span>
+
+    <span class="k">def</span> <span class="fm">__reversed__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Implements reversed() built-in:</span>
+<span class="sd">        Returns an iterator over dictionary keys in reverse insertion order.</span>
+
+<span class="sd">        Warning:</span>
+<span class="sd">            RedisDict Currently does not support &#39;insertion order&#39; as property thus also not reversed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Iterator[str]: An iterator yielding the dictionary keys in reverse order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+
+    <span class="k">def</span> <span class="fm">__next__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the next item in the iterator.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The next item in the iterator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_iter</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RedisDict.next">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.next">[docs]</a>
+    <span class="k">def</span> <span class="nf">next</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the next item in the iterator (alias for __next__).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The next item in the iterator.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_create_iter_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_term</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a Redis query string for iterating over keys based on the given search term.</span>
+
+<span class="sd">        This method constructs a query by prefixing the search term with the namespace</span>
+<span class="sd">        followed by a wildcard to facilitate scanning for keys that start with the</span>
+<span class="sd">        provided search term.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            search_term (str): The term to search for in Redis keys.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: A formatted query string that can be used to find keys in Redis.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; d = RedisDict(namespace=&#39;foo&#39;)</span>
+<span class="sd">            &gt;&gt;&gt; query = self._create_iter_query(&#39;bar&#39;)</span>
+<span class="sd">            &gt;&gt;&gt; print(query)</span>
+<span class="sd">            &#39;foo:bar*&#39;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="si">}</span><span class="s1">:</span><span class="si">{</span><span class="n">search_term</span><span class="si">}</span><span class="s1">*&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_scan_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_term</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Scan for Redis keys matching the given search term.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            search_term (str): A search term to filter keys. Defaults to &#39;&#39;.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Iterator[str]: An iterator of matching Redis keys.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">search_query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_iter_query</span><span class="p">(</span><span class="n">search_term</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_redis</span><span class="o">.</span><span class="n">scan_iter</span><span class="p">(</span><span class="n">match</span><span class="o">=</span><span class="n">search_query</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RedisDict.get">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.get">[docs]</a>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value for the given key if it exists, otherwise return the default value.</span>
+
+<span class="sd">        Analogous to a dictionary&#39;s get method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key to retrieve the value.</span>
+<span class="sd">            default (Optional[Any], optional): The value to return if the key is not found.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Any: The value associated with the key or the default value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">found</span><span class="p">,</span> <span class="n">item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">default</span>
+        <span class="k">return</span> <span class="n">item</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.keys">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.keys">[docs]</a>
+    <span class="k">def</span> <span class="nf">keys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return an Iterator of keys in the RedisDict, analogous to a dictionary&#39;s keys method.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Iterator[str]: A list of keys in the RedisDict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">to_rm</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="n">to_rm</span><span class="p">:])</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan_keys</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.key">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.key">[docs]</a>
+    <span class="k">def</span> <span class="nf">key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">search_term</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the first value for search_term if it exists, otherwise return None.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            search_term (str): A search term to filter keys. Defaults to &#39;&#39;.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The first key associated with the given search term.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">to_rm</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">search_query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_iter_query</span><span class="p">(</span><span class="n">search_term</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_redis</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">match</span><span class="o">=</span><span class="n">search_query</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="n">to_rm</span><span class="p">:])</span>
+
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.items">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.items">[docs]</a>
+    <span class="k">def</span> <span class="nf">items</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a list of key-value pairs (tuples) in the RedisDict, analogous to a dictionary&#39;s items method.</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            Iterator[Tuple[str, Any]]: A list of key-value pairs in the RedisDict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">to_rm</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan_keys</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="nb">str</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="n">to_rm</span><span class="p">:]),</span> <span class="bp">self</span><span class="p">[</span><span class="n">item</span><span class="p">[</span><span class="n">to_rm</span><span class="p">:]]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.values">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.values">[docs]</a>
+    <span class="k">def</span> <span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analogous to a dictionary&#39;s values method.</span>
+
+<span class="sd">        Return a list of values in the RedisDict,</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            List[Any]: A list of values in the RedisDict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">to_rm</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">namespace</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan_keys</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="p">[</span><span class="n">item</span><span class="p">[</span><span class="n">to_rm</span><span class="p">:]]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.to_dict">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.to_dict">[docs]</a>
+    <span class="k">def</span> <span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert the RedisDict to a Python dictionary.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict[str, Any]: A dictionary with the same key-value pairs as the RedisDict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.clear">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.clear">[docs]</a>
+    <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove all key-value pairs from the RedisDict in one batch operation using pipelining.</span>
+
+<span class="sd">        This method mimics the behavior of the `clear` method from a standard Python dictionary.</span>
+<span class="sd">        Redis pipelining is employed to group multiple commands into a single request, minimizing</span>
+<span class="sd">        network round-trip time, latency, and I/O load, thereby enhancing the overall performance.</span>
+
+<span class="sd">        It is important to highlight that the clear method can be safely executed within</span>
+<span class="sd">        the context of an initiated pipeline operation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="p">[</span><span class="n">key</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.pop">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.pop">[docs]</a>
+    <span class="k">def</span> <span class="nf">pop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="n">SENTINEL</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analogous to a dictionary&#39;s pop method.</span>
+
+<span class="sd">        Remove the value associated with the given key and return it, or return the default value</span>
+<span class="sd">        if the key is not found.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key to remove the value.</span>
+<span class="sd">            default (Optional[Any], optional): The value to return if the key is not found.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Any: The value associated with the key or the default value.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            KeyError: If the key is not found and no default value is provided.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">formatted_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_key</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_redis</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="s2">&quot;GETDEL&quot;</span><span class="p">,</span> <span class="n">formatted_key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">SENTINEL</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">default</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="n">formatted_key</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.popitem">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.popitem">[docs]</a>
+    <span class="k">def</span> <span class="nf">popitem</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove and return a random (key, value) pair from the RedisDict as a tuple.</span>
+
+<span class="sd">        This method is analogous to the `popitem` method of a standard Python dictionary.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: A tuple containing a randomly chosen (key, value) pair.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            KeyError: If RedisDict is empty.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;popitem(): dictionary is empty&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">continue</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.setdefault">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.setdefault">[docs]</a>
+    <span class="k">def</span> <span class="nf">setdefault</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get value under key, and if not present set default value.</span>
+
+<span class="sd">        Return the value associated with the given key if it exists, otherwise set the value to the</span>
+<span class="sd">        default value and return it. Analogous to a dictionary&#39;s setdefault method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key to retrieve the value.</span>
+<span class="sd">            default_value (Optional[Any], optional): The value to set if the key is not found.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Any: The value associated with the key or the default value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">formatted_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_key</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">formatted_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_value</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">default_value</span><span class="p">)</span>
+
+        <span class="c1"># Setting {&quot;get&quot;: True} enables parsing of the redis result as &quot;GET&quot;, instead of &quot;SET&quot; command</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;get&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;SET&quot;</span><span class="p">,</span> <span class="n">formatted_key</span><span class="p">,</span> <span class="n">formatted_value</span><span class="p">,</span> <span class="s2">&quot;NX&quot;</span><span class="p">,</span> <span class="s2">&quot;GET&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">preserve_expiration</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;KEEPTTL&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">expire</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">expire_val</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expire</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">())</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expire</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">)</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">expire</span>
+            <span class="n">expire_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">expire_val</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">expire_val</span><span class="p">)</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s2">&quot;EX&quot;</span><span class="p">,</span> <span class="n">expire_str</span><span class="p">])</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_redis</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">options</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">default_value</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.copy">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.copy">[docs]</a>
+    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a shallow copy of the RedisDict and return it as a standard Python dictionary.</span>
+
+<span class="sd">        This method is analogous to the `copy` method of a standard Python dictionary</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: A shallow copy of the RedisDict as a standard Python dictionary.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            does not create a new RedisDict instance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.update">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.update">[docs]</a>
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dic</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Update the RedisDict with key-value pairs from the given mapping, analogous to a dictionary&#39;s update method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dic (Mapping[str, Any]): A mapping containing key-value pairs to update the RedisDict.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">dic</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="bp">self</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.fromkeys">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.fromkeys">[docs]</a>
+    <span class="k">def</span> <span class="nf">fromkeys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iterable</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;RedisDict&#39;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new RedisDict from an iterable of key-value pairs.</span>
+
+<span class="sd">        Create a new RedisDict with keys from the provided iterable and values set to the given value.</span>
+<span class="sd">        This method is analogous to the `fromkeys` method of a standard Python dictionary, populating</span>
+<span class="sd">        the RedisDict with the keys from the iterable and setting their corresponding values to the</span>
+<span class="sd">        specified value.</span>
+
+
+<span class="sd">        Args:</span>
+<span class="sd">            iterable (List[str]): An iterable containing the keys to be added to the RedisDict.</span>
+<span class="sd">            value (Optional[Any], optional): The value to be assigned to each key in the RedisDict. Defaults to None.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            RedisDict: The current RedisDict instance,populated with the keys from the iterable and their</span>
+<span class="sd">            corresponding values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">iterable</span><span class="p">:</span>
+            <span class="bp">self</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+    <span class="k">def</span> <span class="nf">__sizeof__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the approximate size of the RedisDict in memory, in bytes.</span>
+
+<span class="sd">        This method is analogous to the `__sizeof__` method of a standard Python dictionary, estimating</span>
+<span class="sd">        the memory consumption of the RedisDict based on the serialized in-memory representation.</span>
+<span class="sd">        Should be changed to redis view of the size.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: The approximate size of the RedisDict in memory, in bytes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="o">.</span><span class="n">__sizeof__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="RedisDict.chain_set">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.chain_set">[docs]</a>
+    <span class="k">def</span> <span class="nf">chain_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iterable</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">v</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set a value in the RedisDict using a chain of keys.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            iterable (List[str]): A list of keys representing the chain.</span>
+<span class="sd">            v (Any): The value to be set.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="p">[</span><span class="s1">&#39;:&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">iterable</span><span class="p">)]</span> <span class="o">=</span> <span class="n">v</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.chain_get">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.chain_get">[docs]</a>
+    <span class="k">def</span> <span class="nf">chain_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iterable</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get a value from the RedisDict using a chain of keys.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            iterable (List[str]): A list of keys representing the chain.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Any: The value associated with the chain of keys.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="p">[</span><span class="s1">&#39;:&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">iterable</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.chain_del">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.chain_del">[docs]</a>
+    <span class="k">def</span> <span class="nf">chain_del</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iterable</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Delete a value from the RedisDict using a chain of keys.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            iterable (List[str]): A list of keys representing the chain.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="p">[</span><span class="s1">&#39;:&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">iterable</span><span class="p">)]</span></div>
+
+
+    <span class="c1">#  def expire_at(self, sec_epoch: int | timedelta) -&gt; Iterator[None]:</span>
+    <span class="c1">#  compatibility with Python 3.9 typing</span>
+<div class="viewcode-block" id="RedisDict.expire_at">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.expire_at">[docs]</a>
+    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">expire_at</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sec_epoch</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Context manager to set the expiration time for keys in the RedisDict.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sec_epoch (int, timedelta): The expiration duration is set using either an integer or a timedelta.</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            ContextManager: A context manager during which the expiration time is the time set.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expire</span><span class="p">,</span> <span class="n">temp</span> <span class="o">=</span> <span class="n">sec_epoch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">expire</span>
+        <span class="k">yield</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expire</span> <span class="o">=</span> <span class="n">temp</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.pipeline">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.pipeline">[docs]</a>
+    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Context manager to create a Redis pipeline for batch operations.</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            ContextManager: A context manager to create a Redis pipeline batching all operations within the context.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">top_level</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_redis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_redis</span><span class="p">,</span> <span class="n">top_level</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="p">,</span> <span class="kc">True</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">yield</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">top_level</span><span class="p">:</span>
+                <span class="n">_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_redis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">execute</span><span class="p">(),</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temp_redis</span>  <span class="c1"># type: ignore</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.multi_get">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.multi_get">[docs]</a>
+    <span class="k">def</span> <span class="nf">multi_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get multiple values from the RedisDict using a shared key prefix.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The shared key prefix.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[Any]: A list of values associated with the key prefix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">found_keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_keys</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">found_keys</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_transform</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">mget</span><span class="p">(</span><span class="n">found_keys</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.multi_chain_get">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.multi_chain_get">[docs]</a>
+    <span class="k">def</span> <span class="nf">multi_chain_get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get multiple values from the RedisDict using a chain of keys.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            keys (List[str]): A list of keys representing the chain.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[Any]: A list of values associated with the chain of keys.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">multi_get</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">keys</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.multi_dict">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.multi_dict">[docs]</a>
+    <span class="k">def</span> <span class="nf">multi_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get a dictionary of key-value pairs from the RedisDict using a shared key prefix.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The shared key prefix.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict[str, Any]: A dictionary of key-value pairs associated with the key prefix.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_keys</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{}</span>
+        <span class="n">to_rm</span> <span class="o">=</span> <span class="n">keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="nb">zip</span><span class="p">([</span><span class="n">i</span><span class="p">[</span><span class="n">to_rm</span><span class="p">:]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">],</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_transform</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">mget</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.multi_del">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.multi_del">[docs]</a>
+    <span class="k">def</span> <span class="nf">multi_del</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Delete multiple values from the RedisDict using a shared key prefix.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The shared key prefix.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: The number of keys deleted.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scan_keys</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="o">*</span><span class="n">keys</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.get_redis_info">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.get_redis_info">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_redis_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve information and statistics about the Redis server.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: The information and statistics from the Redis server in a dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">info</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="RedisDict.get_ttl">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.core.RedisDict.get_ttl">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_ttl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the Time To Live from Redis.</span>
+
+<span class="sd">        Get the Time To Live (TTL) in seconds for a given key. If the key does not exist or does not have an</span>
+<span class="sd">        associated `expire`, return None.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): The key for which to get the TTL.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Optional[int]: The TTL in seconds if the key exists and has an expiry set; otherwise, None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">redis</span><span class="o">.</span><span class="n">ttl</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_format_key</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">val</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">val</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Melvin Bijman.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

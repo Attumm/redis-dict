@@ -1,0 +1,502 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redis Dict Documentation &mdash; redis-dict  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="redis_dict" href="modules.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            redis-dict
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">redis_dict</a></li>
+<li class="toctree-l1"><a class="reference internal" href="redis_dict.html">redis_dict package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">redis-dict</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Redis Dict Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="redis-dict-documentation">
+<h1>Redis Dict Documentation<a class="headerlink" href="#redis-dict-documentation" title="Link to this heading"></a></h1>
+<section id="redis-dict">
+<h2>Redis-dict<a class="headerlink" href="#redis-dict" title="Link to this heading"></a></h2>
+<p><a class="reference external" href="https://pypi.org/project/redis-dict/"><img alt="PyPI" src="https://img.shields.io/pypi/v/redis-dict.svg" /></a>
+<a class="reference external" href="https://github.com/Attumm/redis-dict/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Attumm/redis-dict/actions/workflows/ci.yml/badge.svg" /></a>
+<a class="reference external" href="https://codecov.io/gh/Attumm/redis-dict"><img alt="codecov" src="https://codecov.io/gh/Attumm/redis-dict/graph/badge.svg?token=Lqs7McQGEs" /></a>
+<a class="reference external" href="https://pepy.tech/project/redis-dict"><img alt="Downloads" src="https://static.pepy.tech/badge/redis-dict/month" /></a></p>
+<p>RedisDict is a Python library that offers a convenient and familiar interface for interacting with Redis, treating it as if it were a Python dictionary. Its goal is to help developers write clean, Pythonic code while using Redis as a storage solution for seamless distributed computing. This simple yet powerful library utilizes Redis as a key-value store and supports various data types, including strings, integers, floats, booleans, lists, and dictionaries. Additionally, developers can extend RedisDict to work with custom objects.</p>
+<p>The library includes utility functions for more complex use cases such as caching, batching, and more. By leveraging Redis for efficient key-value storage, RedisDict enables high-performance data management, maintaining efficiency even with large datasets and Redis instances.</p>
+<section id="features">
+<h3>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Dictionary-like interface: Use familiar Python dictionary syntax to interact with Redis.</p></li>
+<li><p>Data Type Support: Comprehensive support for various data types.</p></li>
+<li><p>Pipelining support: Use pipelines for batch operations to improve performance.</p></li>
+<li><p>Expiration Support: Enables the setting of expiration times either globally or individually per key, through the use of context managers.</p></li>
+<li><p>Efficiency and Scalability: RedisDict is designed for use with large datasets and is optimized for efficiency. It retrieves only the data needed for a particular operation, ensuring efficient memory usage and fast performance.</p></li>
+<li><p>Namespace Management: Provides simple and efficient namespace handling to help organize and manage data in Redis, streamlining data access and manipulation.</p></li>
+<li><p>Distributed Computing: With its ability to seamlessly connect to other instances or servers with access to the same Redis instance, RedisDict enables easy distributed computing.</p></li>
+<li><p>Custom data: types: Add custom types encoding/decoding to store your data types.</p></li>
+<li><p>Encryption: allows for storing data encrypted, while retaining the simple dictionary interface.</p></li>
+</ul>
+</section>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h3>
+<p>Redis is an exceptionally fast database when used appropriately. RedisDict leverages Redis for efficient key-value storage, enabling high-performance data management.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>redis-dict
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">redis_dict</span> <span class="kn">import</span> <span class="n">RedisDict</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dic</span><span class="p">[</span><span class="s1">&#39;foo&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dic</span><span class="p">[</span><span class="s1">&#39;foo&#39;</span><span class="p">]</span>
+<span class="go">42</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="s1">&#39;foo&#39;</span> <span class="ow">in</span> <span class="n">dic</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dic</span><span class="p">[</span><span class="s2">&quot;baz&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;hello world&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dic</span>
+<span class="go">{&#39;foo&#39;: 42, &#39;baz&#39;: &#39;hello world&#39;}</span>
+</pre></div>
+</div>
+<p>In Redis our example looks like this.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mf">127.0.0.1</span><span class="p">:</span><span class="mi">6379</span><span class="o">&gt;</span> <span class="n">KEYS</span> <span class="s2">&quot;*&quot;</span>
+<span class="mi">1</span><span class="p">)</span> <span class="s2">&quot;main:foo&quot;</span>
+<span class="mi">2</span><span class="p">)</span> <span class="s2">&quot;main:baz&quot;</span>
+<span class="mf">127.0.0.1</span><span class="p">:</span><span class="mi">6379</span><span class="o">&gt;</span> <span class="n">GET</span> <span class="s2">&quot;main:foo&quot;</span>
+<span class="s2">&quot;int:42&quot;</span>
+<span class="mf">127.0.0.1</span><span class="p">:</span><span class="mi">6379</span><span class="o">&gt;</span> <span class="n">GET</span> <span class="s2">&quot;main:baz&quot;</span>
+<span class="s2">&quot;str:hello world&quot;</span>
+</pre></div>
+</div>
+<section id="namespaces">
+<h4>Namespaces<a class="headerlink" href="#namespaces" title="Link to this heading"></a></h4>
+<p>Acting as an identifier for your dictionary across different systems, RedisDict employs namespaces for organized data management. When a namespace isn’t specified, “main” becomes the default. Thus allowing for data organization across systems and projects with the same redis instance.
+This approach also minimizes the risk of key collisions between different applications, preventing hard-to-debug issues. By leveraging namespaces, RedisDict ensures a cleaner and more maintainable data management experience for developers working on multiple projects.</p>
+</section>
+</section>
+<section id="advanced-features">
+<h3>Advanced Features<a class="headerlink" href="#advanced-features" title="Link to this heading"></a></h3>
+<section id="expiration">
+<h4>Expiration<a class="headerlink" href="#expiration" title="Link to this heading"></a></h4>
+<p>Redis provides a valuable feature that enables keys to expire. RedisDict supports this feature in the following ways:</p>
+<ol class="arabic simple">
+<li><p>Set a default expiration time when creating a RedisDict instance. In this example, the keys will have a default expiration time of 10 seconds. Use seconds with an integer or pass a datetime timedelta.</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">(</span><span class="n">expire</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">dic</span><span class="p">[</span><span class="s1">&#39;gone&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;in ten seconds&#39;</span>
+</pre></div>
+</div>
+<p>Or, for a more Pythonic approach, use a timedelta.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span>
+
+<span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">(</span><span class="n">expire</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">dic</span><span class="p">[</span><span class="s1">&#39;gone&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;in a minute&#39;</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Temporarily set the default expiration time within the scope using a context manager. In this example, the key ‘gone’ will expire after 60 seconds. The default expiration time for other keys outside the context manager remains unchanged. Either pass an integer or a timedelta.</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">()</span>
+
+<span class="n">seconds</span> <span class="o">=</span> <span class="mi">60</span>
+<span class="k">with</span> <span class="n">dic</span><span class="o">.</span><span class="n">expire_at</span><span class="p">(</span><span class="n">seconds</span><span class="p">):</span>
+    <span class="n">dic</span><span class="p">[</span><span class="s1">&#39;gone&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;in sixty seconds&#39;</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p>Updating keys while preserving the initial timeout In certain situations, there is a need to update the value while keeping the expiration intact. This is achievable by setting the ‘preserve_expiration’ to true.</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
+
+<span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">(</span><span class="n">expire</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">preserve_expiration</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">dic</span><span class="p">[</span><span class="s1">&#39;gone&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;in ten seconds&#39;</span>
+
+<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">dic</span><span class="p">[</span><span class="s1">&#39;gone&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;gone in 5 seconds&#39;</span>
+
+</pre></div>
+</div>
+</section>
+<section id="batching">
+<h4>Batching<a class="headerlink" href="#batching" title="Link to this heading"></a></h4>
+<p>Efficiently batch your requests using the Pipeline feature, which can be easily utilized with a context manager.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">(</span><span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;example&quot;</span><span class="p">)</span>
+
+<span class="c1"># one round trip to redis</span>
+<span class="k">with</span> <span class="n">dic</span><span class="o">.</span><span class="n">pipeline</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+        <span class="n">dic</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">index</span><span class="p">)]</span> <span class="o">=</span> <span class="n">index</span>
+</pre></div>
+</div>
+</section>
+<section id="distributed-computing">
+<h4>Distributed computing<a class="headerlink" href="#distributed-computing" title="Link to this heading"></a></h4>
+<p>You can use RedisDict for distributed computing by starting multiple RedisDict instances on different servers or instances that have access to the same Redis instance:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># On server 1</span>
+<span class="kn">from</span> <span class="nn">redis_dict</span> <span class="kn">import</span> <span class="n">RedisDict</span>
+
+<span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">(</span><span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;example&quot;</span><span class="p">)</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;foo&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;bar&quot;</span>
+
+<span class="c1"># On server 2</span>
+<span class="kn">from</span> <span class="nn">redis_dict</span> <span class="kn">import</span> <span class="n">RedisDict</span>
+
+<span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">(</span><span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;example&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">dic</span><span class="p">[</span><span class="s2">&quot;foo&quot;</span><span class="p">])</span> <span class="c1"># outputs &quot;bar&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="more-examples">
+<h3>More Examples<a class="headerlink" href="#more-examples" title="Link to this heading"></a></h3>
+<section id="caching-made-simple">
+<h4>Caching made simple<a class="headerlink" href="#caching-made-simple" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">redis_dict</span> <span class="kn">import</span> <span class="n">RedisDict</span>
+
+<span class="k">def</span> <span class="nf">expensive_function</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span>
+
+<span class="n">cache</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">(</span><span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;cache&quot;</span><span class="p">,</span> <span class="n">expire</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">60</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">cached_expensive_function</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">x</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cache</span><span class="p">:</span>
+        <span class="n">cache</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="n">expensive_function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cache</span><span class="p">[</span><span class="n">x</span><span class="p">]</span>
+
+<span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cached_expensive_function</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>  <span class="c1"># Takes around 5 seconds to compute and caches the result.</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Time taken: </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start_time</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+
+<span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cached_expensive_function</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>  <span class="c1"># Fetches the result from the cache, taking almost no time.</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Time taken: </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start_time</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="redis-dict-as-dictionary">
+<h4>Redis-dict as dictionary<a class="headerlink" href="#redis-dict-as-dictionary" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">redis_dict</span> <span class="kn">import</span> <span class="n">RedisDict</span>
+
+<span class="c1"># Create a RedisDict instance with a namespace</span>
+<span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">(</span><span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;example&quot;</span><span class="p">)</span>
+
+<span class="c1"># Set key-value pairs</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;John Doe&quot;</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;age&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">32</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;city&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Amsterdam&quot;</span>
+
+<span class="c1"># Get value by key, from any instance connected to the same redis/namespace</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">dic</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>  <span class="c1"># Output: John Doe</span>
+
+<span class="c1"># Update value by key, got a year older</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;age&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">33</span>
+
+<span class="c1"># Check if key exists</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;name&quot;</span> <span class="ow">in</span> <span class="n">dic</span><span class="p">)</span>  <span class="c1"># Output: True</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;country&quot;</span> <span class="ow">in</span> <span class="n">dic</span><span class="p">)</span>  <span class="c1"># Output: False</span>
+
+<span class="c1"># Get value with a default value if the key doesn&#39;t exist</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">dic</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;country&quot;</span><span class="p">,</span> <span class="s2">&quot;NL&quot;</span><span class="p">))</span>  <span class="c1"># Output: NL</span>
+
+<span class="c1"># Get the length (number of keys) of the RedisDict</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dic</span><span class="p">))</span>  <span class="c1"># Output: 3</span>
+
+<span class="c1"># Iterate over keys</span>
+<span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">dic</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">dic</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+
+<span class="c1"># Delete a key-value pair</span>
+<span class="k">del</span> <span class="n">dic</span><span class="p">[</span><span class="s2">&quot;city&quot;</span><span class="p">]</span>
+
+<span class="c1"># Clear all key-value pairs in the RedisDict</span>
+<span class="n">dic</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+<span class="c1"># Get the length (number of keys) of the RedisDict</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dic</span><span class="p">))</span>  <span class="c1"># Output: 0</span>
+
+<span class="c1"># Update RedisDict with multiple key-value pairs</span>
+<span class="n">dic</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">})</span>
+
+<span class="c1"># Use methods of a normal dict</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">dic</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>   <span class="c1"># Output: [&#39;a&#39;, &#39;b&#39;, &#39;c&#39;]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">dic</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>  <span class="c1"># Output: [1, 2, 3]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">dic</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>  <span class="c1"># Output: [(&#39;a&#39;, 1), (&#39;b&#39;, 2), (&#39;c&#39;, 3)]</span>
+
+<span class="c1"># Using pop() and popitem() methods</span>
+<span class="n">value</span> <span class="o">=</span> <span class="n">dic</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;a&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># Output: 1</span>
+
+<span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">dic</span><span class="o">.</span><span class="n">popitem</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>  <span class="c1"># Output: &#39;c&#39; 3 (example)</span>
+
+<span class="c1"># Using setdefault() method</span>
+<span class="n">dic</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">dic</span><span class="p">[</span><span class="s2">&quot;d&quot;</span><span class="p">])</span>  <span class="c1"># Output: 4</span>
+</pre></div>
+</div>
+</section>
+<section id="additional-examples">
+<h4>Additional Examples<a class="headerlink" href="#additional-examples" title="Link to this heading"></a></h4>
+<p>For more advanced examples of RedisDict, please refer to the unit-test files in the repository. All features and functionalities are thoroughly tested in <a class="reference external" href="https://github.com/Attumm/redis-dict/blob/main/tests.py#L1">unit tests (here)</a> Or take a look at load test for batching <a class="reference external" href="https://github.com/Attumm/redis-dict/blob/main/load_test.py#L1">load test</a>.
+The unit-tests can be as used as a starting point.</p>
+</section>
+</section>
+<section id="types">
+<h3>Types<a class="headerlink" href="#types" title="Link to this heading"></a></h3>
+<section id="standard-types">
+<h4>standard types<a class="headerlink" href="#standard-types" title="Link to this heading"></a></h4>
+<p>RedisDict supports a range of Python data types, from basic types to nested structures.
+Basic types are handled natively, while complex data types like lists and dictionaries, RedisDict uses JSON serialization, specifically avoiding <code class="docutils literal notranslate"><span class="pre">pickle</span></code> due to its <a class="reference external" href="https://docs.python.org/3/library/pickle.html">security vulnerabilities</a> in distributed computing contexts.
+Although the library supports nested structures, the recommended best practice is to use RedisDict as a shallow dictionary.
+This approach optimizes Redis database performance and efficiency by ensuring that each set and get operation efficiently maps to Redis’s key-value storage capabilities, while still preserving the library’s Pythonic interface.
+Following types are supported:
+<code class="docutils literal notranslate"><span class="pre">str,</span> <span class="pre">int,</span> <span class="pre">float,</span> <span class="pre">bool,</span> <span class="pre">NoneType,</span> <span class="pre">list,</span> <span class="pre">dict,</span> <span class="pre">tuple,</span> <span class="pre">set,</span> <span class="pre">datetime,</span> <span class="pre">date,</span> <span class="pre">time,</span> <span class="pre">timedelta,</span> <span class="pre">Decimal,</span> <span class="pre">complex,</span> <span class="pre">bytes,</span> <span class="pre">UUID,</span> <span class="pre">OrderedDict,</span> <span class="pre">defaultdict,</span> <span class="pre">frozenset</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">uuid</span> <span class="kn">import</span> <span class="n">UUID</span>
+<span class="kn">from</span> <span class="nn">decimal</span> <span class="kn">import</span> <span class="n">Decimal</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">()</span>
+
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;string&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Hello World&quot;</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;float&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">3.14</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;bool&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;None&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;list&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;dict&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;tuple&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;set&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">}</span>
+
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;datetime&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">45</span><span class="p">)</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">date</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">45</span><span class="p">)</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;delta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">hours</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;decimal&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Decimal</span><span class="p">(</span><span class="s2">&quot;3.14159&quot;</span><span class="p">)</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;complex&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">complex</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;bytes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">([</span><span class="mi">72</span><span class="p">,</span> <span class="mi">101</span><span class="p">,</span> <span class="mi">108</span><span class="p">,</span> <span class="mi">108</span><span class="p">,</span> <span class="mi">111</span><span class="p">])</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;uuid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">UUID</span><span class="p">(</span><span class="s1">&#39;12345678-1234-5678-1234-567812345678&#39;</span><span class="p">)</span>
+
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;ordered&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">([(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)])</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">})</span>
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;frozen&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+<section id="nested-types">
+<h4>Nested types<a class="headerlink" href="#nested-types" title="Link to this heading"></a></h4>
+<p>Nested Types
+RedisDict supports nested structures with mixed types through JSON serialization. The feature works by utilizing JSON encoding and decoding under the hood. While this represents an upgrade in functionality, the feature is not fully implemented and should be used with caution. For optimal performance, using shallow dictionaries is recommended.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="n">dic</span><span class="p">[</span><span class="s2">&quot;mixed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;foobar&quot;</span><span class="p">,</span> <span class="mf">3.14</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()]</span>
+
+<span class="n">dic</span><span class="p">[</span><span class="s1">&#39;dic&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;elapsed_time&quot;</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">60</span><span class="p">)}</span>
+</pre></div>
+</div>
+</section>
+<section id="json-encoding-decoding">
+<h4>JSON Encoding - Decoding<a class="headerlink" href="#json-encoding-decoding" title="Link to this heading"></a></h4>
+<p>The nested type support in RedisDict is implemented using custom JSON encoders and decoders. These JSON encoders and decoders are built on top of RedisDict’s own encoding and decoding functionality, extending it for JSON compatibility. Since JSON serialization was a frequently requested feature, these enhanced encoders and decoders are available for use in other projects:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">redis_dict</span> <span class="kn">import</span> <span class="n">RedisDictJSONDecoder</span><span class="p">,</span> <span class="n">RedisDictJSONEncoder</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;foobar&quot;</span><span class="p">,</span> <span class="mf">3.14</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()]</span>
+<span class="n">encoded</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">RedisDictJSONEncoder</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">encoded</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">RedisDictJSONDecoder</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="extending-redisdict-with-custom-types">
+<h4>Extending RedisDict with Custom Types<a class="headerlink" href="#extending-redisdict-with-custom-types" title="Link to this heading"></a></h4>
+<p>RedisDict supports custom type serialization. Here’s how to add a new type:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">json</span>
+
+<span class="k">class</span> <span class="nc">Person</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">age</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">age</span> <span class="o">=</span> <span class="n">age</span>
+
+    <span class="k">def</span> <span class="nf">encode</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">encoded_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;Person&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">encoded_str</span><span class="p">))</span>
+
+<span class="n">redis_dict</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">()</span>
+
+<span class="c1"># Extend redis dict with the new type</span>
+<span class="n">redis_dict</span><span class="o">.</span><span class="n">extends_type</span><span class="p">(</span><span class="n">Person</span><span class="p">)</span>
+
+<span class="c1"># RedisDict can now seamlessly handle Person instances.</span>
+<span class="n">person</span> <span class="o">=</span> <span class="n">Person</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;John&quot;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
+<span class="n">redis_dict</span><span class="p">[</span><span class="s2">&quot;person1&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">person</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">redis_dict</span><span class="p">[</span><span class="s2">&quot;person1&quot;</span><span class="p">]</span>
+
+<span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">person</span><span class="o">.</span><span class="n">name</span>
+<span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">age</span> <span class="o">==</span> <span class="n">person</span><span class="o">.</span><span class="n">age</span>
+</pre></div>
+</div>
+<p>For more information on <a class="reference external" href="https://github.com/Attumm/redis-dict/blob/main/tests/unit/extend_types_tests.py">extending types</a>.</p>
+</section>
+<section id="redis-encryption">
+<h4>Redis Encryption<a class="headerlink" href="#redis-encryption" title="Link to this heading"></a></h4>
+<p>Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
+<a class="reference external" href="https://github.com/Attumm/redis-dict/blob/main/docs/tutorials/encrypted_redis.MD">Setup guide</a></p>
+</section>
+<section id="redis-storage-encryption">
+<h4>Redis Storage Encryption<a class="headerlink" href="#redis-storage-encryption" title="Link to this heading"></a></h4>
+<p>For storing encrypted data values, it’s possible to use extended types. Take a look at this <a class="reference external" href="https://github.com/Attumm/redis-dict/blob/main/tests/unit/encrypt_tests.py">encrypted test</a>.</p>
+</section>
+<section id="tests">
+<h4>Tests<a class="headerlink" href="#tests" title="Link to this heading"></a></h4>
+<p>The RedisDict library includes a comprehensive suite of tests that ensure its correctness and resilience. The test suite covers various data types, edge cases, and error handling scenarios. It also employs the Hypothesis library for property-based testing, which provides fuzz testing to evaluate the implementation</p>
+</section>
+<section id="redis-config">
+<h4>Redis config<a class="headerlink" href="#redis-config" title="Link to this heading"></a></h4>
+<p>To configure RedisDict using your Redis config.</p>
+<p>Configure both the host and port. Or configuration with a setting dictionary.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s1">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">6380</span><span class="p">)</span>
+
+<span class="n">redis_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;host&#39;</span><span class="p">:</span> <span class="s1">&#39;127.0.0.1&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;port&#39;</span><span class="p">:</span> <span class="mi">6380</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">confid_dic</span> <span class="o">=</span> <span class="n">RedisDict</span><span class="p">(</span><span class="o">**</span><span class="n">redis_config</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="installation">
+<h3>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h3>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>redis-dict
+</pre></div>
+</div>
+<section id="note">
+<h4>Note<a class="headerlink" href="#note" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p>Please be aware that this project is currently being utilized by various organizations in their production environments. If you have any questions or concerns, feel free to raise issues</p></li>
+<li><p>This project only uses redis as dependency</p></li>
+</ul>
+</section>
+</section>
+</section>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">redis_dict</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="redis_dict.html">redis_dict package</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="redis_dict.html">redis_dict package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="redis_dict.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="redis_dict.html#module-redis_dict.core">redis_dict.core module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="redis_dict.html#module-redis_dict.type_management">redis_dict.type_management module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="redis_dict.html#module-redis_dict">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="modules.html" class="btn btn-neutral float-right" title="redis_dict" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Melvin Bijman.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

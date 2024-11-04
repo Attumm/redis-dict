@@ -1,0 +1,390 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>redis_dict.type_management &mdash; redis-dict  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            redis-dict
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">redis_dict</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../redis_dict.html">redis_dict package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">redis-dict</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">redis_dict.type_management</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for redis_dict.type_management</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Type management module.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">date</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Set</span>
+
+<span class="kn">from</span> <span class="nn">uuid</span> <span class="kn">import</span> <span class="n">UUID</span>
+<span class="kn">from</span> <span class="nn">decimal</span> <span class="kn">import</span> <span class="n">Decimal</span>
+
+
+<span class="n">SENTINEL</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+<span class="n">EncodeFuncType</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="nb">str</span><span class="p">]</span>
+<span class="n">DecodeFuncType</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span>
+<span class="n">EncodeType</span> <span class="o">=</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">EncodeFuncType</span><span class="p">]</span>
+<span class="n">DecodeType</span> <span class="o">=</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">DecodeFuncType</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_create_default_encode</span><span class="p">(</span><span class="n">custom_encode_method</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EncodeFuncType</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">default_encode</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">custom_encode_method</span><span class="p">)()</span>  <span class="c1"># type: ignore[no-any-return]</span>
+    <span class="k">return</span> <span class="n">default_encode</span>
+
+
+<span class="k">def</span> <span class="nf">_create_default_decode</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span> <span class="n">custom_decode_method</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DecodeFuncType</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">default_decode</span><span class="p">(</span><span class="n">encoded_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">custom_decode_method</span><span class="p">)(</span><span class="n">encoded_str</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">default_decode</span>
+
+
+<span class="k">def</span> <span class="nf">_decode_tuple</span><span class="p">(</span><span class="n">val</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Deserialize a JSON-formatted string to a tuple.</span>
+
+<span class="sd">    This function takes a JSON-formatted string, deserializes it to a list, and</span>
+<span class="sd">    then converts the list to a tuple.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        val (str): A JSON-formatted string representing a list.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple[Any, ...]: A tuple with the deserialized values from the input string.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_encode_tuple</span><span class="p">(</span><span class="n">val</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Serialize a tuple to a JSON-formatted string.</span>
+
+<span class="sd">    This function takes a tuple, converts it to a list, and then serializes</span>
+<span class="sd">    the list to a JSON-formatted string.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        val (Tuple[Any, ...]): A tuple with values to be serialized.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: A JSON-formatted string representing the input tuple.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_decode_set</span><span class="p">(</span><span class="n">val</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Deserialize a JSON-formatted string to a set.</span>
+
+<span class="sd">    This function takes a JSON-formatted string, deserializes it to a list, and</span>
+<span class="sd">    then converts the list to a set.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        val (str): A JSON-formatted string representing a list.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        set[Any]: A set with the deserialized values from the input string.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_encode_set</span><span class="p">(</span><span class="n">val</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Serialize a set to a JSON-formatted string.</span>
+
+<span class="sd">    This function takes a set, converts it to a list, and then serializes the</span>
+<span class="sd">    list to a JSON-formatted string.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        val (set[Any]): A set with values to be serialized.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: A JSON-formatted string representing the input set.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+
+
+<span class="n">decoding_registry</span><span class="p">:</span> <span class="n">DecodeType</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">type</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="nb">type</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="nb">type</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="nb">type</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">==</span> <span class="s2">&quot;True&quot;</span><span class="p">,</span>
+    <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+
+    <span class="s2">&quot;list&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">,</span>
+    <span class="s2">&quot;dict&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">,</span>
+    <span class="s2">&quot;tuple&quot;</span><span class="p">:</span> <span class="n">_decode_tuple</span><span class="p">,</span>
+    <span class="nb">type</span><span class="p">(</span><span class="nb">set</span><span class="p">())</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">_decode_set</span><span class="p">,</span>
+
+    <span class="n">datetime</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">,</span>
+    <span class="n">date</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">date</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">,</span>
+    <span class="n">timedelta</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span>
+
+    <span class="n">Decimal</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">Decimal</span><span class="p">,</span>
+    <span class="nb">complex</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">complex</span><span class="p">(</span><span class="o">*</span><span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">))),</span>
+    <span class="nb">bytes</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">,</span>
+
+    <span class="n">UUID</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">UUID</span><span class="p">,</span>
+    <span class="n">OrderedDict</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span>
+    <span class="n">defaultdict</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span>
+    <span class="nb">frozenset</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span>
+<span class="p">}</span>
+
+
+<span class="n">encoding_registry</span><span class="p">:</span> <span class="n">EncodeType</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;list&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">,</span>
+    <span class="s2">&quot;dict&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">,</span>
+    <span class="s2">&quot;tuple&quot;</span><span class="p">:</span> <span class="n">_encode_tuple</span><span class="p">,</span>
+    <span class="nb">type</span><span class="p">(</span><span class="nb">set</span><span class="p">())</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">_encode_set</span><span class="p">,</span>
+
+    <span class="n">datetime</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">isoformat</span><span class="p">,</span>
+    <span class="n">date</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">date</span><span class="o">.</span><span class="n">isoformat</span><span class="p">,</span>
+    <span class="n">time</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">,</span>
+    <span class="n">timedelta</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()),</span>
+
+    <span class="nb">complex</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">real</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">imag</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="nb">bytes</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;ascii&#39;</span><span class="p">),</span>
+    <span class="n">OrderedDict</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">items</span><span class="p">())),</span>
+    <span class="n">defaultdict</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span>
+    <span class="nb">frozenset</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="RedisDictJSONEncoder">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.type_management.RedisDictJSONEncoder">[docs]</a>
+<span class="k">class</span> <span class="nc">RedisDictJSONEncoder</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">JSONEncoder</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extends JSON encoding capabilities by reusing RedisDict type conversion.</span>
+
+<span class="sd">    Uses existing decoding_registry to know which types to handle specially and</span>
+<span class="sd">    encoding_registry (falls back to str) for converting to JSON-compatible formats.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        The encoded format looks like::</span>
+
+<span class="sd">            {</span>
+<span class="sd">                &quot;__type__&quot;: &quot;TypeName&quot;,</span>
+<span class="sd">                &quot;value&quot;: &lt;encoded value&gt;</span>
+<span class="sd">            }</span>
+
+<span class="sd">    Notes:</span>
+
+<span class="sd">        Uses decoding_registry (containing all supported types) to check if type</span>
+<span class="sd">        needs special handling. For encoding, defaults to str() if no encoder exists</span>
+<span class="sd">        in encoding_registry.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="RedisDictJSONEncoder.default">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.type_management.RedisDictJSONEncoder.default">[docs]</a>
+    <span class="k">def</span> <span class="nf">default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Overwrite default from json encoder.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            o (Any): Object to be serialized.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError: If the object `o` cannot be serialized.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Any: Serialized value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">type_name</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="k">if</span> <span class="n">type_name</span> <span class="ow">in</span> <span class="n">decoding_registry</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;__type__&quot;</span><span class="p">:</span> <span class="n">type_name</span><span class="p">,</span>
+                <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">encoding_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">type_name</span><span class="p">,</span> <span class="n">_default_encoder</span><span class="p">)(</span><span class="n">o</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONEncoder</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Object of type </span><span class="si">{</span><span class="n">type_name</span><span class="si">}</span><span class="s2"> is not JSON serializable&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="RedisDictJSONDecoder">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.type_management.RedisDictJSONDecoder">[docs]</a>
+<span class="k">class</span> <span class="nc">RedisDictJSONDecoder</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">JSONDecoder</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;JSON decoder leveraging RedisDict existing type conversion system.</span>
+
+<span class="sd">    Works with RedisDictJSONEncoder to reconstruct Python objects from JSON using</span>
+<span class="sd">    RedisDict decoding_registry.</span>
+
+<span class="sd">    Still needs work but allows for more types than without.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Overwrite the __init__ method from JSON decoder.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            *args (Any): Positional arguments for initialization.</span>
+<span class="sd">            **kwargs (Any): Keyword arguments for initialization.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">_object_hook</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;__type__&quot;</span> <span class="ow">in</span> <span class="n">obj</span> <span class="ow">and</span> <span class="s2">&quot;value&quot;</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">:</span>
+                <span class="n">type_name</span> <span class="o">=</span> <span class="n">obj</span><span class="p">[</span><span class="s2">&quot;__type__&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">type_name</span> <span class="ow">in</span> <span class="n">decoding_registry</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">decoding_registry</span><span class="p">[</span><span class="n">type_name</span><span class="p">](</span><span class="n">obj</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">])</span>
+            <span class="k">return</span> <span class="n">obj</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">object_hook</span><span class="o">=</span><span class="n">_object_hook</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="encode_json">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.type_management.encode_json">[docs]</a>
+<span class="k">def</span> <span class="nf">encode_json</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Encode a Python object to a JSON string using the existing encoding registry.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        obj (Any): The Python object to be encoded.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: The JSON-encoded string representation of the object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">RedisDictJSONEncoder</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="decode_json">
+<a class="viewcode-back" href="../../redis_dict.html#redis_dict.type_management.decode_json">[docs]</a>
+<span class="k">def</span> <span class="nf">decode_json</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Decode a JSON string to a Python object using the existing decoding registry.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        s (str): The JSON string to be decoded.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Any: The decoded Python object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">RedisDictJSONDecoder</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span> <span class="nf">_default_decoder</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Pass-through decoder that returns the input string unchanged.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (str): The input string.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: The same input string.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">x</span>
+
+
+<span class="k">def</span> <span class="nf">_default_encoder</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Takes x and returns the result str of the object.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (Any): The input object</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: output of str of the object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+
+<span class="n">encoding_registry</span><span class="p">[</span><span class="s2">&quot;dict&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">encode_json</span>
+<span class="n">decoding_registry</span><span class="p">[</span><span class="s2">&quot;dict&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">decode_json</span>
+
+
+<span class="n">encoding_registry</span><span class="p">[</span><span class="s2">&quot;list&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">encode_json</span>
+<span class="n">decoding_registry</span><span class="p">[</span><span class="s2">&quot;list&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">decode_json</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Melvin Bijman.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

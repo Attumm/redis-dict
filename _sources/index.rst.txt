@@ -1,0 +1,17 @@
+Redis Dict Documentation
+========================
+
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API Reference
+
+   modules
+   redis_dict
+
+Indices and tables
+==================
+
+* :ref:`genindex`

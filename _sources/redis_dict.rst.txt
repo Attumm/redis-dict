@@ -1,0 +1,29 @@
+redis\_dict package
+===================
+
+Submodules
+----------
+
+redis\_dict.core module
+-----------------------
+
+.. automodule:: redis_dict.core
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+redis\_dict.type\_management module
+-----------------------------------
+
+.. automodule:: redis_dict.type_management
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: redis_dict
+   :members:
+   :undoc-members:
+   :show-inheritance:

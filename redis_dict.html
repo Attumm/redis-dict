@@ -1,0 +1,1589 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>redis_dict package &mdash; redis-dict  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="redis_dict" href="modules.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            redis-dict
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">redis_dict</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">redis_dict package</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-redis_dict.core">redis_dict.core module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict"><code class="docutils literal notranslate"><span class="pre">RedisDict</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-redis_dict.type_management">redis_dict.type_management module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.type_management.RedisDictJSONDecoder"><code class="docutils literal notranslate"><span class="pre">RedisDictJSONDecoder</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.type_management.RedisDictJSONEncoder"><code class="docutils literal notranslate"><span class="pre">RedisDictJSONEncoder</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.type_management.decode_json"><code class="docutils literal notranslate"><span class="pre">decode_json()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.type_management.encode_json"><code class="docutils literal notranslate"><span class="pre">encode_json()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-redis_dict">Module contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict"><code class="docutils literal notranslate"><span class="pre">RedisDict</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDictJSONDecoder"><code class="docutils literal notranslate"><span class="pre">RedisDictJSONDecoder</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDictJSONEncoder"><code class="docutils literal notranslate"><span class="pre">RedisDictJSONEncoder</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">redis_dict package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-redis_dict.core">redis_dict.core module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#redis_dict.core.RedisDict"><code class="docutils literal notranslate"><span class="pre">RedisDict</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.decoding_registry"><code class="docutils literal notranslate"><span class="pre">RedisDict.decoding_registry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.encoding_registry"><code class="docutils literal notranslate"><span class="pre">RedisDict.encoding_registry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.namespace"><code class="docutils literal notranslate"><span class="pre">RedisDict.namespace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.expire"><code class="docutils literal notranslate"><span class="pre">RedisDict.expire</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.chain_del"><code class="docutils literal notranslate"><span class="pre">RedisDict.chain_del()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.chain_get"><code class="docutils literal notranslate"><span class="pre">RedisDict.chain_get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.chain_set"><code class="docutils literal notranslate"><span class="pre">RedisDict.chain_set()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.clear"><code class="docutils literal notranslate"><span class="pre">RedisDict.clear()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.copy"><code class="docutils literal notranslate"><span class="pre">RedisDict.copy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id0"><code class="docutils literal notranslate"><span class="pre">RedisDict.decoding_registry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id1"><code class="docutils literal notranslate"><span class="pre">RedisDict.encoding_registry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.expire_at"><code class="docutils literal notranslate"><span class="pre">RedisDict.expire_at()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.extends_type"><code class="docutils literal notranslate"><span class="pre">RedisDict.extends_type()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.fromkeys"><code class="docutils literal notranslate"><span class="pre">RedisDict.fromkeys()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.get"><code class="docutils literal notranslate"><span class="pre">RedisDict.get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.get_redis_info"><code class="docutils literal notranslate"><span class="pre">RedisDict.get_redis_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.get_ttl"><code class="docutils literal notranslate"><span class="pre">RedisDict.get_ttl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.items"><code class="docutils literal notranslate"><span class="pre">RedisDict.items()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.key"><code class="docutils literal notranslate"><span class="pre">RedisDict.key()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.keys"><code class="docutils literal notranslate"><span class="pre">RedisDict.keys()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.multi_chain_get"><code class="docutils literal notranslate"><span class="pre">RedisDict.multi_chain_get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.multi_del"><code class="docutils literal notranslate"><span class="pre">RedisDict.multi_del()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.multi_dict"><code class="docutils literal notranslate"><span class="pre">RedisDict.multi_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.multi_get"><code class="docutils literal notranslate"><span class="pre">RedisDict.multi_get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.new_type_compliance"><code class="docutils literal notranslate"><span class="pre">RedisDict.new_type_compliance()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.next"><code class="docutils literal notranslate"><span class="pre">RedisDict.next()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.pipeline"><code class="docutils literal notranslate"><span class="pre">RedisDict.pipeline()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.pop"><code class="docutils literal notranslate"><span class="pre">RedisDict.pop()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.popitem"><code class="docutils literal notranslate"><span class="pre">RedisDict.popitem()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.setdefault"><code class="docutils literal notranslate"><span class="pre">RedisDict.setdefault()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.to_dict"><code class="docutils literal notranslate"><span class="pre">RedisDict.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.update"><code class="docutils literal notranslate"><span class="pre">RedisDict.update()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.core.RedisDict.values"><code class="docutils literal notranslate"><span class="pre">RedisDict.values()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-redis_dict.type_management">redis_dict.type_management module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#redis_dict.type_management.RedisDictJSONDecoder"><code class="docutils literal notranslate"><span class="pre">RedisDictJSONDecoder</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#redis_dict.type_management.RedisDictJSONEncoder"><code class="docutils literal notranslate"><span class="pre">RedisDictJSONEncoder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.type_management.RedisDictJSONEncoder.default"><code class="docutils literal notranslate"><span class="pre">RedisDictJSONEncoder.default()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#redis_dict.type_management.decode_json"><code class="docutils literal notranslate"><span class="pre">decode_json()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#redis_dict.type_management.encode_json"><code class="docutils literal notranslate"><span class="pre">encode_json()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-redis_dict">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#redis_dict.RedisDict"><code class="docutils literal notranslate"><span class="pre">RedisDict</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.decoding_registry"><code class="docutils literal notranslate"><span class="pre">RedisDict.decoding_registry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.encoding_registry"><code class="docutils literal notranslate"><span class="pre">RedisDict.encoding_registry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.namespace"><code class="docutils literal notranslate"><span class="pre">RedisDict.namespace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.expire"><code class="docutils literal notranslate"><span class="pre">RedisDict.expire</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.chain_del"><code class="docutils literal notranslate"><span class="pre">RedisDict.chain_del()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.chain_get"><code class="docutils literal notranslate"><span class="pre">RedisDict.chain_get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.chain_set"><code class="docutils literal notranslate"><span class="pre">RedisDict.chain_set()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.clear"><code class="docutils literal notranslate"><span class="pre">RedisDict.clear()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.copy"><code class="docutils literal notranslate"><span class="pre">RedisDict.copy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id4"><code class="docutils literal notranslate"><span class="pre">RedisDict.decoding_registry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id5"><code class="docutils literal notranslate"><span class="pre">RedisDict.encoding_registry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id6"><code class="docutils literal notranslate"><span class="pre">RedisDict.expire</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.expire_at"><code class="docutils literal notranslate"><span class="pre">RedisDict.expire_at()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.extends_type"><code class="docutils literal notranslate"><span class="pre">RedisDict.extends_type()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.fromkeys"><code class="docutils literal notranslate"><span class="pre">RedisDict.fromkeys()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.get"><code class="docutils literal notranslate"><span class="pre">RedisDict.get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.get_redis"><code class="docutils literal notranslate"><span class="pre">RedisDict.get_redis</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.get_redis_info"><code class="docutils literal notranslate"><span class="pre">RedisDict.get_redis_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.get_ttl"><code class="docutils literal notranslate"><span class="pre">RedisDict.get_ttl()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.items"><code class="docutils literal notranslate"><span class="pre">RedisDict.items()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.key"><code class="docutils literal notranslate"><span class="pre">RedisDict.key()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.keys"><code class="docutils literal notranslate"><span class="pre">RedisDict.keys()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.multi_chain_get"><code class="docutils literal notranslate"><span class="pre">RedisDict.multi_chain_get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.multi_del"><code class="docutils literal notranslate"><span class="pre">RedisDict.multi_del()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.multi_dict"><code class="docutils literal notranslate"><span class="pre">RedisDict.multi_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.multi_get"><code class="docutils literal notranslate"><span class="pre">RedisDict.multi_get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id9"><code class="docutils literal notranslate"><span class="pre">RedisDict.namespace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.new_type_compliance"><code class="docutils literal notranslate"><span class="pre">RedisDict.new_type_compliance()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.next"><code class="docutils literal notranslate"><span class="pre">RedisDict.next()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.pipeline"><code class="docutils literal notranslate"><span class="pre">RedisDict.pipeline()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.pop"><code class="docutils literal notranslate"><span class="pre">RedisDict.pop()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.popitem"><code class="docutils literal notranslate"><span class="pre">RedisDict.popitem()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.preserve_expiration"><code class="docutils literal notranslate"><span class="pre">RedisDict.preserve_expiration</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.redis"><code class="docutils literal notranslate"><span class="pre">RedisDict.redis</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.setdefault"><code class="docutils literal notranslate"><span class="pre">RedisDict.setdefault()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.to_dict"><code class="docutils literal notranslate"><span class="pre">RedisDict.to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.update"><code class="docutils literal notranslate"><span class="pre">RedisDict.update()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDict.values"><code class="docutils literal notranslate"><span class="pre">RedisDict.values()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#redis_dict.RedisDictJSONDecoder"><code class="docutils literal notranslate"><span class="pre">RedisDictJSONDecoder</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#redis_dict.RedisDictJSONEncoder"><code class="docutils literal notranslate"><span class="pre">RedisDictJSONEncoder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#redis_dict.RedisDictJSONEncoder.default"><code class="docutils literal notranslate"><span class="pre">RedisDictJSONEncoder.default()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">redis-dict</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">redis_dict</a></li>
+      <li class="breadcrumb-item active">redis_dict package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/redis_dict.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="redis-dict-package">
+<h1>redis_dict package<a class="headerlink" href="#redis-dict-package" title="Link to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="module-redis_dict.core">
+<span id="redis-dict-core-module"></span><h2>redis_dict.core module<a class="headerlink" href="#module-redis_dict.core" title="Link to this heading"></a></h2>
+<p>Redis Dict module.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">redis_dict.core.</span></span><span class="sig-name descname"><span class="pre">RedisDict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'main'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expire</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preserve_expiration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">redis_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Python dictionary with Redis as backend.</p>
+<p>With support for advanced features, such as custom data types, pipelining, and key expiration.</p>
+<p>This class provides a dictionary-like interface that interacts with a Redis database, allowing
+for efficient storage and retrieval of key-value pairs. It supports various data types, including
+strings, integers, floats, lists, dictionaries, tuples, sets, and user-defined types. The class
+leverages the power of Redis pipelining to minimize network round-trip time, latency, and I/O load,
+thereby optimizing performance for batch operations. Additionally, it allows for the management of
+key expiration through the use of context managers.</p>
+<p>The RedisDict class is designed to be analogous to a standard Python dictionary while providing
+enhanced functionality, such as support for a wider range of data types and efficient batch operations.
+It aims to offer a seamless and familiar interface for developers familiar with Python dictionaries,
+enabling a smooth transition to a Redis-backed data store.</p>
+<p>Extendable Types: You can extend RedisDict by adding or overriding encoding and decoding functions.
+This functionality enables various use cases, such as managing encrypted data in Redis,
+To implement this, simply create and register your custom encoding and decoding functions.
+By delegating serialization to redis-dict, reduce complexity and have simple code in the codebase.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.decoding_registry">
+<span class="sig-name descname"><span class="pre">decoding_registry</span></span><a class="headerlink" href="#redis_dict.core.RedisDict.decoding_registry" title="Link to this definition"></a></dt>
+<dd><p>Mapping of decoding transformation functions based on type</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[str, DecodeFuncType]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.encoding_registry">
+<span class="sig-name descname"><span class="pre">encoding_registry</span></span><a class="headerlink" href="#redis_dict.core.RedisDict.encoding_registry" title="Link to this definition"></a></dt>
+<dd><p>Mapping of encoding transformation functions based on type</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[str, EncodeFuncType]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.namespace">
+<span class="sig-name descname"><span class="pre">namespace</span></span><a class="headerlink" href="#redis_dict.core.RedisDict.namespace" title="Link to this definition"></a></dt>
+<dd><p>A string used as a prefix for Redis keys to separate data in different namespaces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.expire">
+<span class="sig-name descname"><span class="pre">expire</span></span><a class="headerlink" href="#redis_dict.core.RedisDict.expire" title="Link to this definition"></a></dt>
+<dd><p>An optional expiration time for keys, in seconds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Union[int, None]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.chain_del">
+<span class="sig-name descname"><span class="pre">chain_del</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.chain_del"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.chain_del" title="Link to this definition"></a></dt>
+<dd><p>Delete a value from the RedisDict using a chain of keys.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>iterable</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of keys representing the chain.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.chain_get">
+<span class="sig-name descname"><span class="pre">chain_get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.chain_get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.chain_get" title="Link to this definition"></a></dt>
+<dd><p>Get a value from the RedisDict using a chain of keys.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>iterable</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of keys representing the chain.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The value associated with the chain of keys.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.chain_set">
+<span class="sig-name descname"><span class="pre">chain_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.chain_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.chain_set" title="Link to this definition"></a></dt>
+<dd><p>Set a value in the RedisDict using a chain of keys.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>iterable</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of keys representing the chain.</p></li>
+<li><p><strong>v</strong> (<em>Any</em>) – The value to be set.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.clear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.clear" title="Link to this definition"></a></dt>
+<dd><p>Remove all key-value pairs from the RedisDict in one batch operation using pipelining.</p>
+<p>This method mimics the behavior of the <cite>clear</cite> method from a standard Python dictionary.
+Redis pipelining is employed to group multiple commands into a single request, minimizing
+network round-trip time, latency, and I/O load, thereby enhancing the overall performance.</p>
+<p>It is important to highlight that the clear method can be safely executed within
+the context of an initiated pipeline operation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.copy" title="Link to this definition"></a></dt>
+<dd><p>Create a shallow copy of the RedisDict and return it as a standard Python dictionary.</p>
+<p>This method is analogous to the <cite>copy</cite> method of a standard Python dictionary</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A shallow copy of the RedisDict as a standard Python dictionary.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>does not create a new RedisDict instance.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">decoding_registry</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">,</span> <code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code><span class="pre">[[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">],</span> <code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code><span class="pre">]]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'Decimal':</span> <span class="pre">&lt;class</span> <span class="pre">'decimal.Decimal'&gt;,</span> <span class="pre">'NoneType':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'OrderedDict':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'UUID':</span> <span class="pre">&lt;class</span> <span class="pre">'uuid.UUID'&gt;,</span> <span class="pre">'bool':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'bytes':</span> <span class="pre">&lt;function</span> <span class="pre">b64decode&gt;,</span> <span class="pre">'complex':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'date':</span> <span class="pre">&lt;built-in</span> <span class="pre">method</span> <span class="pre">fromisoformat</span> <span class="pre">of</span> <span class="pre">type</span> <span class="pre">object&gt;,</span> <span class="pre">'datetime':</span> <span class="pre">&lt;built-in</span> <span class="pre">method</span> <span class="pre">fromisoformat</span> <span class="pre">of</span> <span class="pre">type</span> <span class="pre">object&gt;,</span> <span class="pre">'defaultdict':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'dict':</span> <span class="pre">&lt;function</span> <span class="pre">decode_json&gt;,</span> <span class="pre">'float':</span> <span class="pre">&lt;class</span> <span class="pre">'float'&gt;,</span> <span class="pre">'frozenset':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'int':</span> <span class="pre">&lt;class</span> <span class="pre">'int'&gt;,</span> <span class="pre">'list':</span> <span class="pre">&lt;function</span> <span class="pre">decode_json&gt;,</span> <span class="pre">'set':</span> <span class="pre">&lt;function</span> <span class="pre">_decode_set&gt;,</span> <span class="pre">'str':</span> <span class="pre">&lt;class</span> <span class="pre">'str'&gt;,</span> <span class="pre">'time':</span> <span class="pre">&lt;built-in</span> <span class="pre">method</span> <span class="pre">fromisoformat</span> <span class="pre">of</span> <span class="pre">type</span> <span class="pre">object&gt;,</span> <span class="pre">'timedelta':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'tuple':</span> <span class="pre">&lt;function</span> <span class="pre">_decode_tuple&gt;}</span></em><a class="headerlink" href="#id0" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id1">
+<span class="sig-name descname"><span class="pre">encoding_registry</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">,</span> <code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code><span class="pre">[[</span><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code><span class="pre">],</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">]]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'OrderedDict':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'bytes':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'complex':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'date':</span> <span class="pre">&lt;method</span> <span class="pre">'isoformat'</span> <span class="pre">of</span> <span class="pre">'datetime.date'</span> <span class="pre">objects&gt;,</span> <span class="pre">'datetime':</span> <span class="pre">&lt;method</span> <span class="pre">'isoformat'</span> <span class="pre">of</span> <span class="pre">'datetime.datetime'</span> <span class="pre">objects&gt;,</span> <span class="pre">'defaultdict':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'dict':</span> <span class="pre">&lt;function</span> <span class="pre">encode_json&gt;,</span> <span class="pre">'frozenset':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'list':</span> <span class="pre">&lt;function</span> <span class="pre">encode_json&gt;,</span> <span class="pre">'set':</span> <span class="pre">&lt;function</span> <span class="pre">_encode_set&gt;,</span> <span class="pre">'time':</span> <span class="pre">&lt;method</span> <span class="pre">'isoformat'</span> <span class="pre">of</span> <span class="pre">'datetime.time'</span> <span class="pre">objects&gt;,</span> <span class="pre">'timedelta':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'tuple':</span> <span class="pre">&lt;function</span> <span class="pre">_encode_tuple&gt;}</span></em><a class="headerlink" href="#id1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.expire_at">
+<span class="sig-name descname"><span class="pre">expire_at</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sec_epoch</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.expire_at"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.expire_at" title="Link to this definition"></a></dt>
+<dd><p>Context manager to set the expiration time for keys in the RedisDict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sec_epoch</strong> (<em>int</em><em>, </em><em>timedelta</em>) – The expiration duration is set using either an integer or a timedelta.</p>
+</dd>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>ContextManager</em> – A context manager during which the expiration time is the time set.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterator</span></code>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.extends_type">
+<span class="sig-name descname"><span class="pre">extends_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">class_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoding_method_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decoding_method_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.extends_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.extends_type" title="Link to this definition"></a></dt>
+<dd><p>Extend RedisDict to support a custom type in the encode/decode mapping.</p>
+<p>This method enables serialization of instances based on their type,
+allowing for custom types, specialized storage formats, and more.
+There are three ways to add custom types:
+1. Have a class with an <cite>encode</cite> instance method and a <cite>decode</cite> class method.
+2. Have a class and pass encoding and decoding functions, where
+<cite>encode</cite> converts the class instance to a string, and
+<cite>decode</cite> takes the string and recreates the class instance.
+3. Have a class that already has serialization methods, that satisfies the:
+EncodeFuncType = Callable[[Any], str]
+DecodeFuncType = Callable[[str], Any]</p>
+<p><cite>custom_encode_method</cite>
+<cite>custom_decode_method</cite></p>
+<p>If no encoding or decoding function is provided, default to use the <cite>encode</cite> and <cite>decode</cite> methods of the class.</p>
+<p>The <cite>encode</cite> method should be an instance method that converts the object to a string.
+The <cite>decode</cite> method should be a class method that takes a string and returns an instance of the class.</p>
+<p>The method names for encoding and decoding can be changed by modifying the
+- <cite>custom_encode_method</cite>
+- <cite>custom_decode_method</cite>
+attributes of the RedisDict instance</p>
+<p class="rubric">Example</p>
+<dl>
+<dt>class Person:</dt><dd><dl class="simple">
+<dt>def __init__(self, name, age):</dt><dd><p>self.name = name
+self.age = age</p>
+</dd>
+<dt>def encode(self) -&gt; str:</dt><dd><p>return json.dumps(self.__dict__)</p>
+</dd>
+</dl>
+<p>&#64;classmethod
+def decode(cls, encoded_str: str) -&gt; ‘Person’:</p>
+<blockquote>
+<div><p>return cls(<a href="#id2"><span class="problematic" id="id3">**</span></a>json.loads(encoded_str))</p>
+</div></blockquote>
+</dd>
+</dl>
+<p>redis_dict.extends_type(Person)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>class_type</strong> (<em>type</em>) – The class <cite>__name__</cite> will become the key for the encoding and decoding functions.</p></li>
+<li><p><strong>encode</strong> (<em>Optional</em><em>[</em><em>EncodeFuncType</em><em>]</em>) – function that encodes an object into a storable string format.</p></li>
+<li><p><strong>decode</strong> (<em>Optional</em><em>[</em><em>DecodeFuncType</em><em>]</em>) – function that decodes a string back into an object of <cite>class_type</cite>.</p></li>
+<li><p><strong>encoding_method_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of encoding method of the class for redis-dict custom types.</p></li>
+<li><p><strong>decoding_method_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of decoding method of the class for redis-dict custom types.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NotImplementedError</strong> – </p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You can check for compliance of a class separately using the <cite>new_type_compliance</cite> method:</p>
+<p>This method raises a NotImplementedError if either <cite>encode</cite> or <cite>decode</cite> is <cite>None</cite>
+and the class does not implement the corresponding method.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.fromkeys">
+<span class="sig-name descname"><span class="pre">fromkeys</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.fromkeys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.fromkeys" title="Link to this definition"></a></dt>
+<dd><p>Create a new RedisDict from an iterable of key-value pairs.</p>
+<p>Create a new RedisDict with keys from the provided iterable and values set to the given value.
+This method is analogous to the <cite>fromkeys</cite> method of a standard Python dictionary, populating
+the RedisDict with the keys from the iterable and setting their corresponding values to the
+specified value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>iterable</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – An iterable containing the keys to be added to the RedisDict.</p></li>
+<li><p><strong>value</strong> (<em>Optional</em><em>[</em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – The value to be assigned to each key in the RedisDict. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The current RedisDict instance,populated with the keys from the iterable and their
+corresponding values.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#redis_dict.core.RedisDict" title="redis_dict.core.RedisDict">RedisDict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.get" title="Link to this definition"></a></dt>
+<dd><p>Return the value for the given key if it exists, otherwise return the default value.</p>
+<p>Analogous to a dictionary’s get method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>key</strong> (<em>str</em>) – The key to retrieve the value.</p></li>
+<li><p><strong>default</strong> (<em>Optional</em><em>[</em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – The value to return if the key is not found.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The value associated with the key or the default value.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.get_redis_info">
+<span class="sig-name descname"><span class="pre">get_redis_info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.get_redis_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.get_redis_info" title="Link to this definition"></a></dt>
+<dd><p>Retrieve information and statistics about the Redis server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The information and statistics from the Redis server in a dictionary.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.get_ttl">
+<span class="sig-name descname"><span class="pre">get_ttl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.get_ttl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.get_ttl" title="Link to this definition"></a></dt>
+<dd><p>Get the Time To Live from Redis.</p>
+<p>Get the Time To Live (TTL) in seconds for a given key. If the key does not exist or does not have an
+associated <cite>expire</cite>, return None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – The key for which to get the TTL.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The TTL in seconds if the key exists and has an expiry set; otherwise, None.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.items">
+<span class="sig-name descname"><span class="pre">items</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.items"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.items" title="Link to this definition"></a></dt>
+<dd><p>Return a list of key-value pairs (tuples) in the RedisDict, analogous to a dictionary’s items method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Iterator[Tuple[str, Any]]</em> – A list of key-value pairs in the RedisDict.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterator</span></code>[<code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code>]]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.key">
+<span class="sig-name descname"><span class="pre">key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">search_term</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.key" title="Link to this definition"></a></dt>
+<dd><p>Return the first value for search_term if it exists, otherwise return None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>search_term</strong> (<em>str</em>) – A search term to filter keys. Defaults to ‘’.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The first key associated with the given search term.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.keys">
+<span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.keys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.keys" title="Link to this definition"></a></dt>
+<dd><p>Return an Iterator of keys in the RedisDict, analogous to a dictionary’s keys method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of keys in the RedisDict.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Iterator[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.multi_chain_get">
+<span class="sig-name descname"><span class="pre">multi_chain_get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keys</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.multi_chain_get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.multi_chain_get" title="Link to this definition"></a></dt>
+<dd><p>Get multiple values from the RedisDict using a chain of keys.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keys</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of keys representing the chain.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of values associated with the chain of keys.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Any]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.multi_del">
+<span class="sig-name descname"><span class="pre">multi_del</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.multi_del"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.multi_del" title="Link to this definition"></a></dt>
+<dd><p>Delete multiple values from the RedisDict using a shared key prefix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – The shared key prefix.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The number of keys deleted.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.multi_dict">
+<span class="sig-name descname"><span class="pre">multi_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.multi_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.multi_dict" title="Link to this definition"></a></dt>
+<dd><p>Get a dictionary of key-value pairs from the RedisDict using a shared key prefix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – The shared key prefix.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary of key-value pairs associated with the key prefix.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[str, Any]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.multi_get">
+<span class="sig-name descname"><span class="pre">multi_get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.multi_get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.multi_get" title="Link to this definition"></a></dt>
+<dd><p>Get multiple values from the RedisDict using a shared key prefix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – The shared key prefix.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of values associated with the key prefix.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Any]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.new_type_compliance">
+<span class="sig-name descname"><span class="pre">new_type_compliance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">class_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encode_method_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decode_method_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.new_type_compliance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.new_type_compliance" title="Link to this definition"></a></dt>
+<dd><p>Check if a class complies with the required encoding and decoding methods.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>class_type</strong> (<em>type</em>) – The class to check for compliance.</p></li>
+<li><p><strong>encode_method_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of encoding method of the class for redis-dict custom types.</p></li>
+<li><p><strong>decode_method_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of decoding method of the class for redis-dict custom types.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NotImplementedError</strong> – If the class does not implement the required methods when the respective check is True.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.next">
+<span class="sig-name descname"><span class="pre">next</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.next"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.next" title="Link to this definition"></a></dt>
+<dd><p>Get the next item in the iterator (alias for __next__).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The next item in the iterator.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.pipeline">
+<span class="sig-name descname"><span class="pre">pipeline</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.pipeline" title="Link to this definition"></a></dt>
+<dd><p>Context manager to create a Redis pipeline for batch operations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>ContextManager</em> – A context manager to create a Redis pipeline batching all operations within the context.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterator</span></code>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default=&lt;object</span> <span class="pre">object&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.pop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.pop" title="Link to this definition"></a></dt>
+<dd><p>Analogous to a dictionary’s pop method.</p>
+<p>Remove the value associated with the given key and return it, or return the default value
+if the key is not found.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>key</strong> (<em>str</em>) – The key to remove the value.</p></li>
+<li><p><strong>default</strong> (<em>Optional</em><em>[</em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – The value to return if the key is not found.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The value associated with the key or the default value.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>KeyError</strong> – If the key is not found and no default value is provided.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.popitem">
+<span class="sig-name descname"><span class="pre">popitem</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.popitem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.popitem" title="Link to this definition"></a></dt>
+<dd><p>Remove and return a random (key, value) pair from the RedisDict as a tuple.</p>
+<p>This method is analogous to the <cite>popitem</cite> method of a standard Python dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A tuple containing a randomly chosen (key, value) pair.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>KeyError</strong> – If RedisDict is empty.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.setdefault">
+<span class="sig-name descname"><span class="pre">setdefault</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.setdefault"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.setdefault" title="Link to this definition"></a></dt>
+<dd><p>Get value under key, and if not present set default value.</p>
+<p>Return the value associated with the given key if it exists, otherwise set the value to the
+default value and return it. Analogous to a dictionary’s setdefault method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>key</strong> (<em>str</em>) – The key to retrieve the value.</p></li>
+<li><p><strong>default_value</strong> (<em>Optional</em><em>[</em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – The value to set if the key is not found.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The value associated with the key or the default value.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.to_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.to_dict" title="Link to this definition"></a></dt>
+<dd><p>Convert the RedisDict to a Python dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A dictionary with the same key-value pairs as the RedisDict.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict[str, Any]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.update">
+<span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dic</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.update" title="Link to this definition"></a></dt>
+<dd><p>Update the RedisDict with key-value pairs from the given mapping, analogous to a dictionary’s update method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dic</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – A mapping containing key-value pairs to update the RedisDict.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.core.RedisDict.values">
+<span class="sig-name descname"><span class="pre">values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.core.RedisDict.values" title="Link to this definition"></a></dt>
+<dd><p>Analogous to a dictionary’s values method.</p>
+<p>Return a list of values in the RedisDict,</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>List[Any]</em> – A list of values in the RedisDict.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterator</span></code>[<code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-redis_dict.type_management">
+<span id="redis-dict-type-management-module"></span><h2>redis_dict.type_management module<a class="headerlink" href="#module-redis_dict.type_management" title="Link to this heading"></a></h2>
+<p>Type management module.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="redis_dict.type_management.RedisDictJSONDecoder">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">redis_dict.type_management.</span></span><span class="sig-name descname"><span class="pre">RedisDictJSONDecoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/type_management.html#RedisDictJSONDecoder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.type_management.RedisDictJSONDecoder" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">JSONDecoder</span></code></p>
+<p>JSON decoder leveraging RedisDict existing type conversion system.</p>
+<p>Works with RedisDictJSONEncoder to reconstruct Python objects from JSON using
+RedisDict decoding_registry.</p>
+<p>Still needs work but allows for more types than without.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="redis_dict.type_management.RedisDictJSONEncoder">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">redis_dict.type_management.</span></span><span class="sig-name descname"><span class="pre">RedisDictJSONEncoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skipkeys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensure_ascii</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_circular</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_nan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separators</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/type_management.html#RedisDictJSONEncoder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.type_management.RedisDictJSONEncoder" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">JSONEncoder</span></code></p>
+<p>Extends JSON encoding capabilities by reusing RedisDict type conversion.</p>
+<p>Uses existing decoding_registry to know which types to handle specially and
+encoding_registry (falls back to str) for converting to JSON-compatible formats.</p>
+<p class="rubric">Example</p>
+<p>The encoded format looks like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;__type__&quot;</span><span class="p">:</span> <span class="s2">&quot;TypeName&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">encoded</span> <span class="n">value</span><span class="o">&gt;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<p>Uses decoding_registry (containing all supported types) to check if type
+needs special handling. For encoding, defaults to str() if no encoder exists
+in encoding_registry.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.type_management.RedisDictJSONEncoder.default">
+<span class="sig-name descname"><span class="pre">default</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">o</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/type_management.html#RedisDictJSONEncoder.default"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.type_management.RedisDictJSONEncoder.default" title="Link to this definition"></a></dt>
+<dd><p>Overwrite default from json encoder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>o</strong> (<em>Any</em>) – Object to be serialized.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>TypeError</strong> – If the object <cite>o</cite> cannot be serialized.</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Serialized value.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="redis_dict.type_management.decode_json">
+<span class="sig-prename descclassname"><span class="pre">redis_dict.type_management.</span></span><span class="sig-name descname"><span class="pre">decode_json</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/type_management.html#decode_json"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.type_management.decode_json" title="Link to this definition"></a></dt>
+<dd><p>Decode a JSON string to a Python object using the existing decoding registry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>s</strong> (<em>str</em>) – The JSON string to be decoded.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The decoded Python object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="redis_dict.type_management.encode_json">
+<span class="sig-prename descclassname"><span class="pre">redis_dict.type_management.</span></span><span class="sig-name descname"><span class="pre">encode_json</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/type_management.html#encode_json"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.type_management.encode_json" title="Link to this definition"></a></dt>
+<dd><p>Encode a Python object to a JSON string using the existing encoding registry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>obj</strong> (<em>Any</em>) – The Python object to be encoded.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The JSON-encoded string representation of the object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-redis_dict">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-redis_dict" title="Link to this heading"></a></h2>
+<p>__init__ module for redis dict.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="redis_dict.RedisDict">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">redis_dict.</span></span><span class="sig-name descname"><span class="pre">RedisDict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'main'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expire</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preserve_expiration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">redis_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Python dictionary with Redis as backend.</p>
+<p>With support for advanced features, such as custom data types, pipelining, and key expiration.</p>
+<p>This class provides a dictionary-like interface that interacts with a Redis database, allowing
+for efficient storage and retrieval of key-value pairs. It supports various data types, including
+strings, integers, floats, lists, dictionaries, tuples, sets, and user-defined types. The class
+leverages the power of Redis pipelining to minimize network round-trip time, latency, and I/O load,
+thereby optimizing performance for batch operations. Additionally, it allows for the management of
+key expiration through the use of context managers.</p>
+<p>The RedisDict class is designed to be analogous to a standard Python dictionary while providing
+enhanced functionality, such as support for a wider range of data types and efficient batch operations.
+It aims to offer a seamless and familiar interface for developers familiar with Python dictionaries,
+enabling a smooth transition to a Redis-backed data store.</p>
+<p>Extendable Types: You can extend RedisDict by adding or overriding encoding and decoding functions.
+This functionality enables various use cases, such as managing encrypted data in Redis,
+To implement this, simply create and register your custom encoding and decoding functions.
+By delegating serialization to redis-dict, reduce complexity and have simple code in the codebase.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.decoding_registry">
+<span class="sig-name descname"><span class="pre">decoding_registry</span></span><a class="headerlink" href="#redis_dict.RedisDict.decoding_registry" title="Link to this definition"></a></dt>
+<dd><p>Mapping of decoding transformation functions based on type</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[str, DecodeFuncType]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.encoding_registry">
+<span class="sig-name descname"><span class="pre">encoding_registry</span></span><a class="headerlink" href="#redis_dict.RedisDict.encoding_registry" title="Link to this definition"></a></dt>
+<dd><p>Mapping of encoding transformation functions based on type</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[str, EncodeFuncType]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.namespace">
+<span class="sig-name descname"><span class="pre">namespace</span></span><a class="headerlink" href="#redis_dict.RedisDict.namespace" title="Link to this definition"></a></dt>
+<dd><p>A string used as a prefix for Redis keys to separate data in different namespaces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.expire">
+<span class="sig-name descname"><span class="pre">expire</span></span><a class="headerlink" href="#redis_dict.RedisDict.expire" title="Link to this definition"></a></dt>
+<dd><p>An optional expiration time for keys, in seconds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Union[int, None]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.chain_del">
+<span class="sig-name descname"><span class="pre">chain_del</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.chain_del"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.chain_del" title="Link to this definition"></a></dt>
+<dd><p>Delete a value from the RedisDict using a chain of keys.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>iterable</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of keys representing the chain.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.chain_get">
+<span class="sig-name descname"><span class="pre">chain_get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.chain_get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.chain_get" title="Link to this definition"></a></dt>
+<dd><p>Get a value from the RedisDict using a chain of keys.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>iterable</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of keys representing the chain.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The value associated with the chain of keys.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.chain_set">
+<span class="sig-name descname"><span class="pre">chain_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.chain_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.chain_set" title="Link to this definition"></a></dt>
+<dd><p>Set a value in the RedisDict using a chain of keys.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>iterable</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of keys representing the chain.</p></li>
+<li><p><strong>v</strong> (<em>Any</em>) – The value to be set.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.clear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.clear" title="Link to this definition"></a></dt>
+<dd><p>Remove all key-value pairs from the RedisDict in one batch operation using pipelining.</p>
+<p>This method mimics the behavior of the <cite>clear</cite> method from a standard Python dictionary.
+Redis pipelining is employed to group multiple commands into a single request, minimizing
+network round-trip time, latency, and I/O load, thereby enhancing the overall performance.</p>
+<p>It is important to highlight that the clear method can be safely executed within
+the context of an initiated pipeline operation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.copy" title="Link to this definition"></a></dt>
+<dd><p>Create a shallow copy of the RedisDict and return it as a standard Python dictionary.</p>
+<p>This method is analogous to the <cite>copy</cite> method of a standard Python dictionary</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A shallow copy of the RedisDict as a standard Python dictionary.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>does not create a new RedisDict instance.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id4">
+<span class="sig-name descname"><span class="pre">decoding_registry</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">,</span> <code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code><span class="pre">[[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">],</span> <code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code><span class="pre">]]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'Decimal':</span> <span class="pre">&lt;class</span> <span class="pre">'decimal.Decimal'&gt;,</span> <span class="pre">'NoneType':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'OrderedDict':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'UUID':</span> <span class="pre">&lt;class</span> <span class="pre">'uuid.UUID'&gt;,</span> <span class="pre">'bool':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'bytes':</span> <span class="pre">&lt;function</span> <span class="pre">b64decode&gt;,</span> <span class="pre">'complex':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'date':</span> <span class="pre">&lt;built-in</span> <span class="pre">method</span> <span class="pre">fromisoformat</span> <span class="pre">of</span> <span class="pre">type</span> <span class="pre">object&gt;,</span> <span class="pre">'datetime':</span> <span class="pre">&lt;built-in</span> <span class="pre">method</span> <span class="pre">fromisoformat</span> <span class="pre">of</span> <span class="pre">type</span> <span class="pre">object&gt;,</span> <span class="pre">'defaultdict':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'dict':</span> <span class="pre">&lt;function</span> <span class="pre">decode_json&gt;,</span> <span class="pre">'float':</span> <span class="pre">&lt;class</span> <span class="pre">'float'&gt;,</span> <span class="pre">'frozenset':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'int':</span> <span class="pre">&lt;class</span> <span class="pre">'int'&gt;,</span> <span class="pre">'list':</span> <span class="pre">&lt;function</span> <span class="pre">decode_json&gt;,</span> <span class="pre">'set':</span> <span class="pre">&lt;function</span> <span class="pre">_decode_set&gt;,</span> <span class="pre">'str':</span> <span class="pre">&lt;class</span> <span class="pre">'str'&gt;,</span> <span class="pre">'time':</span> <span class="pre">&lt;built-in</span> <span class="pre">method</span> <span class="pre">fromisoformat</span> <span class="pre">of</span> <span class="pre">type</span> <span class="pre">object&gt;,</span> <span class="pre">'timedelta':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'tuple':</span> <span class="pre">&lt;function</span> <span class="pre">_decode_tuple&gt;}</span></em><a class="headerlink" href="#id4" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id5">
+<span class="sig-name descname"><span class="pre">encoding_registry</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">,</span> <code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code><span class="pre">[[</span><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code><span class="pre">],</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code><span class="pre">]]</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'OrderedDict':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'bytes':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'complex':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'date':</span> <span class="pre">&lt;method</span> <span class="pre">'isoformat'</span> <span class="pre">of</span> <span class="pre">'datetime.date'</span> <span class="pre">objects&gt;,</span> <span class="pre">'datetime':</span> <span class="pre">&lt;method</span> <span class="pre">'isoformat'</span> <span class="pre">of</span> <span class="pre">'datetime.datetime'</span> <span class="pre">objects&gt;,</span> <span class="pre">'defaultdict':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'dict':</span> <span class="pre">&lt;function</span> <span class="pre">encode_json&gt;,</span> <span class="pre">'frozenset':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'list':</span> <span class="pre">&lt;function</span> <span class="pre">encode_json&gt;,</span> <span class="pre">'set':</span> <span class="pre">&lt;function</span> <span class="pre">_encode_set&gt;,</span> <span class="pre">'time':</span> <span class="pre">&lt;method</span> <span class="pre">'isoformat'</span> <span class="pre">of</span> <span class="pre">'datetime.time'</span> <span class="pre">objects&gt;,</span> <span class="pre">'timedelta':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'tuple':</span> <span class="pre">&lt;function</span> <span class="pre">_encode_tuple&gt;}</span></em><a class="headerlink" href="#id5" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id6">
+<span class="sig-name descname"><span class="pre">expire</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Union[int,</span> <span class="pre">timedelta,</span> <span class="pre">None]</span></em><a class="headerlink" href="#id6" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.expire_at">
+<span class="sig-name descname"><span class="pre">expire_at</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sec_epoch</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.expire_at"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.expire_at" title="Link to this definition"></a></dt>
+<dd><p>Context manager to set the expiration time for keys in the RedisDict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sec_epoch</strong> (<em>int</em><em>, </em><em>timedelta</em>) – The expiration duration is set using either an integer or a timedelta.</p>
+</dd>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>ContextManager</em> – A context manager during which the expiration time is the time set.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterator</span></code>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.extends_type">
+<span class="sig-name descname"><span class="pre">extends_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">class_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoding_method_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decoding_method_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.extends_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.extends_type" title="Link to this definition"></a></dt>
+<dd><p>Extend RedisDict to support a custom type in the encode/decode mapping.</p>
+<p>This method enables serialization of instances based on their type,
+allowing for custom types, specialized storage formats, and more.
+There are three ways to add custom types:
+1. Have a class with an <cite>encode</cite> instance method and a <cite>decode</cite> class method.
+2. Have a class and pass encoding and decoding functions, where
+<cite>encode</cite> converts the class instance to a string, and
+<cite>decode</cite> takes the string and recreates the class instance.
+3. Have a class that already has serialization methods, that satisfies the:
+EncodeFuncType = Callable[[Any], str]
+DecodeFuncType = Callable[[str], Any]</p>
+<p><cite>custom_encode_method</cite>
+<cite>custom_decode_method</cite></p>
+<p>If no encoding or decoding function is provided, default to use the <cite>encode</cite> and <cite>decode</cite> methods of the class.</p>
+<p>The <cite>encode</cite> method should be an instance method that converts the object to a string.
+The <cite>decode</cite> method should be a class method that takes a string and returns an instance of the class.</p>
+<p>The method names for encoding and decoding can be changed by modifying the
+- <cite>custom_encode_method</cite>
+- <cite>custom_decode_method</cite>
+attributes of the RedisDict instance</p>
+<p class="rubric">Example</p>
+<dl>
+<dt>class Person:</dt><dd><dl class="simple">
+<dt>def __init__(self, name, age):</dt><dd><p>self.name = name
+self.age = age</p>
+</dd>
+<dt>def encode(self) -&gt; str:</dt><dd><p>return json.dumps(self.__dict__)</p>
+</dd>
+</dl>
+<p>&#64;classmethod
+def decode(cls, encoded_str: str) -&gt; ‘Person’:</p>
+<blockquote>
+<div><p>return cls(<a href="#id7"><span class="problematic" id="id8">**</span></a>json.loads(encoded_str))</p>
+</div></blockquote>
+</dd>
+</dl>
+<p>redis_dict.extends_type(Person)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>class_type</strong> (<em>type</em>) – The class <cite>__name__</cite> will become the key for the encoding and decoding functions.</p></li>
+<li><p><strong>encode</strong> (<em>Optional</em><em>[</em><em>EncodeFuncType</em><em>]</em>) – function that encodes an object into a storable string format.</p></li>
+<li><p><strong>decode</strong> (<em>Optional</em><em>[</em><em>DecodeFuncType</em><em>]</em>) – function that decodes a string back into an object of <cite>class_type</cite>.</p></li>
+<li><p><strong>encoding_method_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of encoding method of the class for redis-dict custom types.</p></li>
+<li><p><strong>decoding_method_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of decoding method of the class for redis-dict custom types.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NotImplementedError</strong> – </p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You can check for compliance of a class separately using the <cite>new_type_compliance</cite> method:</p>
+<p>This method raises a NotImplementedError if either <cite>encode</cite> or <cite>decode</cite> is <cite>None</cite>
+and the class does not implement the corresponding method.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.fromkeys">
+<span class="sig-name descname"><span class="pre">fromkeys</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.fromkeys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.fromkeys" title="Link to this definition"></a></dt>
+<dd><p>Create a new RedisDict from an iterable of key-value pairs.</p>
+<p>Create a new RedisDict with keys from the provided iterable and values set to the given value.
+This method is analogous to the <cite>fromkeys</cite> method of a standard Python dictionary, populating
+the RedisDict with the keys from the iterable and setting their corresponding values to the
+specified value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>iterable</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – An iterable containing the keys to be added to the RedisDict.</p></li>
+<li><p><strong>value</strong> (<em>Optional</em><em>[</em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – The value to be assigned to each key in the RedisDict. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The current RedisDict instance,populated with the keys from the iterable and their
+corresponding values.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#redis_dict.RedisDict" title="redis_dict.RedisDict">RedisDict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.get" title="Link to this definition"></a></dt>
+<dd><p>Return the value for the given key if it exists, otherwise return the default value.</p>
+<p>Analogous to a dictionary’s get method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>key</strong> (<em>str</em>) – The key to retrieve the value.</p></li>
+<li><p><strong>default</strong> (<em>Optional</em><em>[</em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – The value to return if the key is not found.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The value associated with the key or the default value.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.get_redis">
+<span class="sig-name descname"><span class="pre">get_redis</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">StrictRedis[Any]</span></em><a class="headerlink" href="#redis_dict.RedisDict.get_redis" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.get_redis_info">
+<span class="sig-name descname"><span class="pre">get_redis_info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.get_redis_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.get_redis_info" title="Link to this definition"></a></dt>
+<dd><p>Retrieve information and statistics about the Redis server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The information and statistics from the Redis server in a dictionary.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.get_ttl">
+<span class="sig-name descname"><span class="pre">get_ttl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.get_ttl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.get_ttl" title="Link to this definition"></a></dt>
+<dd><p>Get the Time To Live from Redis.</p>
+<p>Get the Time To Live (TTL) in seconds for a given key. If the key does not exist or does not have an
+associated <cite>expire</cite>, return None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – The key for which to get the TTL.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The TTL in seconds if the key exists and has an expiry set; otherwise, None.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.items">
+<span class="sig-name descname"><span class="pre">items</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.items"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.items" title="Link to this definition"></a></dt>
+<dd><p>Return a list of key-value pairs (tuples) in the RedisDict, analogous to a dictionary’s items method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Iterator[Tuple[str, Any]]</em> – A list of key-value pairs in the RedisDict.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterator</span></code>[<code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code>]]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.key">
+<span class="sig-name descname"><span class="pre">key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">search_term</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.key" title="Link to this definition"></a></dt>
+<dd><p>Return the first value for search_term if it exists, otherwise return None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>search_term</strong> (<em>str</em>) – A search term to filter keys. Defaults to ‘’.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The first key associated with the given search term.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.keys">
+<span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.keys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.keys" title="Link to this definition"></a></dt>
+<dd><p>Return an Iterator of keys in the RedisDict, analogous to a dictionary’s keys method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of keys in the RedisDict.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Iterator[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.multi_chain_get">
+<span class="sig-name descname"><span class="pre">multi_chain_get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keys</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.multi_chain_get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.multi_chain_get" title="Link to this definition"></a></dt>
+<dd><p>Get multiple values from the RedisDict using a chain of keys.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keys</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – A list of keys representing the chain.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of values associated with the chain of keys.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Any]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.multi_del">
+<span class="sig-name descname"><span class="pre">multi_del</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.multi_del"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.multi_del" title="Link to this definition"></a></dt>
+<dd><p>Delete multiple values from the RedisDict using a shared key prefix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – The shared key prefix.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The number of keys deleted.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.multi_dict">
+<span class="sig-name descname"><span class="pre">multi_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.multi_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.multi_dict" title="Link to this definition"></a></dt>
+<dd><p>Get a dictionary of key-value pairs from the RedisDict using a shared key prefix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – The shared key prefix.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary of key-value pairs associated with the key prefix.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[str, Any]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.multi_get">
+<span class="sig-name descname"><span class="pre">multi_get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.multi_get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.multi_get" title="Link to this definition"></a></dt>
+<dd><p>Get multiple values from the RedisDict using a shared key prefix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – The shared key prefix.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of values associated with the key prefix.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Any]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id9">
+<span class="sig-name descname"><span class="pre">namespace</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#id9" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.new_type_compliance">
+<span class="sig-name descname"><span class="pre">new_type_compliance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">class_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encode_method_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decode_method_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.new_type_compliance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.new_type_compliance" title="Link to this definition"></a></dt>
+<dd><p>Check if a class complies with the required encoding and decoding methods.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>class_type</strong> (<em>type</em>) – The class to check for compliance.</p></li>
+<li><p><strong>encode_method_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of encoding method of the class for redis-dict custom types.</p></li>
+<li><p><strong>decode_method_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of decoding method of the class for redis-dict custom types.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NotImplementedError</strong> – If the class does not implement the required methods when the respective check is True.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.next">
+<span class="sig-name descname"><span class="pre">next</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.next"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.next" title="Link to this definition"></a></dt>
+<dd><p>Get the next item in the iterator (alias for __next__).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The next item in the iterator.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.pipeline">
+<span class="sig-name descname"><span class="pre">pipeline</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.pipeline" title="Link to this definition"></a></dt>
+<dd><p>Context manager to create a Redis pipeline for batch operations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>ContextManager</em> – A context manager to create a Redis pipeline batching all operations within the context.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterator</span></code>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default=&lt;object</span> <span class="pre">object&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.pop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.pop" title="Link to this definition"></a></dt>
+<dd><p>Analogous to a dictionary’s pop method.</p>
+<p>Remove the value associated with the given key and return it, or return the default value
+if the key is not found.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>key</strong> (<em>str</em>) – The key to remove the value.</p></li>
+<li><p><strong>default</strong> (<em>Optional</em><em>[</em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – The value to return if the key is not found.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The value associated with the key or the default value.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>KeyError</strong> – If the key is not found and no default value is provided.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.popitem">
+<span class="sig-name descname"><span class="pre">popitem</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.popitem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.popitem" title="Link to this definition"></a></dt>
+<dd><p>Remove and return a random (key, value) pair from the RedisDict as a tuple.</p>
+<p>This method is analogous to the <cite>popitem</cite> method of a standard Python dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A tuple containing a randomly chosen (key, value) pair.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>KeyError</strong> – If RedisDict is empty.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.preserve_expiration">
+<span class="sig-name descname"><span class="pre">preserve_expiration</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional[bool]</span></em><a class="headerlink" href="#redis_dict.RedisDict.preserve_expiration" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.redis">
+<span class="sig-name descname"><span class="pre">redis</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">StrictRedis[Any]</span></em><a class="headerlink" href="#redis_dict.RedisDict.redis" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.setdefault">
+<span class="sig-name descname"><span class="pre">setdefault</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.setdefault"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.setdefault" title="Link to this definition"></a></dt>
+<dd><p>Get value under key, and if not present set default value.</p>
+<p>Return the value associated with the given key if it exists, otherwise set the value to the
+default value and return it. Analogous to a dictionary’s setdefault method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>key</strong> (<em>str</em>) – The key to retrieve the value.</p></li>
+<li><p><strong>default_value</strong> (<em>Optional</em><em>[</em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – The value to set if the key is not found.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The value associated with the key or the default value.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.to_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.to_dict" title="Link to this definition"></a></dt>
+<dd><p>Convert the RedisDict to a Python dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A dictionary with the same key-value pairs as the RedisDict.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict[str, Any]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.update">
+<span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dic</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.update" title="Link to this definition"></a></dt>
+<dd><p>Update the RedisDict with key-value pairs from the given mapping, analogous to a dictionary’s update method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dic</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – A mapping containing key-value pairs to update the RedisDict.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDict.values">
+<span class="sig-name descname"><span class="pre">values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/core.html#RedisDict.values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDict.values" title="Link to this definition"></a></dt>
+<dd><p>Analogous to a dictionary’s values method.</p>
+<p>Return a list of values in the RedisDict,</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>List[Any]</em> – A list of values in the RedisDict.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterator</span></code>[<code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="redis_dict.RedisDictJSONDecoder">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">redis_dict.</span></span><span class="sig-name descname"><span class="pre">RedisDictJSONDecoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/type_management.html#RedisDictJSONDecoder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDictJSONDecoder" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">JSONDecoder</span></code></p>
+<p>JSON decoder leveraging RedisDict existing type conversion system.</p>
+<p>Works with RedisDictJSONEncoder to reconstruct Python objects from JSON using
+RedisDict decoding_registry.</p>
+<p>Still needs work but allows for more types than without.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="redis_dict.RedisDictJSONEncoder">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">redis_dict.</span></span><span class="sig-name descname"><span class="pre">RedisDictJSONEncoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skipkeys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensure_ascii</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_circular</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_nan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separators</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/type_management.html#RedisDictJSONEncoder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDictJSONEncoder" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">JSONEncoder</span></code></p>
+<p>Extends JSON encoding capabilities by reusing RedisDict type conversion.</p>
+<p>Uses existing decoding_registry to know which types to handle specially and
+encoding_registry (falls back to str) for converting to JSON-compatible formats.</p>
+<p class="rubric">Example</p>
+<p>The encoded format looks like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;__type__&quot;</span><span class="p">:</span> <span class="s2">&quot;TypeName&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">encoded</span> <span class="n">value</span><span class="o">&gt;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<p>Uses decoding_registry (containing all supported types) to check if type
+needs special handling. For encoding, defaults to str() if no encoder exists
+in encoding_registry.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="redis_dict.RedisDictJSONEncoder.default">
+<span class="sig-name descname"><span class="pre">default</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">o</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/redis_dict/type_management.html#RedisDictJSONEncoder.default"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#redis_dict.RedisDictJSONEncoder.default" title="Link to this definition"></a></dt>
+<dd><p>Overwrite default from json encoder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>o</strong> (<em>Any</em>) – Object to be serialized.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>TypeError</strong> – If the object <cite>o</cite> cannot be serialized.</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Serialized value.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="modules.html" class="btn btn-neutral float-left" title="redis_dict" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Melvin Bijman.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
