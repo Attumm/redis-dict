@@ -25,8 +25,7 @@ jobs:
       run: bash scripts/build_docs.sh
 
     - name: Deploy to GitHub Pages
-      if: github.event_name != 'pull_request'
-      uses: peaceiris/actions-gh-pages@v3
+      uses: peaceiris/actions-gh-pages@v3.9.3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./docs/build/html
