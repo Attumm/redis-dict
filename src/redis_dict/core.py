@@ -35,13 +35,6 @@ class RedisDict:
     This functionality enables various use cases, such as managing encrypted data in Redis,
     To implement this, simply create and register your custom encoding and decoding functions.
     By delegating serialization to redis-dict, reduce complexity and have simple code in the codebase.
-
-    Attributes:
-        decoding_registry (Dict[str, DecodeFuncType]): Mapping of decoding transformation functions based on type
-        encoding_registry (Dict[str, EncodeFuncType]): Mapping of encoding transformation functions based on type
-        namespace (str): A string used as a prefix for Redis keys to separate data in different namespaces.
-        expire (Union[int, None]): An optional expiration time for keys, in seconds.
-
     """
 
     encoding_registry: EncodeType = enc_reg
@@ -249,19 +242,19 @@ class RedisDict:
         attributes of the RedisDict instance
 
         Example:
-            class Person:
-                def __init__(self, name, age):
-                    self.name = name
-                    self.age = age
-
-                def encode(self) -> str:
-                    return json.dumps(self.__dict__)
-
-                @classmethod
-                def decode(cls, encoded_str: str) -> 'Person':
-                    return cls(**json.loads(encoded_str))
-
-            redis_dict.extends_type(Person)
+            >>> class Person:
+            ...     def __init__(self, name, age):
+            ...         self.name = name
+            ...         self.age = age
+            ...
+            ...     def encode(self) -> str:
+            ...         return json.dumps(self.__dict__)
+            ...
+            ...     @classmethod
+            ...     def decode(cls, encoded_str: str) -> 'Person':
+            ...         return cls(**json.loads(encoded_str))
+            ...
+            >>> redis_dict.extends_type(Person)
 
         Args:
             class_type (type): The class `__name__` will become the key for the encoding and decoding functions.

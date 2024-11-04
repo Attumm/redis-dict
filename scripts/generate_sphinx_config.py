@@ -21,11 +21,16 @@ def generate_configs():
 
     docs_path = Path('docs')
     docs_path.mkdir(exist_ok=True)
+
     source_path = docs_path / 'source'
     source_path.mkdir(exist_ok=True)
 
+    module_docs_path = source_path / 'redis_dict'
+    module_docs_path.mkdir(exist_ok=True)
+
     docs_path = Path('docs')
     docs_path.mkdir(exist_ok=True)
+
     source_path = docs_path / 'source'
     source_path.mkdir(exist_ok=True)
 
@@ -59,6 +64,14 @@ extensions = [
     'myst_parser',
 ]
 
+# Configure autodoc to show the module source
+autodoc_default_options = {{
+    'members': True,
+    'undoc-members': True,
+    'show-inheritance': True,
+    'special-members': '__init__',
+}}
+
 myst_update_mathjax = False
 myst_enable_extensions = [
     "colon_fence",
@@ -71,46 +84,70 @@ html_extra_path = ['../tutorials']
 def setup(app):
     print(f"Python path: {{sys.path}}")
 
+html_sidebars = {{
+    '**': [
+        'globaltoc.html',
+        'relations.html',
+        'sourcelink.html',
+        'searchbox.html'
+    ]
+}}
+
+toc_object_entries = True
+toc_object_entries_show_parents = 'domain'
+
 html_theme = 'sphinx_rtd_theme'
 """
 
     index_content = """Redis Dict Documentation
 ========================
 
+.. toctree::
+   :maxdepth: 4
+   :caption: CONTENTS
+
+   modules
+   readme
+
 .. include:: ../../README.md
    :parser: myst_parser.sphinx_
 
 .. toctree::
    :maxdepth: 2
-   :caption: API Reference
 
-   modules
-   redis_dict
-
-Indices and tables
-==================
-
-* :ref:`genindex`
+   redis_dict/core
+   redis_dict/type_management
 """
 
-    index_content1 = """
-Redis Dict Documentation
-=====================
+    readme_content = """Overview
+========
 
-.. include:: ../../README.md
-   :parser: myst_parser.sphinx_
+    .. include:: ../../README.md
+       :parser: myst_parser.sphinx_
+    """
 
-.. toctree::
-    :maxdepth: 2
-    :caption: Contents:
+    core_content = """redis_dict.core module
+======================
 
-    modules
+.. automodule:: redis_dict.core
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :special-members: __init__
+   :noindex:
+    """
 
-Indices and Tables
-================
 
-* :ref:`genindex`
-"""
+    type_management = """Redis Dict Type Management
+==============================
+
+.. automodule:: redis_dict.type_management
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :noindex:
+    """
+
 
     makefile_content = """
 # Minimal makefile for Sphinx documentation
@@ -131,12 +168,20 @@ help:
     with open(source_path / 'conf.py', 'w') as f:
         f.write(conf_content)
 
-    with open(source_path / 'index.rst', 'w') as f:
-        f.write(index_content)
-
     with open(docs_path / 'Makefile', 'w') as f:
         f.write(makefile_content)
 
+    with open(source_path / 'index.rst', 'w') as f:
+        f.write(index_content)
+
+    with open(source_path / 'readme.rst', 'w') as f:
+        f.write(readme_content)
+
+    with open(module_docs_path / 'core.rst', 'w') as f:
+        f.write(core_content)
+
+    with open(module_docs_path / 'type_management.rst', 'w') as f:
+        f.write(type_management)
 
 if __name__ == '__main__':
     generate_configs()
