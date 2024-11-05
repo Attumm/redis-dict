@@ -54,6 +54,10 @@ jobs:
         run: |
           darglint src/redis_dict/
 
+      - name: Run Security check
+        run: |
+          bandit -r src/redis_dict
+
       - name: Run Unit Tests
         env:
           PYTHONPATH: src

@@ -42,6 +42,10 @@ jobs:
         python -m pylama -i E501,E231 src
         python -m unittest discover -s tests
 
+    - name: Run Security check
+      run: |
+        bandit -r src/redis_dict
+
     - name: Build package
       run: python -m build
 

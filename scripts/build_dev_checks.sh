@@ -14,6 +14,9 @@ python -m mypy
 # Doctype Check
 darglint src/redis_dict/
 
+# Security Check
+bandit -r src/redis_dict
+
 # Multiple linters
 python -m pylama -i E501,E231 src
 
