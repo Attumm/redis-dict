@@ -89,6 +89,11 @@ docs = [
     "myst-parser",
 ]
 
+build = [
+    "build",
+    "twine",
+]
+
 
 [tool.setuptools]
 package-dir = {"" = "src"}
