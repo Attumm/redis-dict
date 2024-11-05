@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "redis-dict"
-version = "3.1.1"
+version = "3.1.2"
 description = "Dictionary with Redis as storage backend"
 authors = [
     {name = "Melvin Bijman", email = "bijman.m.m@gmail.com"},
@@ -81,6 +81,7 @@ dev = [
     "darglint",
     "pydocstyle",
 
+    "autopep8",
 ]
 
 docs = [
@@ -132,6 +133,12 @@ skip = "*/.tox/*,*/.env/*,build/*"
 linters = "pycodestyle,pyflakes,mccabe"
 max_line_length = 120
 paths = ["src/redis_dict"]
+
+[tool.autopep8]
+max_line_length = 120
+aggressive = 1
+recursive = true
+-in-place = true
 
 [project.urls]
 Homepage = "https://github.com/Attumm/redisdict"
