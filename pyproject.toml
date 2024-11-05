@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "redis-dict"
-version = "3.0.0"
+version = "3.1.0"
 description = "Dictionary with Redis as storage backend"
 authors = [
     {name = "Melvin Bijman", email = "bijman.m.m@gmail.com"},
@@ -128,6 +128,6 @@ paths = ["src/redis_dict"]
 
 [project.urls]
 Homepage = "https://github.com/Attumm/redisdict"
-Documentation = "https://github.com/Attumm/redisdict#readme"
+Documentation = "https://attumm.github.io/redis-dict/"
 Repository = "https://github.com/Attumm/redisdict.git"
 Changelog = "https://github.com/Attumm/redisdict/releases"
