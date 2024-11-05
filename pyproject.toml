@@ -71,7 +71,7 @@ dev = [
     "tomli==2.0.1",
     "setuptools>=68.0.0",
 
-
+    "bandit",
     "pylama>=8.4.1",
     "pycodestyle==2.10.0",
     "pydocstyle==6.3.0",
@@ -80,7 +80,7 @@ dev = [
     "pylint==3.2.7",
     "darglint",
     "pydocstyle",
-    "bandit",
+
 ]
 
 docs = [
