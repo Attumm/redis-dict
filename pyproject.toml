@@ -132,12 +132,13 @@ linters = "pycodestyle,pyflakes,mccabe"
 max_line_length = 120
 paths = ["src/redis_dict"]
 
+
 [tool.autopep8]
 max_line_length = 120
-recursive = true
 aggressive = 1
-in-place = true
-paths = ["src/redis_dict"]
+recursive = true
+-in-place = true
+
 
 [project.urls]
 Homepage = "https://github.com/Attumm/redisdict"
