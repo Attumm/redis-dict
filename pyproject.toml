@@ -79,6 +79,7 @@ dev = [
     "setuptools>=68.0.0",
     "darglint",
     "pydocstyle",
+    "autopep8",
 ]
 
 docs = [
@@ -129,6 +130,13 @@ ignore = "E501,E231"
 skip = "*/.tox/*,*/.env/*,build/*"
 linters = "pycodestyle,pyflakes,mccabe"
 max_line_length = 120
+paths = ["src/redis_dict"]
+
+[tool.autopep8]
+max_line_length = 120
+recursive = true
+aggressive = 1
+in-place = true
 paths = ["src/redis_dict"]
 
 [project.urls]
