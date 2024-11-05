@@ -35,13 +35,6 @@ class RedisDict:
     This functionality enables various use cases, such as managing encrypted data in Redis,
     To implement this, simply create and register your custom encoding and decoding functions.
     By delegating serialization to redis-dict, reduce complexity and have simple code in the codebase.
-
-    Attributes:
-        decoding_registry (Dict[str, DecodeFuncType]): Mapping of decoding transformation functions based on type
-        encoding_registry (Dict[str, EncodeFuncType]): Mapping of encoding transformation functions based on type
-        namespace (str): A string used as a prefix for Redis keys to separate data in different namespaces.
-        expire (Union[int, None]): An optional expiration time for keys, in seconds.
-
     """
 
     encoding_registry: EncodeType = enc_reg
@@ -53,7 +46,8 @@ class RedisDict:
                  preserve_expiration: Optional[bool] = False,
                  redis: "Optional[StrictRedis[Any]]" = None,
                  **redis_kwargs: Any) -> None:
-        """Initialize a RedisDict instance.
+        """
+        Initialize a RedisDict instance.
 
         Init the RedisDict instance.
 
@@ -220,7 +214,8 @@ class RedisDict:
             encoding_method_name: Optional[str] = None,
             decoding_method_name: Optional[str] = None,
     ) -> None:
-        """Extend RedisDict to support a custom type in the encode/decode mapping.
+        """
+        Extend RedisDict to support a custom type in the encode/decode mapping.
 
         This method enables serialization of instances based on their type,
         allowing for custom types, specialized storage formats, and more.
@@ -247,19 +242,19 @@ class RedisDict:
         attributes of the RedisDict instance
 
         Example:
-            class Person:
-                def __init__(self, name, age):
-                    self.name = name
-                    self.age = age
-
-                def encode(self) -> str:
-                    return json.dumps(self.__dict__)
-
-                @classmethod
-                def decode(cls, encoded_str: str) -> 'Person':
-                    return cls(**json.loads(encoded_str))
-
-            redis_dict.extends_type(Person)
+            >>> class Person:
+            ...     def __init__(self, name, age):
+            ...         self.name = name
+            ...         self.age = age
+            ...
+            ...     def encode(self) -> str:
+            ...         return json.dumps(self.__dict__)
+            ...
+            ...     @classmethod
+            ...     def decode(cls, encoded_str: str) -> 'Person':
+            ...         return cls(**json.loads(encoded_str))
+            ...
+            >>> redis_dict.extends_type(Person)
 
         Args:
             class_type (type): The class `__name__` will become the key for the encoding and decoding functions.
@@ -409,8 +404,8 @@ class RedisDict:
         return str(self.to_dict())
 
     def __or__(self, other: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Implements the | operator (dict union).
+        """Implement the | operator (dict union).
+
         Returns a new dictionary with items from both dictionaries.
 
         Args:
@@ -432,7 +427,8 @@ class RedisDict:
 
     def __ror__(self, other: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Implements the reverse | operator.
+        Implement the reverse | operator.
+
         Called when RedisDict is on the right side of |.
 
         Args:
@@ -454,7 +450,8 @@ class RedisDict:
 
     def __ior__(self, other: Dict[str, Any]) -> 'RedisDict':
         """
-        Implements the |= operator (in-place union).
+        Implement the |= operator (in-place union).
+
         Modifies the current dictionary by adding items from other.
 
         Args:
@@ -475,7 +472,7 @@ class RedisDict:
     @classmethod
     def __class_getitem__(cls: Type['RedisDict'], key: Any) -> Type['RedisDict']:
         """
-        Enables type hinting support like RedisDict[str, Any].
+        Enable type hinting support like RedisDict[str, Any].
 
         Args:
             key (Any): The type parameter(s) used in the type hint.
@@ -487,7 +484,8 @@ class RedisDict:
 
     def __reversed__(self) -> Iterator[str]:
         """
-        Implements reversed() built-in:
+        Implement reversed() built-in.
+
         Returns an iterator over dictionary keys in reverse insertion order.
 
         Warning:
