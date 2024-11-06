@@ -40,7 +40,7 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          pip install -r dev-requirements.txt
+          pip install ".[dev]"
 
       - name: Run Pylama
         run: |
@@ -53,6 +53,10 @@ jobs:
       - name: Doctype Check
         run: |
           darglint src/redis_dict/
+
+      - name: Run Security check
+        run: |
+          bandit -r src/redis_dict
 
       - name: Run Unit Tests
         env:
