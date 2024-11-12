@@ -45,6 +45,7 @@ class RedisDict:
                  expire: Union[int, timedelta, None] = None,
                  preserve_expiration: Optional[bool] = False,
                  redis: "Optional[StrictRedis[Any]]" = None,
+                 dict_compliant: bool = False,
                  **redis_kwargs: Any) -> None:
         """
         Initialize a RedisDict instance.
@@ -56,12 +57,14 @@ class RedisDict:
             expire (Union[int, timedelta, None], optional): Expiration time for keys.
             preserve_expiration (Optional[bool], optional): Preserve expiration on key updates.
             redis (Optional[StrictRedis[Any]], optional): A Redis connection instance.
+            dict_compliant (bool): Enable strict Python dictionary behavior.
             **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.
         """
 
         self.namespace: str = namespace
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
+        self.dict_compliant: bool = dict_compliant
         if redis:
             redis.connection_pool.connection_kwargs["decode_responses"] = True
 
@@ -85,9 +88,9 @@ class RedisDict:
         Returns:
             str: The formatted key with the namespace prefix.
         """
-        return f'{self.namespace}:{str(key)}'
+        return f'{self.namespace}:{key}'
 
-    def _valid_input(self, val: Any, val_type: str) -> bool:
+    def _valid_input(self, value: Any) -> bool:
         """
         Check if the input value is valid based on the specified value type.
 
@@ -96,34 +99,27 @@ class RedisDict:
         length does not exceed the maximum allowed size (500 MB).
 
         Args:
-            val (Any): The input value to be validated.
-            val_type (str): The type of the input value ("str", "int", "float", or "bool").
+            value (Any): The input value to be validated.
 
         Returns:
             bool: True if the input value is valid, False otherwise.
         """
-        if val_type == "str":
-            return len(val) < self._max_string_size
+        store_type = type(value).__name__
+        if store_type == "str":
+            return len(value) < self._max_string_size
         return True
 
-    def _format_value(self, key: str, value: Any) -> str:
+    def _format_value(self, value: Any) -> str:
         """Format a valid value with the type and encoded representation of the value.
 
         Args:
-            key (str): The key of the value to be formatted.
             value (Any): The value to be encoded and formatted.
-
-        Raises:
-            ValueError: If the value or key fail validation.
 
         Returns:
             str: The formatted value with the type and encoded representation of the value.
         """
-        store_type, key = type(value).__name__, str(key)
-        if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
-            raise ValueError("Invalid input value or key size exceeded the maximum limit.")
+        store_type = type(value).__name__
         encoded_value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
-
         return f'{store_type}:{encoded_value}'
 
     def _store(self, key: str, value: Any) -> None:
@@ -134,6 +130,9 @@ class RedisDict:
             key (str): The key to store the value.
             value (Any): The value to be stored.
 
+        Raises:
+            ValueError: If the value or key fail validation.
+
         Note: Validity checks could be refactored to allow for custom exceptions that inherit from ValueError,
         providing detailed information about why a specific validation failed.
         This would enable users to specify which validity checks should be executed, add custom validity functions,
@@ -142,8 +141,12 @@ class RedisDict:
         Allowing for simple dict set operation, but only cache data that makes sense.
 
         """
+        if not self._valid_input(value) or not self._valid_input(key):
+            raise ValueError("Invalid input value or key size exceeded the maximum limit.")
+
         formatted_key = self._format_key(key)
-        formatted_value = self._format_value(key, value)
+        formatted_value = self._format_value(value)
+
         if self.preserve_expiration and self.redis.exists(formatted_key):
             self.redis.set(formatted_key, formatted_value, keepttl=True)
         else:
@@ -347,12 +350,27 @@ class RedisDict:
 
     def __delitem__(self, key: str) -> None:
         """
-        Delete the value associated with the given key, analogous to a dictionary.
+          Delete the value associated with the given key, analogous to a dictionary.
 
-        Args:
-            key (str): The key to delete the value.
-        """
-        self.redis.delete(self._format_key(key))
+          For distributed systems, we intentionally don't raise KeyError when the key doesn't exist.
+          This ensures identical code running across different systems won't randomly fail
+          when another system already achieved the deletion goal (key not existing).
+
+          Warning:
+              Setting dict_compliant=True will raise KeyError when key doesn't exist.
+              This is not recommended for distributed systems as it can cause KeyErrors
+              that are hard to debug when multiple systems interact with the same keys.
+
+          Args:
+              key (str): The key to delete
+
+          Raises:
+              KeyError: Only if dict_compliant=True and key doesn't exist
+          """
+        formatted_key = self._format_key(key)
+        result = self.redis.delete(formatted_key)
+        if self.dict_compliant and not result:
+            raise KeyError(key)
 
     def __contains__(self, key: str) -> bool:
         """
@@ -702,7 +720,7 @@ class RedisDict:
             Any: The value associated with the key or the default value.
         """
         formatted_key = self._format_key(key)
-        formatted_value = self._format_value(key, default_value)
+        formatted_value = self._format_value(default_value)
 
         # Setting {"get": True} enables parsing of the redis result as "GET", instead of "SET" command
         options = {"get": True}

@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 
-rm -rf .venv_dev
-python3 -m venv .venv_dev
-source .venv_dev/bin/activate
+if [ ! -d ".venv_dev" ]; then
+    echo "Virtual environment not found. Running build script..."
+    ./scripts/build_dev.sh
+fi
 
 # Type Check
 python -m mypy
