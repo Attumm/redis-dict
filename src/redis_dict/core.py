@@ -57,7 +57,7 @@ class RedisDict:
             expire (Union[int, timedelta, None], optional): Expiration time for keys.
             preserve_expiration (Optional[bool], optional): Preserve expiration on key updates.
             redis (Optional[StrictRedis[Any]], optional): A Redis connection instance.
-            dict_compliant (bool, optional): Enable strict Python dictionary behavior.
+            dict_compliant (bool): Enable strict Python dictionary behavior.
             **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.
         """
 
@@ -100,7 +100,6 @@ class RedisDict:
 
         Args:
             value (Any): The input value to be validated.
-            store_type (str): The type of the input value ("str", "int", "float", or "bool").
 
         Returns:
             bool: True if the input value is valid, False otherwise.
@@ -116,9 +115,6 @@ class RedisDict:
         Args:
             value (Any): The value to be encoded and formatted.
 
-        Raises:
-            ValueError: If the value or key fail validation.
-
         Returns:
             str: The formatted value with the type and encoded representation of the value.
         """
@@ -133,6 +129,9 @@ class RedisDict:
         Args:
             key (str): The key to store the value.
             value (Any): The value to be stored.
+
+        Raises:
+            ValueError: If the value or key fail validation.
 
         Note: Validity checks could be refactored to allow for custom exceptions that inherit from ValueError,
         providing detailed information about why a specific validation failed.
@@ -357,7 +356,7 @@ class RedisDict:
           This ensures identical code running across different systems won't randomly fail
           when another system already achieved the deletion goal (key not existing).
 
-          Warning::
+          Warning:
               Setting dict_compliant=True will raise KeyError when key doesn't exist.
               This is not recommended for distributed systems as it can cause KeyErrors
               that are hard to debug when multiple systems interact with the same keys.
@@ -370,7 +369,7 @@ class RedisDict:
           """
         formatted_key = self._format_key(key)
         result = self.redis.delete(formatted_key)
-        if self.dict_compliant and result == 0:
+        if self.dict_compliant and not result:
             raise KeyError(key)
 
     def __contains__(self, key: str) -> bool:
