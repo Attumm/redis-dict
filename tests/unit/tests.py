@@ -1027,7 +1027,26 @@ class TestRedisDict(unittest.TestCase):
     def test_delete(self):
         """Test deleting a key."""
         key = 'foobar_gone'
+        expected = 'bar_gone'
+        formatted_key = self.r._format_key(key)
+
+        self.r[key] = expected
+
+        # val should be present
+        result = self.r._transform(self.redisdb.get(formatted_key).decode('utf-8'))
+        self.assertEqual(result, expected)
+
+        # value should be removed
+        del self.r[key]
+        self.assertEqual(self.redisdb.get(formatted_key), None)
+
+    def test_delete_twice_doenst_raise(self):
+        """Test deleting a key twice won't raise"""
+        key = 'foobar_gone'
         self.r[key] = 'bar'
+
+        del self.r[key]
+        self.assertEqual(self.redisdb.get(key), None)
 
         del self.r[key]
         self.assertEqual(self.redisdb.get(key), None)
@@ -1775,6 +1794,7 @@ class TestRedisDictComparison(unittest.TestCase):
             self.r1 > self.d1
 
     def test_sequential_comparison(self):
+        """"""
         d = {}
         d2 = {}
         rd = RedisDict(namespace="sequential_comparison")
@@ -1800,6 +1820,24 @@ class TestRedisDictComparison(unittest.TestCase):
         # Modifying 'd2' and 'rd'
         d2["foo1"] = "bar1"
         rd["foo1"] = "bar1"
+
+        # Testing for equality
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
+
+        del d["foo1"]
+
+        # Testing for inequality after modification in 'd'
+        self.assertTrue(d != d2)
+        self.assertTrue(d != rd)
+        self.assertTrue(d.items() != d2.items())
+        self.assertTrue(list(d.items()) != list(rd.items()))
+
+        # Modifying 'd2' and 'rd'
+        del d2["foo1"]
+        del rd["foo1"]
 
         # Testing for equality
         self.assertTrue(d == d2)
@@ -1837,6 +1875,187 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertTrue(d == rd)
         self.assertTrue(d.items() == d2.items())
         self.assertTrue(list(d.items()) == list(rd.items()))
+
+    def test_sequential_deletion_comparison(self):
+        d = {}
+        d2 = {}
+        rd = RedisDict(namespace="del_compare", dict_compliant=True)
+
+        # Testing for identity
+        self.assertTrue(d is not d2)
+        self.assertTrue(d is not rd)
+
+        # Testing for equality
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
+
+        # Setup initial state
+        d["key1"] = "value1"
+        d["key2"] = "value2"
+        d2["key1"] = "value1"
+        d2["key2"] = "value2"
+        rd["key1"] = "value1"
+        rd["key2"] = "value2"
+
+        # Delete from d only
+        del d["key1"]
+
+        # Testing inequality after deletion
+        self.assertTrue(d != d2)
+        self.assertTrue(d != rd)
+        self.assertTrue(d.items() != d2.items())
+        self.assertTrue(list(d.items()) != list(rd.items()))
+
+        # Delete from d2 and rd
+        del d2["key1"]
+        del rd["key1"]
+
+        # Testing equality after deletion
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
+
+        # Test deleting nonexistent key raises KeyError
+        with self.assertRaises(KeyError):
+            del d["nonexistent"]
+        with self.assertRaises(KeyError):
+            del d2["nonexistent"]
+        with self.assertRaises(KeyError):
+            del rd["nonexistent"]
+
+        # Test deleting from empty dict
+        d.clear()
+        d2.clear()
+        rd.clear()
+
+        missing_key = "key1"
+        with self.assertRaisesRegex(KeyError, f"'{missing_key}'"):
+            del d[missing_key]
+        with self.assertRaisesRegex(KeyError, f"'{missing_key}'"):
+            del d2[missing_key]
+        with self.assertRaisesRegex(KeyError, f"'{missing_key}'"):
+            del rd[missing_key]
+
+        # Test deleting last item
+        d["last"] = "value"
+        d2["last"] = "value"
+        rd["last"] = "value"
+
+        del d["last"]
+        del d2["last"]
+        del rd["last"]
+
+        self.assertEqual(len(d), 0)
+        self.assertEqual(len(d2), 0)
+        self.assertEqual(len(rd), 0)
+
+        # Test deletion maintains equality
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
+
+    @unittest.skip
+    def test_sequential__insertion_order_comparison(self):
+        d = {}
+        d2 = {}
+        rd = RedisDict(namespace="insertion_order_comparison")
+
+        # Testing for identity
+        self.assertTrue(d is not d2)
+        self.assertTrue(d is not rd)
+
+        # Testing for equality
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
+
+        # Insert items in specific order
+        items = [
+            ("key1", "value1"),
+            ("key2", "value2"),
+            ("key3", "value3"),
+            ("key4", "value4")
+        ]
+
+        # Modify d only first
+        for k, v in items:
+            d[k] = v
+
+        # Testing inequality after insertion
+        self.assertTrue(d != d2)
+        self.assertTrue(d != rd)
+        self.assertTrue(d.items() != d2.items())
+        self.assertTrue(list(d.items()) != list(rd.items()))
+
+        # Modify d2 and rd
+        for k, v in items:
+            d2[k] = v
+            rd[k] = v
+
+        # Testing equality after insertion
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
+
+        # Test iteration order
+        self.assertEqual(list(d.keys()), list(d2.keys()))
+        self.assertEqual(list(d.keys()), list(rd.keys()))
+        self.assertEqual(list(d.values()), list(d2.values()))
+        self.assertEqual(list(d.values()), list(rd.values()))
+        self.assertEqual(list(d.items()), list(d2.items()))
+        self.assertEqual(list(d.items()), list(rd.items()))
+
+        # Test order preservation after updates/deletions
+        del d["key2"]
+        del d2["key2"]
+        del rd["key2"]
+
+        d["key5"] = "value5"
+        d2["key5"] = "value5"
+        rd["key5"] = "value5"
+
+        # Verify order is still preserved
+        self.assertEqual(list(d.keys()), list(d2.keys()))
+        self.assertEqual(list(d.keys()), list(rd.keys()))
+
+        self.assertEqual(list(d.values()), list(d2.values()))
+        self.assertEqual(list(d.values()), list(rd.values()))
+
+        self.assertEqual(list(d.items()), list(d2.items()))
+        self.assertEqual(list(d.items()), list(rd.items()))
+
+    @unittest.skip
+    def test_sequential_reverse_iteration_comparison(self):
+        d = {}
+        d2 = {}
+        rd = RedisDict(namespace="reverse_iteration_comparison")
+
+        # Testing for identity
+        self.assertTrue(d is not d2)
+        self.assertTrue(d is not rd)
+
+        # Testing for equality
+        self.assertTrue(d == d2)
+        self.assertTrue(d == rd)
+        self.assertTrue(d.items() == d2.items())
+        self.assertTrue(list(d.items()) == list(rd.items()))
+
+        # Setup with multiple items
+        items = [("key1", "value1"), ("key2", "value2"), ("key3", "value3")]
+        for k, v in items:
+            d[k] = v
+            d2[k] = v
+            rd[k] = v
+
+        # Test reverse iteration
+        self.assertEqual(list(reversed(d)), list(reversed(d2)))
+        self.assertEqual(list(reversed(d)), list(reversed(rd)))
 
 
 class TestRedisDictPreserveExpire(unittest.TestCase):
