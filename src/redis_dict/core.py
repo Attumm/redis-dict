@@ -350,7 +350,7 @@ class RedisDict:
 
     def __delitem__(self, key: str) -> None:
         """
-          Delete the value associated with the given key.
+          Delete the value associated with the given key, analogous to a dictionary.
 
           For distributed systems, we intentionally don't raise KeyError when the key doesn't exist.
           This ensures identical code running across different systems won't randomly fail
