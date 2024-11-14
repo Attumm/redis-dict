@@ -6,4 +6,4 @@ if [ ! -d ".venv_dev" ]; then
     ./scripts/build_dev.sh
 fi
 
-.venv_dev/bin/python -m unittest discover -s tests --failfast
+.venv_dev/bin/python -m unittest discover -s tests --failfast -v

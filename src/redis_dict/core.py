@@ -1,6 +1,7 @@
 """Redis Dict module."""
 from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type
 
+import time
 from datetime import timedelta
 from contextlib import contextmanager
 from collections.abc import Mapping
@@ -77,6 +78,7 @@ class RedisDict:
         self._iter: Iterator[str] = iter([])
         self._max_string_size: int = 500 * 1024 * 1024  # 500mb
         self._temp_redis: Optional[StrictRedis[Any]] = None
+        self._insertion_order_key = f"redis-dict-insertion-order-{namespace}"
 
     def _format_key(self, key: str) -> str:
         """
@@ -89,6 +91,18 @@ class RedisDict:
             str: The formatted key with the namespace prefix.
         """
         return f'{self.namespace}:{key}'
+
+    def _parse_key(self, key: str) -> Any:
+        """
+        Parses a formatted key with the namespace prefix and type:
+
+        Args:
+            key (str): The key to be parsed to type.
+
+        Returns:
+            Any: The parsed key
+        """
+        return key[len(self.namespace)+1:]
 
     def _valid_input(self, value: Any) -> bool:
         """
@@ -122,6 +136,12 @@ class RedisDict:
         encoded_value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
         return f'{store_type}:{encoded_value}'
 
+    def _store_set(self, formatted_key, formatted_value):
+        if self.preserve_expiration and self.get_redis.exists(formatted_key):
+            self.redis.set(formatted_key, formatted_value, keepttl=True)
+        else:
+            self.redis.set(formatted_key, formatted_value, ex=self.expire)
+
     def _store(self, key: str, value: Any) -> None:
         """
         Store a value in Redis with the given key.
@@ -147,10 +167,12 @@ class RedisDict:
         formatted_key = self._format_key(key)
         formatted_value = self._format_value(value)
 
-        if self.preserve_expiration and self.redis.exists(formatted_key):
-            self.redis.set(formatted_key, formatted_value, keepttl=True)
+        if not self.dict_compliant:
+            self._store_set(formatted_key, formatted_value)
         else:
-            self.redis.set(formatted_key, formatted_value, ex=self.expire)
+            with self.pipeline():
+                self._insertion_order_add(formatted_key)
+                self._store_set(formatted_key, formatted_value)
 
     def _load(self, key: str) -> Tuple[bool, Any]:
         """
@@ -369,6 +391,8 @@ class RedisDict:
           """
         formatted_key = self._format_key(key)
         result = self.redis.delete(formatted_key)
+        if self.dict_compliant:
+           self._insertion_order_delete(formatted_key)
         if self.dict_compliant and not result:
             raise KeyError(key)
 
@@ -391,7 +415,9 @@ class RedisDict:
         Returns:
             int: The number of items in the RedisDict.
         """
-        return len(list(self._scan_keys()))
+        if self.dict_compliant:
+            return self._insertion_order_len()
+        return sum(1 for _ in self._scan_keys(skip_dict_compliant=True))
 
     def __iter__(self) -> Iterator[str]:
         """
@@ -555,7 +581,7 @@ class RedisDict:
         """
         return f'{self.namespace}:{search_term}*'
 
-    def _scan_keys(self, search_term: str = '') -> Iterator[str]:
+    def _scan_keys(self, search_term: str = '', skip_dict_compliant: bool = False) -> Iterator[str]:
         """
         Scan for Redis keys matching the given search term.
 
@@ -565,6 +591,8 @@ class RedisDict:
         Returns:
             Iterator[str]: An iterator of matching Redis keys.
         """
+        if not skip_dict_compliant and self.dict_compliant:
+            return self._insertion_order_iter()
         search_query = self._create_iter_query(search_term)
         return self.get_redis.scan_iter(match=search_query)
 
@@ -654,12 +682,26 @@ class RedisDict:
         Redis pipelining is employed to group multiple commands into a single request, minimizing
         network round-trip time, latency, and I/O load, thereby enhancing the overall performance.
 
-        It is important to highlight that the clear method can be safely executed within
-        the context of an initiated pipeline operation.
         """
         with self.pipeline():
-            for key in self:
-                del self[key]
+            if self.dict_compliant:
+                self._insertion_order_clear()
+            for key in self._scan_keys(skip_dict_compliant=True):
+                self.redis.delete(key)
+
+    def _pop(self, formatted_key: str, default: Union[Any, object] = SENTINEL) -> Any:
+        if not self.dict_compliant:
+            value = self.get_redis.execute_command("GETDEL", formatted_key)
+        else:
+            with self.pipeline():
+                value = self.get_redis.execute_command("GETDEL", formatted_key)
+                self._insertion_order_delete(formatted_key)
+
+        if value is None:
+            if default is not SENTINEL:
+                return default
+            raise KeyError(formatted_key)
+        return self._transform(value)
 
     def pop(self, key: str, default: Union[Any, object] = SENTINEL) -> Any:
         """Analogous to a dictionary's pop method.
@@ -678,18 +720,14 @@ class RedisDict:
             KeyError: If the key is not found and no default value is provided.
         """
         formatted_key = self._format_key(key)
-        value = self.get_redis.execute_command("GETDEL", formatted_key)
-        if value is None:
-            if default is not SENTINEL:
-                return default
-            raise KeyError(formatted_key)
-
-        return self._transform(value)
+        return self._pop(formatted_key, default)
 
     def popitem(self) -> Tuple[str, Any]:
         """Remove and return a random (key, value) pair from the RedisDict as a tuple.
 
         This method is analogous to the `popitem` method of a standard Python dictionary.
+
+        if dict_compliant set true stays true to In Python 3.7+, removes the last inserted item (LIFO order)
 
         Returns:
             tuple: A tuple containing a randomly chosen (key, value) pair.
@@ -697,6 +735,12 @@ class RedisDict:
         Raises:
             KeyError: If RedisDict is empty.
         """
+        if self.dict_compliant:
+            key = self._insertion_order_latest()
+            if key is None:
+                raise KeyError("popitem(): dictionary is empty")
+            return self._parse_key(key), self._pop(key)
+
         while True:
             key = self.key()
             if key is None:
@@ -732,7 +776,12 @@ class RedisDict:
             expire_str = str(1) if expire_val <= 1 else str(expire_val)
             args.extend(["EX", expire_str])
 
+
         result = self.get_redis.execute_command(*args, **options)
+        if self.dict_compliant:
+            self.get_redis.zadd(self._insertion_order_key, {formatted_key: time.time()})
+            #self._insertion_order_add(formatted_key)
+
         if result is None:
             return default_value
 
@@ -794,6 +843,25 @@ class RedisDict:
             int: The approximate size of the RedisDict in memory, in bytes.
         """
         return self.to_dict().__sizeof__()
+
+    def _insertion_order_add(self, value):
+        return self.redis.zadd(self._insertion_order_key, {value: time.time()})
+
+    def _insertion_order_delete(self, value):
+        return self.redis.zrem(self._insertion_order_key, value)
+
+    def _insertion_order_iter(self):
+        return self.get_redis.zrange(self._insertion_order_key, 0, -1)
+
+    def _insertion_order_clear(self):
+        return self.redis.delete(self._insertion_order_key)
+
+    def _insertion_order_len(self):
+        return self.get_redis.zcard(self._insertion_order_key)
+
+    def _insertion_order_latest(self):
+        result = self.redis.zrange(self._insertion_order_key, -1, -1)
+        return result[0] if result else None
 
     def chain_set(self, iterable: List[str], v: Any) -> None:
         """
