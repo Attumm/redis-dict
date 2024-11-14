@@ -92,7 +92,7 @@ class RedisDict:
         """
         return f'{self.namespace}:{key}'
 
-    def _parse_key(self, key: str) -> Any:
+    def _parse_key(self, key: str) -> str:
         """
         Parses a formatted key with the namespace prefix and type:
 
@@ -100,9 +100,9 @@ class RedisDict:
             key (str): The key to be parsed to type.
 
         Returns:
-            Any: The parsed key
+            str: The parsed key
         """
-        return key[len(self.namespace)+1:]
+        return key[len(self.namespace) + 1:]
 
     def _valid_input(self, value: Any) -> bool:
         """
@@ -136,7 +136,7 @@ class RedisDict:
         encoded_value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
         return f'{store_type}:{encoded_value}'
 
-    def _store_set(self, formatted_key, formatted_value):
+    def _store_set(self, formatted_key: str, formatted_value: str) -> None:
         if self.preserve_expiration and self.get_redis.exists(formatted_key):
             self.redis.set(formatted_key, formatted_value, keepttl=True)
         else:
@@ -392,7 +392,7 @@ class RedisDict:
         formatted_key = self._format_key(key)
         result = self.redis.delete(formatted_key)
         if self.dict_compliant:
-           self._insertion_order_delete(formatted_key)
+            self._insertion_order_delete(formatted_key)
         if self.dict_compliant and not result:
             raise KeyError(key)
 
@@ -585,14 +585,18 @@ class RedisDict:
         """
         Scan for Redis keys matching the given search term.
 
+        If dict_compliant mode is active and caller has already handled that case, skip_dict_compliant should be True.
+
         Args:
             search_term (str): A search term to filter keys. Defaults to ''.
+            skip_dict_compliant (bool):  Set to True if dict_compliant is active and caller handled that case.
 
         Returns:
             Iterator[str]: An iterator of matching Redis keys.
         """
         if not skip_dict_compliant and self.dict_compliant:
             return self._insertion_order_iter()
+
         search_query = self._create_iter_query(search_term)
         return self.get_redis.scan_iter(match=search_query)
 
@@ -690,6 +694,20 @@ class RedisDict:
                 self.redis.delete(key)
 
     def _pop(self, formatted_key: str, default: Union[Any, object] = SENTINEL) -> Any:
+        """
+        Remove the value associated with the given key and return it, or return the default value
+        if the key is not found.
+
+        Args:
+            formatted_key (str): The formatted key to remove the value.
+            default (Optional[Any], optional): The value to return if the key is not found.
+
+        Returns:
+            Any: The value associated with the key or the default value.
+
+        Raises:
+            KeyError: If the key is not found and no default value is provided.
+        """
         if not self.dict_compliant:
             value = self.get_redis.execute_command("GETDEL", formatted_key)
         else:
@@ -717,7 +735,7 @@ class RedisDict:
             Any: The value associated with the key or the default value.
 
         Raises:
-            KeyError: If the key is not found and no default value is provided.
+            KeyError: If the key is not found and no default value is provided.  # noqa: DAR402
         """
         formatted_key = self._format_key(key)
         return self._pop(formatted_key, default)
@@ -776,11 +794,9 @@ class RedisDict:
             expire_str = str(1) if expire_val <= 1 else str(expire_val)
             args.extend(["EX", expire_str])
 
-
         result = self.get_redis.execute_command(*args, **options)
         if self.dict_compliant:
-            self.get_redis.zadd(self._insertion_order_key, {formatted_key: time.time()})
-            #self._insertion_order_add(formatted_key)
+            self._insertion_order_add(formatted_key)
 
         if result is None:
             return default_value
@@ -844,22 +860,33 @@ class RedisDict:
         """
         return self.to_dict().__sizeof__()
 
-    def _insertion_order_add(self, value):
-        return self.redis.zadd(self._insertion_order_key, {value: time.time()})
+    def _insertion_order_add(self, formatted_key: str) -> bool:
+        return bool(self.redis.zadd(self._insertion_order_key, {formatted_key: time.time()}))
 
-    def _insertion_order_delete(self, value):
-        return self.redis.zrem(self._insertion_order_key, value)
+    def _insertion_order_delete(self, formatted_key: str) -> bool:
+        return bool(self.redis.zrem(self._insertion_order_key, formatted_key))
 
-    def _insertion_order_iter(self):
-        return self.get_redis.zrange(self._insertion_order_key, 0, -1)
+    def _insertion_order_iter(self) -> Iterator[str]:
+        first = True
+        cursor = -1
+        while cursor != 0:
+            if first:
+                cursor = 0
+                first = False
+            cursor, data = self.get_redis.zscan(
+                name=self._insertion_order_key,
+                cursor=cursor,
+                count=100
+            )
+            yield from (item[0] for item in data)
 
-    def _insertion_order_clear(self):
-        return self.redis.delete(self._insertion_order_key)
+    def _insertion_order_clear(self) -> bool:
+        return bool(self.redis.delete(self._insertion_order_key))
 
-    def _insertion_order_len(self):
+    def _insertion_order_len(self) -> int:
         return self.get_redis.zcard(self._insertion_order_key)
 
-    def _insertion_order_latest(self):
+    def _insertion_order_latest(self) -> Union[str, None]:
         result = self.redis.zrange(self._insertion_order_key, -1, -1)
         return result[0] if result else None
 

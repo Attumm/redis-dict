@@ -6,6 +6,8 @@ if [ ! -d ".venv_dev" ]; then
     ./scripts/build_dev.sh
 fi
 
+source .venv_dev/bin/activate
+
 # Type Check
 python -m mypy
 
