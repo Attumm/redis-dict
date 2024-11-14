@@ -514,12 +514,12 @@ class RedisDict:
         return self
 
     @classmethod
-    def __class_getitem__(cls: Type['RedisDict'], key: Any) -> Type['RedisDict']:
+    def __class_getitem__(cls: Type['RedisDict'], _key: Any) -> Type['RedisDict']:
         """
         Enable type hinting support like RedisDict[str, Any].
 
         Args:
-            key (Any): The type parameter(s) used in the type hint.
+            _key (Any): The type parameter(s) used in the type hint.
 
         Returns:
             Type[RedisDict]: The class itself, enabling type hint usage.

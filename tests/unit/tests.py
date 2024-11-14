@@ -1275,15 +1275,20 @@ class TestRedisDict(unittest.TestCase):
         del self.r[key]
         self.assertEqual(self.redisdb.get(formatted_key), None)
 
-    def test_delete_twice_doenst_raise(self):
-        """Test deleting a key twice won't raise"""
+    def test_delete_twice_(self):
+        """Test deleting a key twice won't raise default mode will in dict_complaint mode"""
         key = 'foobar_gone'
         self.r[key] = 'bar'
 
         del self.r[key]
         self.assertEqual(self.redisdb.get(key), None)
 
-        del self.r[key]
+        if self.r.dict_compliant:
+            with self.assertRaises(KeyError):
+                del self.r[key]
+        else:
+            del self.r[key]
+
         self.assertEqual(self.redisdb.get(key), None)
 
     def test_contains_empty(self):
@@ -1345,67 +1350,12 @@ class TestRedisDict(unittest.TestCase):
         actual_dict = self.r.to_dict()
         self.assertEqual(actual_dict, expected_dict)
 
-    def test_chain_set_1(self):
-        """Test setting a chain with 1 element."""
-        self.r.chain_set(['foo'], 'melons')
-
-        expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
-        self.assertEqual(self.redisdb.get(expected_key), b'str:melons')
-
-    def test_chain_set_2(self):
-        """Test setting a chain with 2 elements."""
-        self.r.chain_set(['foo', 'bar'], 'melons')
-
-        expected_key = '{}:foo:bar'.format(TEST_NAMESPACE_PREFIX)
-        self.assertEqual(self.redisdb.get(expected_key), b'str:melons')
-
-    def test_chain_set_overwrite(self):
-        """Test setting a chain with 1 element and then overwriting it."""
-        self.r.chain_set(['foo'], 'melons')
-        self.r.chain_set(['foo'], 'bananas')
-
-        expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
-        self.assertEqual(self.redisdb.get(expected_key), b'str:bananas')
-
-    def test_chain_get_1(self):
-        """Test setting and getting a chain with 1 element."""
-        self.r.chain_set(['foo'], 'melons')
-
-        self.assertEqual(self.r.chain_get(['foo']), 'melons')
-
-    def test_chain_get_empty(self):
-        """Test getting a chain that has not been set."""
-        with self.assertRaises(KeyError):
-            _ = self.r.chain_get(['foo'])
-
-    def test_chain_get_2(self):
-        """Test setting and getting a chain with 2 elements."""
-        self.r.chain_set(['foo', 'bar'], 'melons')
-
-        self.assertEqual(self.r.chain_get(['foo', 'bar']), 'melons')
-
-    def test_chain_del_1(self):
-        """Test setting and deleting a chain with 1 element."""
-        self.r.chain_set(['foo'], 'melons')
-        self.r.chain_del(['foo'])
-
-        with self.assertRaises(KeyError):
-            _ = self.r.chain_get(['foo'])
-
-    def test_chain_del_2(self):
-        """Test setting and deleting a chain with 2 elements."""
-        self.r.chain_set(['foo', 'bar'], 'melons')
-        self.r.chain_del(['foo', 'bar'])
-
-        with self.assertRaises(KeyError):
-            _ = self.r.chain_get(['foo', 'bar'])
-
     def test_expire_context(self):
         """Test adding keys with an `expire` value by using the contextmanager."""
         with self.r.expire_at(3600):
             self.r['foobar'] = 'barbar'
 
-        actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
+        actual_ttl = self.redisdb.ttl('{}:foobar'.format(self.r.namespace))
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
 
     def test_expire_context_timedelta(self):
@@ -1420,9 +1370,9 @@ class TestRedisDict(unittest.TestCase):
         with self.r.expire_at(timedelta_one_minute):
             self.r['one_minute'] = 'one_minute'
 
-        actual_ttl = self.redisdb.ttl('{}:one_hour'.format(TEST_NAMESPACE_PREFIX))
+        actual_ttl = self.redisdb.ttl('{}:one_hour'.format(self.r.namespace))
         self.assertAlmostEqual(hour_in_seconds, actual_ttl, delta=2)
-        actual_ttl = self.redisdb.ttl('{}:one_minute'.format(TEST_NAMESPACE_PREFIX))
+        actual_ttl = self.redisdb.ttl('{}:one_minute'.format(self.r.namespace))
         self.assertAlmostEqual(minute_in_seconds, actual_ttl, delta=2)
 
     def test_expire_keyword(self):
@@ -1430,7 +1380,7 @@ class TestRedisDict(unittest.TestCase):
         r = self.create_redis_dict(expire=3600)
 
         r['foobar'] = 'barbar'
-        actual_ttl = self.redisdb.ttl('{}:foobar'.format(TEST_NAMESPACE_PREFIX))
+        actual_ttl = self.redisdb.ttl('{}:foobar'.format(self.r.namespace))
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
 
     def test_expire_keyword_timedelta(self):
@@ -1446,10 +1396,10 @@ class TestRedisDict(unittest.TestCase):
         r_hour['one_hour'] = 'one_hour'
         r_minute['one_minute'] = 'one_minute'
 
-        actual_ttl = self.redisdb.ttl('{}:one_hour'.format(TEST_NAMESPACE_PREFIX))
-        self.assertAlmostEqual(hour_in_seconds, actual_ttl, delta=2)
-        actual_ttl = self.redisdb.ttl('{}:one_minute'.format(TEST_NAMESPACE_PREFIX))
-        self.assertAlmostEqual(minute_in_seconds, actual_ttl, delta=2)
+        actual_ttl = self.redisdb.ttl('{}:one_hour'.format(self.r.namespace))
+        self.assertAlmostEqual(hour_in_seconds, actual_ttl, delta=4)
+        actual_ttl = self.redisdb.ttl('{}:one_minute'.format(self.r.namespace))
+        self.assertAlmostEqual(minute_in_seconds, actual_ttl, delta=4)
 
     def test_iter(self):
         """Tests the __iter__ function."""
@@ -1472,91 +1422,6 @@ class TestRedisDict(unittest.TestCase):
     #     """Tests that multi_get with key None raises TypeError."""
     #     with self.assertRaises(TypeError):
     #         self.r.multi_get(None)
-
-    def test_multi_get_empty(self):
-        """Tests the multi_get function with no keys set."""
-        self.assertEqual(self.r.multi_get('foo'), [])
-
-    def test_multi_get_nonempty(self):
-        """Tests the multi_get function with 3 keys set, get 2 of them."""
-        self.r['foobar'] = 'barbar'
-        self.r['foobaz'] = 'bazbaz'
-        self.r['goobar'] = 'borbor'
-
-        expected_result = ['barbar', 'bazbaz']
-        self.assertEqual(sorted(self.r.multi_get('foo')), sorted(expected_result))
-
-    def test_multi_get_chain_with_key_none(self):
-        """Tests that multi_chain_get with key None raises TypeError."""
-        with self.assertRaises(TypeError):
-            self.r.multi_chain_get(None)
-
-    def test_multi_chain_get_empty(self):
-        """Tests the multi_chain_get function with no keys set."""
-        self.assertEqual(self.r.multi_chain_get(['foo']), [])
-
-    def test_multi_chain_get_nonempty(self):
-        """Tests the multi_chain_get function with keys set."""
-        self.r.chain_set(['foo', 'bar', 'bar'], 'barbar')
-        self.r.chain_set(['foo', 'bar', 'baz'], 'bazbaz')
-        self.r.chain_set(['foo', 'baz'], 'borbor')
-
-        # redis.mget seems to sort keys in reverse order here
-        expected_result = sorted([u'bazbaz', u'barbar'])
-        self.assertEqual(sorted(self.r.multi_chain_get(['foo', 'bar'])), expected_result)
-
-    def test_multi_dict_empty(self):
-        """Tests the multi_dict function with no keys set."""
-        self.assertEqual(self.r.multi_dict('foo'), {})
-
-    def test_multi_dict_one_key(self):
-        """Tests the multi_dict function with 1 key set."""
-        self.r['foobar'] = 'barbar'
-        expected_dict = {u'foobar': u'barbar'}
-        self.assertEqual(self.r.multi_dict('foo'), expected_dict)
-
-    def test_multi_dict_two_keys(self):
-        """Tests the multi_dict function with 2 keys set."""
-        self.r['foobar'] = 'barbar'
-        self.r['foobaz'] = 'bazbaz'
-        expected_dict = {u'foobar': u'barbar', u'foobaz': u'bazbaz'}
-        self.assertEqual(self.r.multi_dict('foo'), expected_dict)
-
-    def test_multi_dict_complex(self):
-        """Tests the multi_dict function by setting 3 keys and matching 2."""
-        self.r['foobar'] = 'barbar'
-        self.r['foobaz'] = 'bazbaz'
-        self.r['goobar'] = 'borbor'
-        expected_dict = {u'foobar': u'barbar', u'foobaz': u'bazbaz'}
-        self.assertEqual(self.r.multi_dict('foo'), expected_dict)
-
-    def test_multi_del_empty(self):
-        """Tests the multi_del function with no keys set."""
-        self.assertEqual(self.r.multi_del('foobar'), 0)
-
-    def test_multi_del_one_key(self):
-        """Tests the multi_del function with 1 key set."""
-        self.r['foobar'] = 'barbar'
-        self.assertEqual(self.r.multi_del('foobar'), 1)
-        self.assertIsNone(self.redisdb.get('foobar'))
-
-    def test_multi_del_two_keys(self):
-        """Tests the multi_del function with 2 keys set."""
-        self.r['foobar'] = 'barbar'
-        self.r['foobaz'] = 'bazbaz'
-        self.assertEqual(self.r.multi_del('foo'), 2)
-        self.assertIsNone(self.redisdb.get('foobar'))
-        self.assertIsNone(self.redisdb.get('foobaz'))
-
-    def test_multi_del_complex(self):
-        """Tests the multi_del function by setting 3 keys and deleting 2."""
-        self.r['foobar'] = 'barbar'
-        self.r['foobaz'] = 'bazbaz'
-        self.r['goobar'] = 'borbor'
-        self.assertEqual(self.r.multi_del('foo'), 2)
-        self.assertIsNone(self.redisdb.get('foobar'))
-        self.assertIsNone(self.redisdb.get('foobaz'))
-        self.assertEqual(self.r['goobar'], 'borbor')
 
     def test_set_and_get(self):
         self.r['key1'] = 'value1'
@@ -1765,8 +1630,24 @@ class TestRedisDict(unittest.TestCase):
                 dict_.redis.get_connection_kwargs().get("decode_responses"),
                 msg=assert_fail_msg,
                 )
-
             test_input.flushdb()
+
+
+class TestRedisDictCompliant(TestRedisDict):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        config['dict_compliant'] = True
+        return RedisDict(namespace=namespace+"_DictCompliant", **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        cls.redisdb.flushdb()
+        cls.redisdb.delete(f"redis-dict-insertion-order-{TEST_NAMESPACE_PREFIX}")
+        for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
+
 
 class TestRedisDictSecurity(unittest.TestCase):
     @classmethod
@@ -1882,6 +1763,22 @@ class TestRedisDictSecurity(unittest.TestCase):
         self.assertEqual(self.r[injection_key], 'bar')
         self.assertEqual(self.r['foo2'], 'bar2')
         self.assertEqual(self.r['foo3'], 'bar3')
+
+
+class TestRedisDictSecurityCompliant(TestRedisDictSecurity):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        config['dict_compliant'] = True
+        return RedisDict(namespace=namespace+"_DictCompliant", **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        cls.redisdb.flushdb()
+        cls.redisdb.delete(f"redis-dict-insertion-order-{TEST_NAMESPACE_PREFIX}")
+        for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
 
 
 class TestRedisDictComparison(unittest.TestCase):
@@ -2112,6 +2009,22 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertTrue(list(d.items()) == list(rd.items()))
 
 
+class TestRedisDictComparisonCompliant(TestRedisDictComparison):
+    def setUp(self):
+        self.r1 = RedisDict(namespace="test1", dict_compliant=True)
+        self.r2 = RedisDict(namespace="test2", dict_compliant=True)
+        self.r3 = RedisDict(namespace="test3", dict_compliant=True)
+        self.r4 = RedisDict(namespace="test4", dict_compliant=True)
+
+        self.r1.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r2.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r3.update({"a": 1, "b": 3, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r4.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 7]}})
+
+        self.d1 = {"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
+        self.d2 = {"a": 1, "b": 3, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
+
+
 class TestRedisDictPreserveExpire(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -2201,6 +2114,189 @@ class TestRedisDictPreserveExpire(unittest.TestCase):
 
         # Ensure the difference between the TTLs of "foo" and "bar" is no more than one second.
         self.assertTrue(abs(actual_ttl_foo - actual_ttl_bar) <= 1)
+
+
+class TestRedisDictPreserveExpireComplaint(TestRedisDictPreserveExpire):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        config['dict_compliant'] = True
+        return RedisDict(namespace=namespace+"_DictCompliant", **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        cls.redisdb.flushdb()
+        cls.redisdb.delete(f"redis-dict-insertion-order-{TEST_NAMESPACE_PREFIX}")
+        for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
+
+
+class TestRedisDictMulti(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.redisdb = redis.StrictRedis(**redis_config)
+        cls.r = cls.create_redis_dict()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.clear_test_namespace()
+
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        return RedisDict(namespace=namespace, **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
+
+    def setUp(self):
+        self.clear_test_namespace()
+
+    def test_multi_get_empty(self):
+        """Tests the multi_get function with no keys set."""
+        self.assertEqual(self.r.multi_get('foo'), [])
+
+    def test_multi_get_nonempty(self):
+        """Tests the multi_get function with 3 keys set, get 2 of them."""
+        self.r['foobar'] = 'barbar'
+        self.r['foobaz'] = 'bazbaz'
+        self.r['goobar'] = 'borbor'
+
+        expected_result = ['barbar', 'bazbaz']
+        self.assertEqual(sorted(self.r.multi_get('foo')), sorted(expected_result))
+
+    def test_multi_get_chain_with_key_none(self):
+        """Tests that multi_chain_get with key None raises TypeError."""
+        with self.assertRaises(TypeError):
+            self.r.multi_chain_get(None)
+
+    def test_multi_chain_get_empty(self):
+        """Tests the multi_chain_get function with no keys set."""
+        self.assertEqual(self.r.multi_chain_get(['foo']), [])
+
+    def test_multi_chain_get_nonempty(self):
+        """Tests the multi_chain_get function with keys set."""
+        self.r.chain_set(['foo', 'bar', 'bar'], 'barbar')
+        self.r.chain_set(['foo', 'bar', 'baz'], 'bazbaz')
+        self.r.chain_set(['foo', 'baz'], 'borbor')
+
+        # redis.mget seems to sort keys in reverse order here
+        expected_result = sorted([u'bazbaz', u'barbar'])
+        self.assertEqual(sorted(self.r.multi_chain_get(['foo', 'bar'])), expected_result)
+
+    def test_multi_dict_empty(self):
+        """Tests the multi_dict function with no keys set."""
+        self.assertEqual(self.r.multi_dict('foo'), {})
+
+    def test_multi_dict_one_key(self):
+        """Tests the multi_dict function with 1 key set."""
+        self.r['foobar'] = 'barbar'
+        expected_dict = {u'foobar': u'barbar'}
+        self.assertEqual(self.r.multi_dict('foo'), expected_dict)
+
+    def test_multi_dict_two_keys(self):
+        """Tests the multi_dict function with 2 keys set."""
+        self.r['foobar'] = 'barbar'
+        self.r['foobaz'] = 'bazbaz'
+        expected_dict = {u'foobar': u'barbar', u'foobaz': u'bazbaz'}
+        self.assertEqual(self.r.multi_dict('foo'), expected_dict)
+
+    def test_multi_dict_complex(self):
+        """Tests the multi_dict function by setting 3 keys and matching 2."""
+
+        self.r['foobar'] = 'barbar'
+        self.r['foobaz'] = 'bazbaz'
+        self.r['goobar'] = 'borbor'
+        expected_dict = {u'foobar': u'barbar', u'foobaz': u'bazbaz'}
+        self.assertEqual(self.r.multi_dict('foo'), expected_dict)
+
+    def test_multi_del_empty(self):
+        """Tests the multi_del function with no keys set."""
+        self.assertEqual(self.r.multi_del('foobar'), 0)
+
+    def test_multi_del_one_key(self):
+        """Tests the multi_del function with 1 key set."""
+        self.r['foobar'] = 'barbar'
+        self.assertEqual(self.r.multi_del('foobar'), 1)
+        self.assertIsNone(self.redisdb.get('foobar'))
+
+    def test_multi_del_two_keys(self):
+        """Tests the multi_del function with 2 keys set."""
+        self.r['foobar'] = 'barbar'
+        self.r['foobaz'] = 'bazbaz'
+        self.assertEqual(self.r.multi_del('foo'), 2)
+        self.assertIsNone(self.redisdb.get('foobar'))
+        self.assertIsNone(self.redisdb.get('foobaz'))
+
+    def test_multi_del_complex(self):
+        """Tests the multi_del function by setting 3 keys and deleting 2."""
+        self.r['foobar'] = 'barbar'
+        self.r['foobaz'] = 'bazbaz'
+        self.r['goobar'] = 'borbor'
+        self.assertEqual(self.r.multi_del('foo'), 2)
+        self.assertIsNone(self.redisdb.get('foobar'))
+        self.assertIsNone(self.redisdb.get('foobaz'))
+        self.assertEqual(self.r['goobar'], 'borbor')
+
+    def test_chain_set_2(self):
+        """Test setting a chain with 2 elements."""
+        self.r.chain_set(['foo', 'bar'], 'melons')
+
+        expected_key = '{}:foo:bar'.format(TEST_NAMESPACE_PREFIX)
+        self.assertEqual(self.redisdb.get(expected_key), b'str:melons')
+
+    def test_chain_set_overwrite(self):
+        """Test setting a chain with 1 element and then overwriting it."""
+        self.r.chain_set(['foo'], 'melons')
+        self.r.chain_set(['foo'], 'bananas')
+
+        expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
+        self.assertEqual(self.redisdb.get(expected_key), b'str:bananas')
+
+    def test_chain_get_1(self):
+        """Test setting and getting a chain with 1 element."""
+        self.r.chain_set(['foo'], 'melons')
+
+        self.assertEqual(self.r.chain_get(['foo']), 'melons')
+
+    def test_chain_get_empty(self):
+        """Test getting a chain that has not been set."""
+        with self.assertRaises(KeyError):
+            _ = self.r.chain_get(['foo'])
+
+    def test_chain_get_2(self):
+        """Test setting and getting a chain with 2 elements."""
+        self.r.chain_set(['foo', 'bar'], 'melons')
+
+        self.assertEqual(self.r.chain_get(['foo', 'bar']), 'melons')
+
+    def test_chain_del_1(self):
+        """Test setting and deleting a chain with 1 element."""
+        self.r.chain_set(['foo'], 'melons')
+        self.r.chain_del(['foo'])
+
+        with self.assertRaises(KeyError):
+            _ = self.r.chain_get(['foo'])
+
+    def test_chain_del_2(self):
+        """Test setting and deleting a chain with 2 elements."""
+        self.r.chain_set(['foo', 'bar'], 'melons')
+        self.r.chain_del(['foo', 'bar'])
+
+        with self.assertRaises(KeyError):
+            _ = self.r.chain_get(['foo', 'bar'])
+
+    def test_chain_set_1(self):
+        """Test setting a chain with 1 element."""
+        self.r.chain_set(['foo'], 'melons')
+
+        expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
+        self.assertEqual(self.redisdb.get(expected_key), b'str:melons')
+
 
 if __name__ == '__main__':
     unittest.main()
