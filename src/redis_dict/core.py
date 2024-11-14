@@ -379,15 +379,15 @@ class RedisDict:
         when another system already achieved the deletion goal (key not existing).
 
         Warning:
-          Setting dict_compliant=True will raise KeyError when key doesn't exist.
-          This is not recommended for distributed systems as it can cause KeyErrors
-          that are hard to debug when multiple systems interact with the same keys.
+            Setting dict_compliant=True will raise KeyError when key doesn't exist.
+            This is not recommended for distributed systems as it can cause KeyErrors
+            that are hard to debug when multiple systems interact with the same keys.
 
         Args:
-          key (str): The key to delete
+            key (str): The key to delete
 
         Raises:
-          KeyError: Only if dict_compliant=True and key doesn't exist
+            KeyError: Only if dict_compliant=True and key doesn't exist
         """
         formatted_key = self._format_key(key)
         result = self.redis.delete(formatted_key)
