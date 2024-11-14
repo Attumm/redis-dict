@@ -24,6 +24,6 @@ python -m unittest discover -s tests
  bandit -r src/redis_dict
 
 # Docstring Check
-# pydocstyle src/redis_dict/
+pydocstyle src/redis_dict/
 
 deactivate

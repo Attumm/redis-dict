@@ -47,7 +47,7 @@ class RedisDict:
                  preserve_expiration: Optional[bool] = False,
                  redis: "Optional[StrictRedis[Any]]" = None,
                  dict_compliant: bool = False,
-                 **redis_kwargs: Any) -> None:
+                 **redis_kwargs: Any) -> None:  # noqa: D202 pydocstyle clashes with Sphinx
         """
         Initialize a RedisDict instance.
 
@@ -94,7 +94,7 @@ class RedisDict:
 
     def _parse_key(self, key: str) -> str:
         """
-        Parses a formatted key with the namespace prefix and type:
+        Parse a formatted key with the namespace prefix and type.
 
         Args:
             key (str): The key to be parsed to type.
@@ -238,7 +238,7 @@ class RedisDict:
             decode: Optional[DecodeFuncType] = None,
             encoding_method_name: Optional[str] = None,
             decoding_method_name: Optional[str] = None,
-    ) -> None:
+    ) -> None: # noqa: D202 pydocstyle clashes with Sphinx
         """
         Extend RedisDict to support a custom type in the encode/decode mapping.
 
@@ -372,23 +372,23 @@ class RedisDict:
 
     def __delitem__(self, key: str) -> None:
         """
-          Delete the value associated with the given key, analogous to a dictionary.
+        Delete the value associated with the given key, analogous to a dictionary.
 
-          For distributed systems, we intentionally don't raise KeyError when the key doesn't exist.
-          This ensures identical code running across different systems won't randomly fail
-          when another system already achieved the deletion goal (key not existing).
+        For distributed systems, we intentionally don't raise KeyError when the key doesn't exist.
+        This ensures identical code running across different systems won't randomly fail
+        when another system already achieved the deletion goal (key not existing).
 
-          Warning:
-              Setting dict_compliant=True will raise KeyError when key doesn't exist.
-              This is not recommended for distributed systems as it can cause KeyErrors
-              that are hard to debug when multiple systems interact with the same keys.
+        Warning:
+          Setting dict_compliant=True will raise KeyError when key doesn't exist.
+          This is not recommended for distributed systems as it can cause KeyErrors
+          that are hard to debug when multiple systems interact with the same keys.
 
-          Args:
-              key (str): The key to delete
+        Args:
+          key (str): The key to delete
 
-          Raises:
-              KeyError: Only if dict_compliant=True and key doesn't exist
-          """
+        Raises:
+          KeyError: Only if dict_compliant=True and key doesn't exist
+        """
         formatted_key = self._format_key(key)
         result = self.redis.delete(formatted_key)
         if self.dict_compliant:
@@ -695,8 +695,9 @@ class RedisDict:
 
     def _pop(self, formatted_key: str, default: Union[Any, object] = SENTINEL) -> Any:
         """
-        Remove the value associated with the given key and return it, or return the default value
-        if the key is not found.
+        Remove the value associated with the given key and return it.
+
+        Or return the default value if the key is not found.
 
         Args:
             formatted_key (str): The formatted key to remove the value.
