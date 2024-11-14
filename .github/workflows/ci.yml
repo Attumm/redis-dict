@@ -62,7 +62,7 @@ jobs:
         env:
           PYTHONPATH: src
         run: |
-          coverage run -m unittest discover -p "*tests.py"
+          coverage run -m unittest discover -p "*test*.py"
 
       - name: Upload coverage reports to Codecov, send only once
         if: matrix.python-version == '3.12'
