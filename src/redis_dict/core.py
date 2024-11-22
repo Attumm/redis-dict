@@ -1,17 +1,16 @@
 """Redis Dict module."""
 from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type
 
-import time
 from datetime import timedelta
 from contextlib import contextmanager
 from collections.abc import Mapping
 
 from redis import StrictRedis
 
-from redis_dict.type_management import SENTINEL, EncodeFuncType, DecodeFuncType, EncodeType, DecodeType
-from redis_dict.type_management import _create_default_encode, _create_default_decode, _default_decoder
-from redis_dict.type_management import encoding_registry as enc_reg
-from redis_dict.type_management import decoding_registry as dec_reg
+from .type_management import SENTINEL, EncodeFuncType, DecodeFuncType, EncodeType, DecodeType
+from .type_management import _create_default_encode, _create_default_decode, _default_decoder
+from .type_management import encoding_registry as enc_reg
+from .type_management import decoding_registry as dec_reg
 
 
 # pylint: disable=R0902, R0904
@@ -41,13 +40,14 @@ class RedisDict:
     encoding_registry: EncodeType = enc_reg
     decoding_registry: DecodeType = dec_reg
 
+    # pylint: disable=R0913
     def __init__(self,
-                 namespace: str = 'main',
-                 expire: Union[int, timedelta, None] = None,
-                 preserve_expiration: Optional[bool] = False,
-                 redis: "Optional[StrictRedis[Any]]" = None,
-                 dict_compliant: bool = False,
-                 **redis_kwargs: Any) -> None:  # noqa: D202 pydocstyle clashes with Sphinx
+             namespace: str = 'main',
+             expire: Union[int, timedelta, None] = None,
+             preserve_expiration: Optional[bool] = False,
+             redis: "Optional[StrictRedis[Any]]" = None,
+             raise_key_error_delete: bool = False,
+             **redis_kwargs: Any) -> None:  # noqa: D202:R0913 pydocstyle clashes with Sphinx
         """
         Initialize a RedisDict instance.
 
@@ -58,14 +58,14 @@ class RedisDict:
             expire (Union[int, timedelta, None], optional): Expiration time for keys.
             preserve_expiration (Optional[bool], optional): Preserve expiration on key updates.
             redis (Optional[StrictRedis[Any]], optional): A Redis connection instance.
-            dict_compliant (bool): Enable strict Python dictionary behavior.
+            raise_key_error_delete (bool): Enable strict Python dict behavior raise if key not found when deleting.
             **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.
         """
 
         self.namespace: str = namespace
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
-        self.dict_compliant: bool = dict_compliant
+        self.raise_key_error_delete: bool = raise_key_error_delete
         if redis:
             redis.connection_pool.connection_kwargs["decode_responses"] = True
 
@@ -79,6 +79,7 @@ class RedisDict:
         self._max_string_size: int = 500 * 1024 * 1024  # 500mb
         self._temp_redis: Optional[StrictRedis[Any]] = None
         self._insertion_order_key = f"redis-dict-insertion-order-{namespace}"
+        self._batch_size: int = 200
 
     def _format_key(self, key: str) -> str:
         """
@@ -167,12 +168,7 @@ class RedisDict:
         formatted_key = self._format_key(key)
         formatted_value = self._format_value(value)
 
-        if not self.dict_compliant:
-            self._store_set(formatted_key, formatted_value)
-        else:
-            with self.pipeline():
-                self._insertion_order_add(formatted_key)
-                self._store_set(formatted_key, formatted_value)
+        self._store_set(formatted_key, formatted_value)
 
     def _load(self, key: str) -> Tuple[bool, Any]:
         """
@@ -391,9 +387,7 @@ class RedisDict:
         """
         formatted_key = self._format_key(key)
         result = self.redis.delete(formatted_key)
-        if self.dict_compliant:
-            self._insertion_order_delete(formatted_key)
-        if self.dict_compliant and not result:
+        if self.raise_key_error_delete and not result:
             raise KeyError(key)
 
     def __contains__(self, key: str) -> bool:
@@ -415,9 +409,7 @@ class RedisDict:
         Returns:
             int: The number of items in the RedisDict.
         """
-        if self.dict_compliant:
-            return self._insertion_order_len()
-        return sum(1 for _ in self._scan_keys(skip_dict_compliant=True))
+        return sum(1 for _ in self._scan_keys(full_scan=True))
 
     def __iter__(self) -> Iterator[str]:
         """
@@ -581,24 +573,19 @@ class RedisDict:
         """
         return f'{self.namespace}:{search_term}*'
 
-    def _scan_keys(self, search_term: str = '', skip_dict_compliant: bool = False) -> Iterator[str]:
-        """
-        Scan for Redis keys matching the given search term.
-
-        If dict_compliant mode is active and caller has already handled that case, skip_dict_compliant should be True.
+    def _scan_keys(self, search_term: str = '', full_scan: bool = False) -> Iterator[str]:
+        """Scan for Redis keys matching the given search term.
 
         Args:
             search_term (str): A search term to filter keys. Defaults to ''.
-            skip_dict_compliant (bool):  Set to True if dict_compliant is active and caller handled that case.
+            full_scan (bool): During full scan uses batches of self._batch_size by default 200
 
         Returns:
             Iterator[str]: An iterator of matching Redis keys.
         """
-        if not skip_dict_compliant and self.dict_compliant:
-            return self._insertion_order_iter()
-
         search_query = self._create_iter_query(search_term)
-        return self.get_redis.scan_iter(match=search_query)
+        count = None if full_scan else self._batch_size
+        return self.get_redis.scan_iter(match=search_query, count=count)
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:
         """Return the value for the given key if it exists, otherwise return the default value.
@@ -688,12 +675,10 @@ class RedisDict:
 
         """
         with self.pipeline():
-            if self.dict_compliant:
-                self._insertion_order_clear()
-            for key in self._scan_keys(skip_dict_compliant=True):
+            for key in self._scan_keys(full_scan=True):
                 self.redis.delete(key)
 
-    def _pop(self, formatted_key: str, default: Union[Any, object] = SENTINEL) -> Any:
+    def _pop(self, formatted_key: str) -> Any:
         """
         Remove the value associated with the given key and return it.
 
@@ -701,26 +686,11 @@ class RedisDict:
 
         Args:
             formatted_key (str): The formatted key to remove the value.
-            default (Optional[Any], optional): The value to return if the key is not found.
 
         Returns:
             Any: The value associated with the key or the default value.
-
-        Raises:
-            KeyError: If the key is not found and no default value is provided.
         """
-        if not self.dict_compliant:
-            value = self.get_redis.execute_command("GETDEL", formatted_key)
-        else:
-            with self.pipeline():
-                value = self.get_redis.execute_command("GETDEL", formatted_key)
-                self._insertion_order_delete(formatted_key)
-
-        if value is None:
-            if default is not SENTINEL:
-                return default
-            raise KeyError(formatted_key)
-        return self._transform(value)
+        return self.get_redis.execute_command("GETDEL", formatted_key)
 
     def pop(self, key: str, default: Union[Any, object] = SENTINEL) -> Any:
         """Analogous to a dictionary's pop method.
@@ -736,10 +706,15 @@ class RedisDict:
             Any: The value associated with the key or the default value.
 
         Raises:
-            KeyError: If the key is not found and no default value is provided.  # noqa: DAR402
+            KeyError: If the key is not found and no default value is provided.
         """
         formatted_key = self._format_key(key)
-        return self._pop(formatted_key, default)
+        value = self._pop(formatted_key)
+        if value is None:
+            if default is not SENTINEL:
+                return default
+            raise KeyError(formatted_key)
+        return self._transform(value)
 
     def popitem(self) -> Tuple[str, Any]:
         """Remove and return a random (key, value) pair from the RedisDict as a tuple.
@@ -754,12 +729,6 @@ class RedisDict:
         Raises:
             KeyError: If RedisDict is empty.
         """
-        if self.dict_compliant:
-            key = self._insertion_order_latest()
-            if key is None:
-                raise KeyError("popitem(): dictionary is empty")
-            return self._parse_key(key), self._pop(key)
-
         while True:
             key = self.key()
             if key is None:
@@ -768,6 +737,27 @@ class RedisDict:
                 return key, self.pop(key)
             except KeyError:
                 continue
+
+    def _create_set_get_command(self, formatted_key: str, formatted_value: str) -> Tuple[List[str], Dict[str, bool]]:
+        """Create SET command arguments and options for Redis. For setdefault operation.
+
+        Args:
+            formatted_key (str): The formatted Redis key.
+            formatted_value (str): The formatted value to be set.
+
+        Returns:
+            Tuple[List[str], Dict[str, bool]]: A tuple containing the command arguments and options.
+        """
+        # Setting {"get": True} enables parsing of the redis result as "GET", instead of "SET" command
+        options = {"get": True}
+        args = ["SET", formatted_key, formatted_value, "NX", "GET"]
+        if self.preserve_expiration:
+            args.append("KEEPTTL")
+        elif self.expire is not None:
+            expire_val = int(self.expire.total_seconds()) if isinstance(self.expire, timedelta) else self.expire
+            expire_str = str(1) if expire_val <= 1 else str(expire_val)
+            args.extend(["EX", expire_str])
+        return args, options
 
     def setdefault(self, key: str, default_value: Optional[Any] = None) -> Any:
         """Get value under key, and if not present set default value.
@@ -785,19 +775,8 @@ class RedisDict:
         formatted_key = self._format_key(key)
         formatted_value = self._format_value(default_value)
 
-        # Setting {"get": True} enables parsing of the redis result as "GET", instead of "SET" command
-        options = {"get": True}
-        args = ["SET", formatted_key, formatted_value, "NX", "GET"]
-        if self.preserve_expiration:
-            args.append("KEEPTTL")
-        elif self.expire is not None:
-            expire_val = int(self.expire.total_seconds()) if isinstance(self.expire, timedelta) else self.expire
-            expire_str = str(1) if expire_val <= 1 else str(expire_val)
-            args.extend(["EX", expire_str])
-
+        args, options = self._create_set_get_command(formatted_key, formatted_value)
         result = self.get_redis.execute_command(*args, **options)
-        if self.dict_compliant:
-            self._insertion_order_add(formatted_key)
 
         if result is None:
             return default_value
@@ -860,36 +839,6 @@ class RedisDict:
             int: The approximate size of the RedisDict in memory, in bytes.
         """
         return self.to_dict().__sizeof__()
-
-    def _insertion_order_add(self, formatted_key: str) -> bool:
-        return bool(self.redis.zadd(self._insertion_order_key, {formatted_key: time.time()}))
-
-    def _insertion_order_delete(self, formatted_key: str) -> bool:
-        return bool(self.redis.zrem(self._insertion_order_key, formatted_key))
-
-    def _insertion_order_iter(self) -> Iterator[str]:
-        first = True
-        cursor = -1
-        while cursor != 0:
-            if first:
-                cursor = 0
-                first = False
-            cursor, data = self.get_redis.zscan(
-                name=self._insertion_order_key,
-                cursor=cursor,
-                count=100
-            )
-            yield from (item[0] for item in data)
-
-    def _insertion_order_clear(self) -> bool:
-        return bool(self.redis.delete(self._insertion_order_key))
-
-    def _insertion_order_len(self) -> int:
-        return self.get_redis.zcard(self._insertion_order_key)
-
-    def _insertion_order_latest(self) -> Union[str, None]:
-        result = self.redis.zrange(self._insertion_order_key, -1, -1)
-        return result[0] if result else None
 
     def chain_set(self, iterable: List[str], v: Any) -> None:
         """

@@ -1,6 +1,6 @@
 import unittest
 
-from redis_dict import RedisDict
+from redis_dict import PythonRedisDict
 
 TEST_NAMESPACE_PREFIX = "TEST_NAMESPACE_PREFIX_eojfe"
 
@@ -16,7 +16,7 @@ class TestRedisDictInsertionOrder(unittest.TestCase):
 
     @classmethod
     def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
-        return RedisDict(namespace=namespace, **kwargs)
+        return PythonRedisDict(namespace=namespace, **kwargs)
 
     @classmethod
     def clear_test_namespace(cls):

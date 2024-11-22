@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 import redis
 
-from redis_dict import RedisDict
+from redis_dict import RedisDict, PythonRedisDict
 from redis_dict import RedisDictJSONEncoder, RedisDictJSONDecoder
 
 
@@ -65,13 +65,16 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
     @classmethod
     def clear_test_namespace(cls):
-        cls.redisdb.flushdb()
+        cls.redisdb.flushdb()  # TODO Remove flush make sure everything is deleted.
         cls.redisdb.delete(f"redis-dict-insertion-order-{TEST_NAMESPACE_PREFIX}")
         for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
             cls.redisdb.delete(key)
 
     def setUp(self):
         self.clear_test_namespace()
+
+    def _is_python_redis_dict(self, redis_dic):
+        return getattr(redis_dic, '_insertion_order_key', None) is not None
 
     def test_python3_all_methods_from_dictionary_are_implemented(self):
         redis_dic = self.create_redis_dict()
@@ -341,7 +344,8 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
     def test_dict_method_popitem_dict_compliant(self):
         redis_dic = self.create_redis_dict()
-        if not redis_dic.dict_compliant:
+
+        if self._is_python_redis_dict(redis_dic):
             return
 
         dic = dict()
@@ -504,7 +508,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(TypeError):
             redis_dic |= [1, 2]
 
-
     def test_dict_method_reversed_(self):
         """
         RedisDict without the flag dict_compliant insertion order doens't make use of insert_order.
@@ -522,7 +525,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         redis_dic.update(input_items)
         dic.update(input_items)
 
-        if redis_dic.dict_compliant:
+        if not self._is_python_redis_dict(redis_dic):
             self.assertEqual(list(dic), list(redis_dic))
             self.assertEqual(list(reversed(dic)), list(reversed(redis_dic)))
 
@@ -976,19 +979,18 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(result_redis_dic[k], v)
 
 
-class TestRedisDictBehaviorDictCompliant(TestRedisDictBehaviorDict):
+class TestPythonRedisDictBehaviorDict(TestRedisDictBehaviorDict):
     @classmethod
     def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
         config = redis_config.copy()
         config.update(kwargs)
-        config['dict_compliant'] = True
-        return RedisDict(namespace=namespace+"_DictCompliant", **config)
+        return PythonRedisDict(namespace=namespace+"_PythonRedisDict", **config)
 
     def test_dict_method_update_reversed(self):
         """
-        RedisDict Currently support insertion order as property with the flag dict_compliant=True.
+        PythonRedisDict Currently support insertion order with
         """
-        redis_dic = self.create_redis_dict(dict_compliant=True)
+        redis_dic = self.create_redis_dict()
         dic = dict()
 
         input_items = {
@@ -1014,7 +1016,7 @@ class TestRedisDictBehaviorDictCompliant(TestRedisDictBehaviorDict):
     def test_sequential__insertion_order_comparison(self):
         d = {}
         d2 = {}
-        rd = RedisDict(namespace="insertion_order_comparison", dict_compliant=True)
+        rd = self.create_redis_dict()
 
         # Testing for identity
         self.assertTrue(d is not d2)
@@ -1085,7 +1087,7 @@ class TestRedisDictBehaviorDictCompliant(TestRedisDictBehaviorDict):
     def test_sequential_reverse_iteration_comparison(self):
         d = {}
         d2 = {}
-        rd = RedisDict(namespace="reverse_iteration_comparison", dict_compliant=True)
+        rd = self.create_redis_dict()
 
         # Testing for identity
         self.assertTrue(d is not d2)
@@ -1111,7 +1113,7 @@ class TestRedisDictBehaviorDictCompliant(TestRedisDictBehaviorDict):
     def test_sequential_deletion_comparison(self):
         d = {}
         d2 = {}
-        rd = RedisDict(namespace="del_compare", dict_compliant=True)
+        rd =self.create_redis_dict()
 
         # Testing for identity
         self.assertTrue(d is not d2)
@@ -1283,7 +1285,7 @@ class TestRedisDict(unittest.TestCase):
         del self.r[key]
         self.assertEqual(self.redisdb.get(key), None)
 
-        if self.r.dict_compliant:
+        if self.r.raise_key_error_delete:
             with self.assertRaises(KeyError):
                 del self.r[key]
         else:
@@ -1451,6 +1453,7 @@ class TestRedisDict(unittest.TestCase):
     def test_set_and_popitem(self):
         self.r['key6'] = 'value6'
         key, value = self.r.popitem()
+
         self.assertEqual(key, 'key6')
         self.assertEqual(value, 'value6')
         self.assertNotIn('key6', self.r)
@@ -1633,13 +1636,12 @@ class TestRedisDict(unittest.TestCase):
             test_input.flushdb()
 
 
-class TestRedisDictCompliant(TestRedisDict):
+class TestPythonRedisDict(TestRedisDict):
     @classmethod
     def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
         config = redis_config.copy()
         config.update(kwargs)
-        config['dict_compliant'] = True
-        return RedisDict(namespace=namespace+"_DictCompliant", **config)
+        return PythonRedisDict(namespace=namespace+"_PythonRedisDict", **config)
 
     @classmethod
     def clear_test_namespace(cls):
@@ -1765,13 +1767,12 @@ class TestRedisDictSecurity(unittest.TestCase):
         self.assertEqual(self.r['foo3'], 'bar3')
 
 
-class TestRedisDictSecurityCompliant(TestRedisDictSecurity):
+class TestPythonRedisDictSecurity(TestRedisDictSecurity):
     @classmethod
     def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
         config = redis_config.copy()
         config.update(kwargs)
-        config['dict_compliant'] = True
-        return RedisDict(namespace=namespace+"_DictCompliant", **config)
+        return PythonRedisDict(namespace=namespace+"_PythonRedisDict", **config)
 
     @classmethod
     def clear_test_namespace(cls):
@@ -2009,12 +2010,12 @@ class TestRedisDictComparison(unittest.TestCase):
         self.assertTrue(list(d.items()) == list(rd.items()))
 
 
-class TestRedisDictComparisonCompliant(TestRedisDictComparison):
+class TestPythonRedisDictComparison(TestRedisDictComparison):
     def setUp(self):
-        self.r1 = RedisDict(namespace="test1", dict_compliant=True)
-        self.r2 = RedisDict(namespace="test2", dict_compliant=True)
-        self.r3 = RedisDict(namespace="test3", dict_compliant=True)
-        self.r4 = RedisDict(namespace="test4", dict_compliant=True)
+        self.r1 = PythonRedisDict(namespace="test1")
+        self.r2 = PythonRedisDict(namespace="test2")
+        self.r3 = PythonRedisDict(namespace="test3")
+        self.r4 = PythonRedisDict(namespace="test4")
 
         self.r1.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
         self.r2.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
@@ -2116,13 +2117,12 @@ class TestRedisDictPreserveExpire(unittest.TestCase):
         self.assertTrue(abs(actual_ttl_foo - actual_ttl_bar) <= 1)
 
 
-class TestRedisDictPreserveExpireComplaint(TestRedisDictPreserveExpire):
+class TestPythonRedisDictPreserveExpire(TestRedisDictPreserveExpire):
     @classmethod
     def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
         config = redis_config.copy()
         config.update(kwargs)
-        config['dict_compliant'] = True
-        return RedisDict(namespace=namespace+"_DictCompliant", **config)
+        return PythonRedisDict(namespace=namespace+"_PythonRedisDict", **config)
 
     @classmethod
     def clear_test_namespace(cls):
