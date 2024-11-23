@@ -1675,6 +1675,9 @@ class TestRedisDictSecurity(unittest.TestCase):
     def setUp(self):
         self.clear_test_namespace()
 
+    def _is_python_redis_dict(self, redis_dic):
+        return getattr(redis_dic, '_insertion_order_key', None) is not None
+
     def test_unicode_key(self):
         # Test handling of Unicode keys
         unicode_key = '你好'
@@ -1726,11 +1729,16 @@ class TestRedisDictSecurity(unittest.TestCase):
         self.r['foo3'] = 'bar3'
         with self.assertRaises(KeyError):
             self.r[injection_key]
+
+        if self._is_python_redis_dict(self.r):
+            return
         self.assertEqual(sorted(self.r.multi_get('foo')), sorted(['bar2', 'bar3']))
         self.assertEqual(self.r['foo2'], 'bar2')
         self.assertEqual(self.r['foo3'], 'bar3')
 
         self.r[injection_key] = "bar"
+        if self._is_python_redis_dict(self.r):
+            return
         self.assertEqual(sorted(self.r.multi_get('foo')), sorted(['bar2', 'bar3', 'bar']))
         self.assertEqual(self.r[injection_key], 'bar')
         self.assertEqual(self.r['foo2'], 'bar2')
@@ -2296,6 +2304,30 @@ class TestRedisDictMulti(unittest.TestCase):
 
         expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
         self.assertEqual(self.redisdb.get(expected_key), b'str:melons')
+
+class TestNotImplementedMethods(unittest.TestCase):
+    def setUp(self):
+        self.redis_dict = PythonRedisDict(namespace="test_namespace")  # Adjust constructor as needed
+
+    def test_multi_get_raises_not_implemented(self):
+        """Test that multi_get raises NotImplementedError with correct message"""
+        with self.assertRaisesRegex(NotImplementedError, "Not part of PythonRedisDict"):
+            self.redis_dict.multi_get("test_key")
+
+    def test_multi_chain_get_raises_not_implemented(self):
+        """Test that multi_chain_get raises NotImplementedError with correct message"""
+        with self.assertRaisesRegex(NotImplementedError, "Not part of PythonRedisDict"):
+            self.redis_dict.multi_chain_get(["key1", "key2"])
+
+    def test_multi_dict_raises_not_implemented(self):
+        """Test that multi_dict raises NotImplementedError with correct message"""
+        with self.assertRaisesRegex(NotImplementedError, "Not part of PythonRedisDict"):
+            self.redis_dict.multi_dict("test_key")
+
+    def test_multi_del_raises_not_implemented(self):
+        """Test that multi_del raises NotImplementedError with correct message"""
+        with self.assertRaisesRegex(NotImplementedError, "Not part of PythonRedisDict"):
+            self.redis_dict.multi_del("test_key")
 
 
 if __name__ == '__main__':

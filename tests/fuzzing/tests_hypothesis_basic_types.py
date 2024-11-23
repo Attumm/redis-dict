@@ -2,7 +2,7 @@ import unittest
 
 from hypothesis import given, strategies as st
 
-from redis_dict import RedisDict
+from redis_dict import RedisDict, PythonRedisDict
 
 
 class TestRedisDictWithHypothesis(unittest.TestCase):
@@ -112,6 +112,16 @@ class TestRedisDictWithHypothesis(unittest.TestCase):
         """
         self.r[key] = value
         self.assertEqual(self.r[key], value)
+
+
+class TestPythonRedisDictWithHypothesis(TestRedisDictWithHypothesis):
+    """
+    A test suite employing Hypothesis for property-based testing of PythonRedisDict.
+    """
+
+    def setUp(self):
+        self.r = PythonRedisDict(namespace="test_with_fuzzing")
+
 
 if __name__ == '__main__':
     unittest.main()

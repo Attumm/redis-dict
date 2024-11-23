@@ -1,18 +1,19 @@
 from datetime import datetime
 
-from redis_dict import RedisDict
+from redis_dict import RedisDict, PythonRedisDict
 
-dic = RedisDict(namespace='assert_test')
-assert 'random' not in dic
-dic['random'] = 4
-assert dic['random'] == 4
-assert 'random' in dic
-del dic['random']
-assert 'random' not in dic
+for obj in [RedisDict, PythonRedisDict]:
+    dic = obj(namespace='assert_test')
+    assert 'random' not in dic
+    dic['random'] = 4
+    assert dic['random'] == 4
+    assert 'random' in dic
+    del dic['random']
+    assert 'random' not in dic
 
-now = datetime.now()
-dic['datetime'] = now
-assert dic['datetime'] == now
-dic.clear()
+    now = datetime.now()
+    dic['datetime'] = now
+    assert dic['datetime'] == now
+    dic.clear()
 
 print("passed assert test")

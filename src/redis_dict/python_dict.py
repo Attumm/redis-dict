@@ -1,5 +1,5 @@
 """Python Redis Dict module."""
-from typing import Any, Iterator, Tuple, Union, Optional
+from typing import Any, Iterator, Tuple, Union, Optional, List, Dict
 
 import time
 from datetime import timedelta
@@ -200,13 +200,92 @@ class PythonRedisDict(RedisDict):
         self._insertion_order_delete(formatted_key)
         return self.get_redis.execute_command("GETDEL", formatted_key)
 
+    def multi_get(self, _key: str) -> List[Any]:
+        """
+        Not part of Python Redis Dict.
+
+        Args:
+            _key (str): Not used.
+
+        Raises:
+            NotImplementedError: Not part of Python Redis Dict.
+        """
+        raise NotImplementedError("Not part of PythonRedisDict")
+
+    def multi_chain_get(self, _keys: List[str]) -> List[Any]:
+        """
+        Not part of Python Redis Dict.
+
+        Args:
+            _keys (List[str]): Not used.
+
+        Raises:
+            NotImplementedError: Not part of Python Redis Dict.
+        """
+        raise NotImplementedError("Not part of PythonRedisDict")
+
+    def multi_dict(self, _key: str) -> Dict[str, Any]:
+        """
+        Not part of Python Redis Dict.
+
+        Args:
+            _key (str): Not used.
+
+        Raises:
+            NotImplementedError: Not part of Python Redis Dict.
+        """
+        raise NotImplementedError("Not part of PythonRedisDict")
+
+    def multi_del(self, _key: str) -> int:
+        """
+        Not part of Python Redis Dict.
+
+        Args:
+            _key (str): Not used.
+
+        Raises:
+            NotImplementedError: Not part of Python Redis Dict.
+        """
+        raise NotImplementedError("Not part of PythonRedisDict")
+
     def _insertion_order_add(self, formatted_key: str) -> bool:
+        """Record a key's insertion into the dictionary.
+
+        This private method updates the insertion order tracking when a new key is added
+        to the dictionary.
+
+        Args:
+            formatted_key (str): The key being added to the dictionary.
+
+        Returns:
+            bool: True if the insertion order was updated, False otherwise.
+        """
         return bool(self.redis.zadd(self._insertion_order_key, {formatted_key: time.time()}))
 
     def _insertion_order_delete(self, formatted_key: str) -> bool:
+        """Remove a key from the insertion order tracking.
+
+        This private method updates the insertion order tracking when a key is removed
+        from the dictionary.
+
+        Args:
+            formatted_key (str): The key being removed from the dictionary.
+
+        Returns:
+            bool: True if the insertion order was updated, False otherwise.
+        """
         return bool(self.redis.zrem(self._insertion_order_key, formatted_key))
 
     def _insertion_order_iter(self) -> Iterator[str]:
+        """Create an iterator for dictionary keys in their insertion order.
+
+        This private method allows for iterating over the dictionary's keys in the order
+        they were inserted.
+
+        Yields:
+            str: Keys in their insertion order.
+        """
+        # TODO add full_scan boolean and search terms.
         first = True
         cursor = -1
         while cursor != 0:
@@ -221,11 +300,32 @@ class PythonRedisDict(RedisDict):
             yield from (item[0] for item in data)
 
     def _insertion_order_clear(self) -> bool:
+        """Clear all insertion order information.
+
+        This private method resets the insertion order tracking for the dictionary.
+
+        Returns:
+            bool: True if the insertion order was successfully cleared, False otherwise.
+        """
         return bool(self.redis.delete(self._insertion_order_key))
 
     def _insertion_order_len(self) -> int:
+        """Get the number of keys in the insertion order tracking.
+
+        This private method returns the count of keys being tracked for insertion order.
+
+        Returns:
+            int: The number of keys in the insertion order tracking.
+        """
         return self.get_redis.zcard(self._insertion_order_key)
 
     def _insertion_order_latest(self) -> Union[str, None]:
+        """Get the most recently inserted key in the dictionary.
+
+        This private method retrieves the key that was most recently added to the dictionary.
+
+        Returns:
+            Union[str, None]: The most recently inserted key, or None if the dictionary is empty.
+        """
         result = self.redis.zrange(self._insertion_order_key, -1, -1)
         return result[0] if result else None
