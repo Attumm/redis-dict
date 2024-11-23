@@ -331,7 +331,7 @@ dic["1"] = "one"
 dic["2"] = "two"
 dic["3"] = "three"
 
-assert list(dict.keys()) == ["1", "2", "3"]
+assert list(dic.keys()) == ["1", "2", "3"]
 ```
 
 For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/tests/unit/extend_types_tests.py).
@@ -357,7 +357,7 @@ redis_config = {
     'port': 6380,
 }
 
-confid_dic = RedisDict(**redis_config)
+config_dic = RedisDict(**redis_config)
 ```
 
 ## Installation
