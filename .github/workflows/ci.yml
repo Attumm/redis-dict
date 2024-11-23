@@ -46,13 +46,14 @@ jobs:
         run: |
           python -m pylama -i E501,E231 src
 
-      - name: Run mypy strict
+      - name: Run type check with mypy strict
         run: |
           mypy
 
-      - name: Doctype Check
+      - name: Run Doctype Check
         run: |
           darglint src/redis_dict/
+          pydocstyle src/redis_dict/
 
       - name: Run Security check
         run: |
@@ -62,7 +63,7 @@ jobs:
         env:
           PYTHONPATH: src
         run: |
-          coverage run -m unittest discover -p "*tests.py"
+          coverage run -m unittest discover -s tests
 
       - name: Upload coverage reports to Codecov, send only once
         if: matrix.python-version == '3.12'

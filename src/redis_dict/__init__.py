@@ -2,10 +2,12 @@
 from importlib.metadata import version, PackageNotFoundError
 
 from .core import RedisDict
+from .python_dict import PythonRedisDict
 from .type_management import decoding_registry, encoding_registry, RedisDictJSONEncoder, RedisDictJSONDecoder
 
 __all__ = [
     'RedisDict',
+    'PythonRedisDict',
     'decoding_registry',
     'encoding_registry',
     'RedisDictJSONEncoder',

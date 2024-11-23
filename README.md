@@ -50,6 +50,48 @@ In Redis our example looks like this.
 "str:hello world"
 ```
 
+## Types
+
+### standard types
+RedisDict supports a range of Python data types, from basic types to nested structures.
+Basic types are handled natively, while complex data types like lists and dictionaries, RedisDict uses JSON serialization, specifically avoiding [pickle](https://docs.python.org/3/library/pickle.html) due to its security vulnerabilities within distributed computing contexts.
+Although the library supports nested structures, the recommended best practice is to use RedisDict as a shallow dictionary.
+This approach optimizes Redis database performance and efficiency by ensuring that each set and get operation efficiently maps to Redis's key-value storage capabilities, while still preserving the library's Pythonic interface.
+Following types are supported: 
+`str, int, float, bool, NoneType, list, dict, tuple, set, datetime, date, time, timedelta, Decimal, complex, bytes, UUID, OrderedDict, defaultdict, frozenset`
+```python
+from uuid import UUID
+from decimal import Decimal
+from collections import OrderedDict, defaultdict
+from datetime import datetime, date, time, timedelta
+
+dic = RedisDict()
+
+dic["string"] = "Hello World"
+dic["number"] = 42
+dic["float"] = 3.14
+dic["bool"] = True
+dic["None"] = None
+
+dic["list"] = [1, 2, 3]
+dic["dict"] = {"a": 1, "b": 2}
+dic["tuple"] = (1, 2, 3)
+dic["set"] = {1, 2, 3}
+
+dic["datetime"] = datetime.date(2024, 1, 1, 12, 30, 45)
+dic["date"] = date(2024, 1, 1)
+dic["time"] = time(12, 30, 45)
+dic["delta"] = timedelta(days=1, hours=2)
+
+dic["decimal"] = Decimal("3.14159")
+dic["complex"] = complex(1, 2)
+dic["bytes"] = bytes([72, 101, 108, 108, 111])
+dic["uuid"] = UUID('12345678-1234-5678-1234-567812345678')
+
+dic["ordered"] = OrderedDict([('a', 1), ('b', 2)])
+dic["default"] = defaultdict(int, {'a': 1, 'b': 2})
+dic["frozen"] = frozenset([1, 2, 3])
+```
 
 ### Namespaces
 Acting as an identifier for your dictionary across different systems, RedisDict employs namespaces for organized data management. When a namespace isn't specified, "main" becomes the default. Thus allowing for data organization across systems and projects with the same redis instance.
@@ -218,51 +260,6 @@ print(dic["d"])  # Output: 4
 For more advanced examples of RedisDict, please refer to the unit-test files in the repository. All features and functionalities are thoroughly tested in [unit tests (here)](https://github.com/Attumm/redis-dict/blob/main/tests/unit/tests.py#L1) Or take a look at load test for batching [load test](https://github.com/Attumm/redis-dict/blob/main/tests/load/load_test.py#L1).
 The unit-tests can be as used as a starting point.
 
-## Types
-
-### standard types
-RedisDict supports a range of Python data types, from basic types to nested structures.
-Basic types are handled natively, while complex data types like lists and dictionaries, RedisDict uses JSON serialization, specifically avoiding `pickle` due to its [security vulnerabilities](https://docs.python.org/3/library/pickle.html) in distributed computing contexts.
-Although the library supports nested structures, the recommended best practice is to use RedisDict as a shallow dictionary.
-This approach optimizes Redis database performance and efficiency by ensuring that each set and get operation efficiently maps to Redis's key-value storage capabilities, while still preserving the library's Pythonic interface.
-Following types are supported: 
-`str, int, float, bool, NoneType, list, dict, tuple, set, datetime, date, time, timedelta, Decimal, complex, bytes, UUID, OrderedDict, defaultdict, frozenset`
-```python
-from uuid import UUID
-from decimal import Decimal
-from collections import OrderedDict, defaultdict
-from datetime import datetime, date, time, timedelta
-
-dic = RedisDict()
-
-dic["string"] = "Hello World"
-dic["number"] = 42
-dic["float"] = 3.14
-dic["bool"] = True
-dic["None"] = None
-
-dic["list"] = [1, 2, 3]
-dic["dict"] = {"a": 1, "b": 2}
-dic["tuple"] = (1, 2, 3)
-dic["set"] = {1, 2, 3}
-
-dic["datetime"] = datetime.date(2024, 1, 1, 12, 30, 45)
-dic["date"] = date(2024, 1, 1)
-dic["time"] = time(12, 30, 45)
-dic["delta"] = timedelta(days=1, hours=2)
-
-dic["decimal"] = Decimal("3.14159")
-dic["complex"] = complex(1, 2)
-dic["bytes"] = bytes([72, 101, 108, 108, 111])
-dic["uuid"] = UUID('12345678-1234-5678-1234-567812345678')
-
-dic["ordered"] = OrderedDict([('a', 1), ('b', 2)])
-dic["default"] = defaultdict(int, {'a': 1, 'b': 2})
-dic["frozen"] = frozenset([1, 2, 3])
-```
-
-
-
 ### Nested types
 Nested Types
 RedisDict supports nested structures with mixed types through JSON serialization. The feature works by utilizing JSON encoding and decoding under the hood. While this represents an upgrade in functionality, the feature is not fully implemented and should be used with caution. For optimal performance, using shallow dictionaries is recommended.
@@ -322,6 +319,21 @@ assert result.name == person.name
 assert result.age == person.age
 ```
 
+### Insertion Order
+For insertion order, use the PythonRedisDict. This class is focused on Python dictionary behavior one-to-one.
+It will eventually become a drop-in replacement for dictionary. Currently, nested types and typed keys are not yet supported but will be added in the future.
+
+```python
+from redis_dict import PythonRedisDict
+
+dic = PythonRedisDict()
+dic["1"] = "one"
+dic["2"] = "two"
+dic["3"] = "three"
+
+assert list(dic.keys()) == ["1", "2", "3"]
+```
+
 For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/tests/unit/extend_types_tests.py).
 ### Redis Encryption
 Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
@@ -345,7 +357,7 @@ redis_config = {
     'port': 6380,
 }
 
-confid_dic = RedisDict(**redis_config)
+config_dic = RedisDict(**redis_config)
 ```
 
 ## Installation

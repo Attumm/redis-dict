@@ -7,10 +7,10 @@ from collections.abc import Mapping
 
 from redis import StrictRedis
 
-from redis_dict.type_management import SENTINEL, EncodeFuncType, DecodeFuncType, EncodeType, DecodeType
-from redis_dict.type_management import _create_default_encode, _create_default_decode, _default_decoder
-from redis_dict.type_management import encoding_registry as enc_reg
-from redis_dict.type_management import decoding_registry as dec_reg
+from .type_management import SENTINEL, EncodeFuncType, DecodeFuncType, EncodeType, DecodeType
+from .type_management import _create_default_encode, _create_default_decode, _default_decoder
+from .type_management import encoding_registry as enc_reg
+from .type_management import decoding_registry as dec_reg
 
 
 # pylint: disable=R0902, R0904
@@ -40,12 +40,14 @@ class RedisDict:
     encoding_registry: EncodeType = enc_reg
     decoding_registry: DecodeType = dec_reg
 
+    # pylint: disable=R0913
     def __init__(self,
-                 namespace: str = 'main',
-                 expire: Union[int, timedelta, None] = None,
-                 preserve_expiration: Optional[bool] = False,
-                 redis: "Optional[StrictRedis[Any]]" = None,
-                 **redis_kwargs: Any) -> None:
+             namespace: str = 'main',
+             expire: Union[int, timedelta, None] = None,
+             preserve_expiration: Optional[bool] = False,
+             redis: "Optional[StrictRedis[Any]]" = None,
+             raise_key_error_delete: bool = False,
+             **redis_kwargs: Any) -> None:  # noqa: D202:R0913 pydocstyle clashes with Sphinx
         """
         Initialize a RedisDict instance.
 
@@ -56,12 +58,14 @@ class RedisDict:
             expire (Union[int, timedelta, None], optional): Expiration time for keys.
             preserve_expiration (Optional[bool], optional): Preserve expiration on key updates.
             redis (Optional[StrictRedis[Any]], optional): A Redis connection instance.
+            raise_key_error_delete (bool): Enable strict Python dict behavior raise if key not found when deleting.
             **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.
         """
 
         self.namespace: str = namespace
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
+        self.raise_key_error_delete: bool = raise_key_error_delete
         if redis:
             redis.connection_pool.connection_kwargs["decode_responses"] = True
 
@@ -74,6 +78,8 @@ class RedisDict:
         self._iter: Iterator[str] = iter([])
         self._max_string_size: int = 500 * 1024 * 1024  # 500mb
         self._temp_redis: Optional[StrictRedis[Any]] = None
+        self._insertion_order_key = f"redis-dict-insertion-order-{namespace}"
+        self._batch_size: int = 200
 
     def _format_key(self, key: str) -> str:
         """
@@ -85,9 +91,21 @@ class RedisDict:
         Returns:
             str: The formatted key with the namespace prefix.
         """
-        return f'{self.namespace}:{str(key)}'
+        return f'{self.namespace}:{key}'
 
-    def _valid_input(self, val: Any, val_type: str) -> bool:
+    def _parse_key(self, key: str) -> str:
+        """
+        Parse a formatted key with the namespace prefix and type.
+
+        Args:
+            key (str): The key to be parsed to type.
+
+        Returns:
+            str: The parsed key
+        """
+        return key[len(self.namespace) + 1:]
+
+    def _valid_input(self, value: Any) -> bool:
         """
         Check if the input value is valid based on the specified value type.
 
@@ -96,35 +114,34 @@ class RedisDict:
         length does not exceed the maximum allowed size (500 MB).
 
         Args:
-            val (Any): The input value to be validated.
-            val_type (str): The type of the input value ("str", "int", "float", or "bool").
+            value (Any): The input value to be validated.
 
         Returns:
             bool: True if the input value is valid, False otherwise.
         """
-        if val_type == "str":
-            return len(val) < self._max_string_size
+        store_type = type(value).__name__
+        if store_type == "str":
+            return len(value) < self._max_string_size
         return True
 
-    def _format_value(self, key: str, value: Any) -> str:
+    def _format_value(self, value: Any) -> str:
         """Format a valid value with the type and encoded representation of the value.
 
         Args:
-            key (str): The key of the value to be formatted.
             value (Any): The value to be encoded and formatted.
-
-        Raises:
-            ValueError: If the value or key fail validation.
 
         Returns:
             str: The formatted value with the type and encoded representation of the value.
         """
-        store_type, key = type(value).__name__, str(key)
-        if not self._valid_input(value, store_type) or not self._valid_input(key, "str"):
-            raise ValueError("Invalid input value or key size exceeded the maximum limit.")
+        store_type = type(value).__name__
         encoded_value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
-
         return f'{store_type}:{encoded_value}'
+
+    def _store_set(self, formatted_key: str, formatted_value: str) -> None:
+        if self.preserve_expiration and self.get_redis.exists(formatted_key):
+            self.redis.set(formatted_key, formatted_value, keepttl=True)
+        else:
+            self.redis.set(formatted_key, formatted_value, ex=self.expire)
 
     def _store(self, key: str, value: Any) -> None:
         """
@@ -134,6 +151,9 @@ class RedisDict:
             key (str): The key to store the value.
             value (Any): The value to be stored.
 
+        Raises:
+            ValueError: If the value or key fail validation.
+
         Note: Validity checks could be refactored to allow for custom exceptions that inherit from ValueError,
         providing detailed information about why a specific validation failed.
         This would enable users to specify which validity checks should be executed, add custom validity functions,
@@ -142,12 +162,13 @@ class RedisDict:
         Allowing for simple dict set operation, but only cache data that makes sense.
 
         """
+        if not self._valid_input(value) or not self._valid_input(key):
+            raise ValueError("Invalid input value or key size exceeded the maximum limit.")
+
         formatted_key = self._format_key(key)
-        formatted_value = self._format_value(key, value)
-        if self.preserve_expiration and self.redis.exists(formatted_key):
-            self.redis.set(formatted_key, formatted_value, keepttl=True)
-        else:
-            self.redis.set(formatted_key, formatted_value, ex=self.expire)
+        formatted_value = self._format_value(value)
+
+        self._store_set(formatted_key, formatted_value)
 
     def _load(self, key: str) -> Tuple[bool, Any]:
         """
@@ -213,7 +234,7 @@ class RedisDict:
             decode: Optional[DecodeFuncType] = None,
             encoding_method_name: Optional[str] = None,
             decoding_method_name: Optional[str] = None,
-    ) -> None:
+    ) -> None: # noqa: D202 pydocstyle clashes with Sphinx
         """
         Extend RedisDict to support a custom type in the encode/decode mapping.
 
@@ -349,10 +370,25 @@ class RedisDict:
         """
         Delete the value associated with the given key, analogous to a dictionary.
 
+        For distributed systems, we intentionally don't raise KeyError when the key doesn't exist.
+        This ensures identical code running across different systems won't randomly fail
+        when another system already achieved the deletion goal (key not existing).
+
+        Warning:
+            Setting dict_compliant=True will raise KeyError when key doesn't exist.
+            This is not recommended for distributed systems as it can cause KeyErrors
+            that are hard to debug when multiple systems interact with the same keys.
+
         Args:
-            key (str): The key to delete the value.
+            key (str): The key to delete
+
+        Raises:
+            KeyError: Only if dict_compliant=True and key doesn't exist
         """
-        self.redis.delete(self._format_key(key))
+        formatted_key = self._format_key(key)
+        result = self.redis.delete(formatted_key)
+        if self.raise_key_error_delete and not result:
+            raise KeyError(key)
 
     def __contains__(self, key: str) -> bool:
         """
@@ -373,7 +409,7 @@ class RedisDict:
         Returns:
             int: The number of items in the RedisDict.
         """
-        return len(list(self._scan_keys()))
+        return sum(1 for _ in self._scan_keys(full_scan=True))
 
     def __iter__(self) -> Iterator[str]:
         """
@@ -470,12 +506,12 @@ class RedisDict:
         return self
 
     @classmethod
-    def __class_getitem__(cls: Type['RedisDict'], key: Any) -> Type['RedisDict']:
+    def __class_getitem__(cls: Type['RedisDict'], _key: Any) -> Type['RedisDict']:
         """
         Enable type hinting support like RedisDict[str, Any].
 
         Args:
-            key (Any): The type parameter(s) used in the type hint.
+            _key (Any): The type parameter(s) used in the type hint.
 
         Returns:
             Type[RedisDict]: The class itself, enabling type hint usage.
@@ -537,18 +573,19 @@ class RedisDict:
         """
         return f'{self.namespace}:{search_term}*'
 
-    def _scan_keys(self, search_term: str = '') -> Iterator[str]:
-        """
-        Scan for Redis keys matching the given search term.
+    def _scan_keys(self, search_term: str = '', full_scan: bool = False) -> Iterator[str]:
+        """Scan for Redis keys matching the given search term.
 
         Args:
             search_term (str): A search term to filter keys. Defaults to ''.
+            full_scan (bool): During full scan uses batches of self._batch_size by default 200
 
         Returns:
             Iterator[str]: An iterator of matching Redis keys.
         """
         search_query = self._create_iter_query(search_term)
-        return self.get_redis.scan_iter(match=search_query)
+        count = None if full_scan else self._batch_size
+        return self.get_redis.scan_iter(match=search_query, count=count)
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:
         """Return the value for the given key if it exists, otherwise return the default value.
@@ -636,12 +673,24 @@ class RedisDict:
         Redis pipelining is employed to group multiple commands into a single request, minimizing
         network round-trip time, latency, and I/O load, thereby enhancing the overall performance.
 
-        It is important to highlight that the clear method can be safely executed within
-        the context of an initiated pipeline operation.
         """
         with self.pipeline():
-            for key in self:
-                del self[key]
+            for key in self._scan_keys(full_scan=True):
+                self.redis.delete(key)
+
+    def _pop(self, formatted_key: str) -> Any:
+        """
+        Remove the value associated with the given key and return it.
+
+        Or return the default value if the key is not found.
+
+        Args:
+            formatted_key (str): The formatted key to remove the value.
+
+        Returns:
+            Any: The value associated with the key or the default value.
+        """
+        return self.get_redis.execute_command("GETDEL", formatted_key)
 
     def pop(self, key: str, default: Union[Any, object] = SENTINEL) -> Any:
         """Analogous to a dictionary's pop method.
@@ -660,18 +709,19 @@ class RedisDict:
             KeyError: If the key is not found and no default value is provided.
         """
         formatted_key = self._format_key(key)
-        value = self.get_redis.execute_command("GETDEL", formatted_key)
+        value = self._pop(formatted_key)
         if value is None:
             if default is not SENTINEL:
                 return default
             raise KeyError(formatted_key)
-
         return self._transform(value)
 
     def popitem(self) -> Tuple[str, Any]:
         """Remove and return a random (key, value) pair from the RedisDict as a tuple.
 
         This method is analogous to the `popitem` method of a standard Python dictionary.
+
+        if dict_compliant set true stays true to In Python 3.7+, removes the last inserted item (LIFO order)
 
         Returns:
             tuple: A tuple containing a randomly chosen (key, value) pair.
@@ -688,6 +738,27 @@ class RedisDict:
             except KeyError:
                 continue
 
+    def _create_set_get_command(self, formatted_key: str, formatted_value: str) -> Tuple[List[str], Dict[str, bool]]:
+        """Create SET command arguments and options for Redis. For setdefault operation.
+
+        Args:
+            formatted_key (str): The formatted Redis key.
+            formatted_value (str): The formatted value to be set.
+
+        Returns:
+            Tuple[List[str], Dict[str, bool]]: A tuple containing the command arguments and options.
+        """
+        # Setting {"get": True} enables parsing of the redis result as "GET", instead of "SET" command
+        options = {"get": True}
+        args = ["SET", formatted_key, formatted_value, "NX", "GET"]
+        if self.preserve_expiration:
+            args.append("KEEPTTL")
+        elif self.expire is not None:
+            expire_val = int(self.expire.total_seconds()) if isinstance(self.expire, timedelta) else self.expire
+            expire_str = str(1) if expire_val <= 1 else str(expire_val)
+            args.extend(["EX", expire_str])
+        return args, options
+
     def setdefault(self, key: str, default_value: Optional[Any] = None) -> Any:
         """Get value under key, and if not present set default value.
 
@@ -702,19 +773,11 @@ class RedisDict:
             Any: The value associated with the key or the default value.
         """
         formatted_key = self._format_key(key)
-        formatted_value = self._format_value(key, default_value)
+        formatted_value = self._format_value(default_value)
 
-        # Setting {"get": True} enables parsing of the redis result as "GET", instead of "SET" command
-        options = {"get": True}
-        args = ["SET", formatted_key, formatted_value, "NX", "GET"]
-        if self.preserve_expiration:
-            args.append("KEEPTTL")
-        elif self.expire is not None:
-            expire_val = int(self.expire.total_seconds()) if isinstance(self.expire, timedelta) else self.expire
-            expire_str = str(1) if expire_val <= 1 else str(expire_val)
-            args.extend(["EX", expire_str])
-
+        args, options = self._create_set_get_command(formatted_key, formatted_value)
         result = self.get_redis.execute_command(*args, **options)
+
         if result is None:
             return default_value
 

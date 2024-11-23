@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "redis-dict"
-version = "3.1.2"
+version = "3.2.0"
 description = "Dictionary with Redis as storage backend"
 authors = [
     {name = "Melvin Bijman", email = "bijman.m.m@gmail.com"},

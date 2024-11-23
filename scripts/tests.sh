@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-python3 -m venv .venv_dev
-source .venv_dev/bin/activate
+if [ ! -d ".venv_dev" ]; then
+    echo "Virtual environment not found. Running build script..."
+    ./scripts/build_dev.sh
+fi
 
-python -m unittest discover -s tests
-
-deactivate
+.venv_dev/bin/python -m unittest discover -s tests --failfast -v
