@@ -1054,6 +1054,17 @@ class TestRedisDict(unittest.TestCase):
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
+    @unittest.skip
+    def pubsub_callback(self, message):
+        self.assertEqual(message['type'], 'pmessage')
+        self.assertEqual(message['pattern'], self.r.to_pbus_key('pubsub_channel'))
+        self.r.unsubscribe()
+
+    def test_pubsub(self):
+        self.r.subscribe('pubsub_channel', self.pubsub_callback)
+        self.r.start_pubsub()
+        self.r.__setitem__('pubsub_channel', 'test')
+
 
 class TestRedisDictSecurity(unittest.TestCase):
     @classmethod
