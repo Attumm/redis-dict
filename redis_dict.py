@@ -141,6 +141,30 @@ class RedisDict:
         self.preserve_expiration: Optional[bool] = preserve_expiration
         self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
+        self.pubsub = self.redis.pubsub(ignore_subscribe_messages=True)
+
+    def to_pbus_key(self, key:str):
+        return '__key*__:{}'.format(key)
+
+    def subscribe(self, key:str, callback: Callable[[Any], None]):
+        """subscribe to a channel"""
+        if self.pubsub is None:
+            raise ValueError("pubsub is not initialized")
+        psub_key = self.to_pbus_key(key)
+        self.pubsub.subscribe(**{psub_key: callback})
+
+    def unsubscribe(self):
+        """unsubscribe to a channel"""
+        if self.pubsub:
+            self.pubsub.unsubscribe()
+        else:
+            raise ValueError("pubsub is not initialized")
+
+    def start_pubsub(self):
+        if self.pubsub:
+            self.pubsub.run_in_thread()
+        else:
+            raise ValueError("pubsub is not initialized")
 
     def _format_key(self, key: str) -> str:
         """
