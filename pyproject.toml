@@ -62,7 +62,7 @@ dev = [
 
     "attrs==22.2.0",
     "cffi==1.15.1",
-    "cryptography==43.0.1",
+    "cryptography==44.0.1",
     "exceptiongroup==1.1.1",
     "future==0.18.3",
     "pycparser==2.21",
