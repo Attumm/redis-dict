@@ -1,6 +1,7 @@
 import json
 from typing import Any, Callable, Dict, Iterator, Set, List, Tuple, Union, Optional
 from redis import StrictRedis
+from queue import Queue
 
 from contextlib import contextmanager
 
@@ -125,6 +126,7 @@ class RedisDict:
                  namespace: str = 'main',
                  expire: Union[int, None] = None,
                  preserve_expiration: Optional[bool] = False,
+                 output_queue: Optional[Queue] = None,
                  **redis_kwargs: Any) -> None:
         """
         Initialize a RedisDict instance.
@@ -142,26 +144,45 @@ class RedisDict:
         self.redis: StrictRedis[Any] = StrictRedis(decode_responses=True, **redis_kwargs)
         self.get_redis: StrictRedis[Any] = self.redis
         self.pubsub = self.redis.pubsub(ignore_subscribe_messages=True)
+        if output_queue:
+            self.pubsub_queue = output_queue
 
     def to_pbus_key(self, key:str):
         return '__key*__:{}'.format(key)
 
-    def subscribe(self, key:str, callback: Callable[[Any], None]):
-        """subscribe to a channel"""
+    def subscribe_callback(self, message):
+        if self.pubsub_queue:
+            self.pubsub_queue.put(message)
+        else:
+            print(message)
+
+    def subscribe(self, key: str) -> None:
+        """
+        Subscribe to a channel. need to set the pubsub_queue before calling this method
+        and start_pubsub to start the pubsub system
+
+        Args:
+            key (str): The key to subscribe to.
+        """
         if self.pubsub is None:
             raise ValueError("pubsub is not initialized")
+        if self.pubsub_queue is None:
+            raise ValueError("pubsub_queue is not initialized, subscribe is not posible")
         psub_key = self.to_pbus_key(key)
-        self.pubsub.subscribe(**{psub_key: callback})
+        self.pubsub.psubscribe(**{psub_key: self.subscribe_callback})
+        self.start_pubsub()
 
     def unsubscribe(self):
         """unsubscribe to a channel"""
         if self.pubsub:
-            self.pubsub.unsubscribe()
+            self.pubsub.punsubscribe()
+            self.pubsub.close()
         else:
             raise ValueError("pubsub is not initialized")
 
     def start_pubsub(self):
-        if self.pubsub:
+        """Start the pub/sub system and listen for messages."""
+        if self.pubsub and self.pubsub_queue:
             self.pubsub.run_in_thread()
         else:
             raise ValueError("pubsub is not initialized")
