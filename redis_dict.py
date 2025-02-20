@@ -176,7 +176,6 @@ class RedisDict:
         """unsubscribe to a channel"""
         if self.pubsub:
             self.pubsub.punsubscribe()
-            self.pubsub.close()
         else:
             raise ValueError("pubsub is not initialized")
 
