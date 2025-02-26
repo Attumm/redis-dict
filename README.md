@@ -4,7 +4,7 @@
 [![codecov](https://codecov.io/gh/Attumm/redis-dict/graph/badge.svg?token=Lqs7McQGEs)](https://codecov.io/gh/Attumm/redis-dict)
 [![Downloads](https://static.pepy.tech/badge/redis-dict/month)](https://pepy.tech/project/redis-dict)
 
-RedisDict is a Python library that offers a convenient and familiar interface for interacting with Redis, treating it as if it were a Python dictionary. Its goal is to help developers write clean, Pythonic code while using Redis as a storage solution for seamless distributed computing. This simple yet powerful library utilizes Redis as a key-value store and supports various data types, including strings, integers, floats, booleans, lists, and dictionaries. Additionally, developers can extend RedisDict to work with custom objects.
+RedisDict is a Python library that offers a convenient and familiar interface for interacting with Redis, treating it as if it were a Python dictionary. Its goal is to help developers write clean, Pythonic code while using Redis as a storage solution for seamless distributed computing. Redis-Dict utilizes Redis as a key-value store and supports various data types, including strings, integers, floats, booleans, lists, and dictionaries. Additionally, developers can extend RedisDict to work with custom objects.
 
 The library includes utility functions for more complex use cases such as caching, batching, and more. By leveraging Redis for efficient key-value storage, RedisDict enables high-performance data management, maintaining efficiency even with large datasets and Redis instances.
 
@@ -21,7 +21,6 @@ The library includes utility functions for more complex use cases such as cachin
 * Encryption: allows for storing data encrypted, while retaining the simple dictionary interface.
 
 ## Example
-Redis is an exceptionally fast database when used appropriately. RedisDict leverages Redis for efficient key-value storage, enabling high-performance data management.
 
 ```bash
 pip install redis-dict
@@ -38,6 +37,8 @@ True
 >>> dic["baz"] = "hello world"
 >>> dic
 {'foo': 42, 'baz': 'hello world'}
+>>> from datetime import datetime
+>>> dic["datetime"] = datetime.now()
 ```
 In Redis our example looks like this.
 ```
@@ -48,11 +49,13 @@ In Redis our example looks like this.
 "int:42"
 127.0.0.1:6379> GET "main:baz"
 "str:hello world"
+127.0.0.1:6379> GET "main:datetime"
+"datetime:2025-02-20T19:37:54.214274"
 ```
 
 ## Types
 
-### standard types
+### Standard types
 RedisDict supports a range of Python data types, from basic types to nested structures.
 Basic types are handled natively, while complex data types like lists and dictionaries, RedisDict uses JSON serialization, specifically avoiding [pickle](https://docs.python.org/3/library/pickle.html) due to its security vulnerabilities within distributed computing contexts.
 Although the library supports nested structures, the recommended best practice is to use RedisDict as a shallow dictionary.
@@ -60,6 +63,8 @@ This approach optimizes Redis database performance and efficiency by ensuring th
 Following types are supported: 
 `str, int, float, bool, NoneType, list, dict, tuple, set, datetime, date, time, timedelta, Decimal, complex, bytes, UUID, OrderedDict, defaultdict, frozenset`
 ```python
+from redis_dict import RedisDict
+
 from uuid import UUID
 from decimal import Decimal
 from collections import OrderedDict, defaultdict
@@ -167,7 +172,7 @@ dic = RedisDict(namespace="example")
 print(dic["foo"]) # outputs "bar"
 ```
 
-## More Examples
+## Additional Examples
 
 ### Caching made simple
 ```python
@@ -254,6 +259,19 @@ print(key, value)  # Output: 'c' 3 (example)
 # Using setdefault() method
 dic.setdefault("d", 4)
 print(dic["d"])  # Output: 4
+
+from datetime import datetime, timedelta
+
+# Redis dict support datetime
+dic["now"] = datetime.now()
+print(dic["now"])  # 2025-02-20 19:25:38.835816
+
+# SRedis dict support timedelta and more types
+dic["time"] = timedelta(days=1)
+print(dic["time"])  # 1 day, 0:00:00
+
+print(dic)
+{'now': datetime.datetime(2025, 2, 20, 19, 25, 38, 835816), 'time': datetime.timedelta(days=1), 'b': 2, 'd': 4}
 ```
 
 ### Additional Examples
@@ -261,7 +279,6 @@ For more advanced examples of RedisDict, please refer to the unit-test files in 
 The unit-tests can be as used as a starting point.
 
 ### Nested types
-Nested Types
 RedisDict supports nested structures with mixed types through JSON serialization. The feature works by utilizing JSON encoding and decoding under the hood. While this represents an upgrade in functionality, the feature is not fully implemented and should be used with caution. For optimal performance, using shallow dictionaries is recommended.
 ```python
 from datetime import datetime, timedelta
@@ -283,11 +300,9 @@ encoded = json.dumps(data, cls=RedisDictJSONEncoder)
 result = json.loads(encoded, cls=RedisDictJSONDecoder)
 ```
 
-
 ### Extending RedisDict with Custom Types
 
 RedisDict supports custom type serialization. Here's how to add a new type:
-
 
 ```python
 import json
