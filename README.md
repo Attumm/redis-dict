@@ -1,7 +1,9 @@
 # Redis-dict
+
 [![PyPI](https://img.shields.io/pypi/v/redis-dict.svg)](https://pypi.org/project/redis-dict/)
 [![CI](https://github.com/Attumm/redis-dict/actions/workflows/ci.yml/badge.svg)](https://github.com/Attumm/redis-dict/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Attumm/redis-dict/graph/badge.svg?token=Lqs7McQGEs)](https://codecov.io/gh/Attumm/redis-dict)
+[![Documentation](https://img.shields.io/badge/docs-sphinx-blue.svg)](https://attumm.github.io/redis-dict/)
 [![Downloads](https://static.pepy.tech/badge/redis-dict/month)](https://pepy.tech/project/redis-dict)
 
 RedisDict is a Python library that offers a convenient and familiar interface for interacting with Redis, treating it as if it were a Python dictionary. Its goal is to help developers write clean, Pythonic code while using Redis as a storage solution for seamless distributed computing. Redis-Dict utilizes Redis as a key-value store and supports various data types, including strings, integers, floats, booleans, lists, and dictionaries. Additionally, developers can extend RedisDict to work with custom objects.
