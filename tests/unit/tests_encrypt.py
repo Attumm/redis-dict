@@ -18,20 +18,11 @@ class EncryptedStringClassBased(str):
     without changing how the string is used in your Python code.
 
     The class uses AES encryption with Galois/Counter Mode (GCM) for secure
-    encryption and decryption. It is designed for testing purposes
-    the use of proper encryption techniques, including initialization vectors (IV)
-    and nonces.
+    encryption and decryption.
 
     Attributes:
-        nonce (bytes): A class-level attribute representing the nonce used for encryption.
         iv (bytes): The initialization vector, retrieved from an environment variable.
         key (bytes): The encryption key, retrieved from an environment variable.
-
-    Note:
-        While this class uses actual encryption for testing, in real-world applications,
-        more robust key management and security practices should be implemented. Never
-        use hardcoded nonces or store encryption keys in environment variables without
-        proper security measures in production environments.
     """
 
     def __init__(self, value: str):
