@@ -8,6 +8,11 @@ RedisDict is a Python library that offers a convenient and familiar interface fo
 
 The library includes utility functions for more complex use cases such as caching, batching, and more. By leveraging Redis for efficient key-value storage, RedisDict enables high-performance data management, maintaining efficiency even with large datasets and Redis instances.
 
+
+[Usage](#Usage) |  [Types](#Types) | [Expiration](#Expiration) | [Batching](#Batching) | [Custom Types](#Custom-Types) | [Security](#Security)
+
+---
+
 ## Features
 
 * Dictionary-like interface: Use familiar Python dictionary syntax to interact with Redis.
@@ -20,7 +25,7 @@ The library includes utility functions for more complex use cases such as cachin
 * Custom data: types: Add custom types encoding/decoding to store your data types.
 * Encryption: allows for storing data encrypted, while retaining the simple dictionary interface.
 
-## Example
+## Usage
 
 ```bash
 pip install redis-dict
@@ -275,7 +280,7 @@ print(dic)
 ```
 
 ### Additional Examples
-For more advanced examples of RedisDict, please refer to the unit-test files in the repository. All features and functionalities are thoroughly tested in [unit tests (here)](https://github.com/Attumm/redis-dict/blob/main/tests/unit/tests.py#L1) Or take a look at load test for batching [load test](https://github.com/Attumm/redis-dict/blob/main/tests/load/load_test.py#L1).
+For more advanced examples of RedisDict, please refer to the unit-test files in the repository. All features and functionalities are thoroughly tested in [unit tests (here)](https://github.com/Attumm/redis-dict/blob/main/tests/unit/tests.py#L1) Or take a look at load test for batching [load test](https://github.com/Attumm/redis-dict/blob/main/tests/load/tests_load.py#L1).
 The unit-tests can be as used as a starting point.
 
 ### Nested types
@@ -300,6 +305,7 @@ encoded = json.dumps(data, cls=RedisDictJSONEncoder)
 result = json.loads(encoded, cls=RedisDictJSONDecoder)
 ```
 
+## Custom Types
 ### Extending RedisDict with Custom Types
 
 RedisDict supports custom type serialization. Here's how to add a new type:
@@ -349,13 +355,21 @@ dic["3"] = "three"
 assert list(dic.keys()) == ["1", "2", "3"]
 ```
 
-For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/tests/unit/extend_types_tests.py).
-### Redis Encryption
+For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/tests/unit/tests_extend_types.py).
+
+## Security
+
+Security is an important aspect of production projects. Redis-dict was developed within a strict compliance environment.
+Best practice in Redis is to use passwords and network encryption through TLS. However, Redis-dict offers an additional feature by using extended types.
+It is possible to store the values of keys encrypted. The values are encrypted with AES GCM, which is currently considered best practice for security.
+
+### Storage Encryption
+For storing data values encrypted can be achieved using encrypted values, more documentation on that later.
+For now code example within this test file. [encrypted test](https://github.com/Attumm/redis-dict/blob/main/tests/unit/tests_encrypt.py).
+
+### Encryption Network
 Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
 [Setup guide](https://github.com/Attumm/redis-dict/blob/main/docs/tutorials/encrypted_redis.MD)
-
-### Redis Storage Encryption
-For storing encrypted data values, it's possible to use extended types. Take a look at this [encrypted test](https://github.com/Attumm/redis-dict/blob/main/tests/unit/encrypt_tests.py).
 
 ### Tests
 The RedisDict library includes a comprehensive suite of tests that ensure its correctness and resilience. The test suite covers various data types, edge cases, and error handling scenarios. It also employs the Hypothesis library for property-based testing, which provides fuzz testing to evaluate the implementation

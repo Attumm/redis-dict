@@ -12,7 +12,7 @@ from redis_dict import RedisDict
 class EncryptedStringClassBased(str):
     """A class that behaves like a string but enables encrypted storage in Redis dictionaries.
 
-    This class inherits from the built-in str class, providing all standard string
+    This class inherits from the built-in `str` class, providing all standard string
     functionality. However, when stored in a RedisDict, it is automatically
     encrypted. This allows for transparent encryption of sensitive data in Redis
     without changing how the string is used in your Python code.
@@ -28,42 +28,102 @@ class EncryptedStringClassBased(str):
         key (bytes): The encryption key, retrieved from an environment variable.
 
     Note:
-    While this class uses actual encryption for testing, in real-world applications,
-    more robust key management and security practices should be implemented. Never
-    use hardcoded nonces or store encryption keys in environment variables without
-    proper security measures in production environments.
+        While this class uses actual encryption for testing, in real-world applications,
+        more robust key management and security practices should be implemented. Never
+        use hardcoded nonces or store encryption keys in environment variables without
+        proper security measures in production environments.
     """
-    nonce = b"0123456789abcdef"
 
     def __init__(self, value: str):
+        """Initializes an EncryptedStringClassBased object.
+
+        Retrieves the initialization vector (IV) and encryption key from
+        environment variables 'ENCRYPTION_IV' and 'ENCRYPTION_KEY' respectively,
+        decoding them from Base64.
+
+        Args:
+            value (str): The string value to be encapsulated and potentially encrypted.
+        """
         self.value = value
         self.iv = base64.b64decode(os.environ['ENCRYPTION_IV'])
         self.key = base64.b64decode(os.environ['ENCRYPTION_KEY'])
 
     def __str__(self):
+        """Returns the decrypted string value.
+
+        This method is called when the object is used in a string context,
+        returning the original string value.
+
+        Returns:
+            str: The original string value.
+        """
         return self.value
 
     def __repr__(self):
+        """Returns a string representation of the EncryptedStringClassBased object.
+
+        This method provides a string that, when evaluated, would recreate the object.
+
+        Returns:
+            str: A string representation of the object, in the format
+                 "EncryptedStringClassBased('value')".
+        """
         return f"EncryptedStringClassBased('{self.value}')"
 
     def encode(self) -> str:
-        cipher = Cipher(algorithms.AES(self.key), modes.GCM(self.nonce), backend=default_backend())
+        """Encrypts the string value using AES-GCM.
+
+        Retrieves the encryption key and initialization vector (IV) from instance attributes
+        (which are loaded from environment variables during initialization).
+        Generates a random nonce for each encryption operation.
+        Uses AES in GCM mode to encrypt the string value.
+        Combines the nonce, IV, GCM tag, and ciphertext, then Base64 encodes the result.
+
+        Returns:
+            str: Base64 encoded string containing the nonce, IV, GCM tag, and ciphertext.
+                 This encoded string represents the encrypted value.
+        """
+        key = self.key or base64.b64decode(os.environ['ENCRYPTION_KEY'])
+        iv = self.iv or base64.b64decode(os.environ['ENCRYPTION_IV'])
+
+        nonce = os.urandom(16)
+
+        cipher = Cipher(algorithms.AES(key), modes.GCM(nonce), backend=default_backend())
         encryptor = cipher.encryptor()
 
         encrypted_data = encryptor.update(self.value.encode('utf-8', errors='surrogatepass')) + encryptor.finalize()
-        return str(base64.b64encode(self.iv + self.nonce + encryptor.tag + encrypted_data).decode('utf-8'))
+
+        combined_data = nonce + iv + encryptor.tag + encrypted_data
+        return str(base64.b64encode(combined_data).decode('utf-8'))
 
     @classmethod
     def decode(cls, encrypted_value: str) -> 'EncryptedStringClassBased':
-        iv = base64.b64decode(os.environ['ENCRYPTION_IV'])
+        """Decrypts an encrypted string value.
+
+        Decodes the Base64 encoded encrypted string.
+        Extracts the nonce, IV, GCM tag, and ciphertext from the decoded bytes.
+        Retrieves the encryption key and initialization vector (IV) from environment variables.
+        Uses AES in GCM mode with the extracted nonce and tag to decrypt the ciphertext.
+
+        Args:
+            encrypted_value (str): Base64 encoded string representing the encrypted value.
+
+        Returns:
+            EncryptedStringClassBased: A new `EncryptedStringClassBased` object containing
+                                     the decrypted string value.
+        """
         key = base64.b64decode(os.environ['ENCRYPTION_KEY'])
-        nonce = cls.nonce
+        iv = base64.b64decode(os.environ['ENCRYPTION_IV'])
 
-        encrypted_data = base64.b64decode(encrypted_value)
-        tag = encrypted_data[len(iv) + len(nonce):len(iv) + len(nonce) + 16]
-        ciphertext = encrypted_data[len(iv) + len(nonce) + 16:]
+        encrypted_data_bytes = base64.b64decode(encrypted_value)
 
-        cipher = Cipher(algorithms.AES(key), modes.GCM(nonce, tag), backend=default_backend())
+        nonce_from_storage = encrypted_data_bytes[:16]
+        iv_from_storage = encrypted_data_bytes[16:16 + len(iv)]
+        tag = encrypted_data_bytes[16 + len(iv):16 + len(iv) + 16]
+        ciphertext = encrypted_data_bytes[16 + len(iv) + 16:]
+
+        cipher = Cipher(algorithms.AES(key), modes.GCM(nonce_from_storage, tag),
+                        backend=default_backend())
         decryptor = cipher.decryptor()
 
         decrypted_data = decryptor.update(ciphertext) + decryptor.finalize()
@@ -108,13 +168,13 @@ class TestRedisDictEncryptionClassBased(unittest.TestCase):
         iv = base64.b64decode(os.environ['ENCRYPTION_IV'])
         key = base64.b64decode(os.environ['ENCRYPTION_KEY'])
 
-        encode_encrypted_function = encode_encrypted_string(iv, key, EncryptedStringClassBased.nonce)
+        #encode_encrypted_function = encode_encrypted_string(iv, key, EncryptedStringClassBased.nonce)
 
         redis_dict.extends_type(EncryptedStringClassBased)
         key = "foo"
         expected_type = EncryptedStringClassBased.__name__
         expected = "foobar"
-        encoded_expected = encode_encrypted_function(expected)
+        #encoded_expected = encode_encrypted_function(expected)
 
         redis_dict[key] = EncryptedStringClassBased(expected)
 
@@ -123,11 +183,11 @@ class TestRedisDictEncryptionClassBased(unittest.TestCase):
         self.assertNotEqual(internal_result_value, expected)
 
         self.assertEqual(internal_result_type, expected_type)
-        self.assertEqual(internal_result_value, encoded_expected)
+        #self.assertEqual(internal_result_value, encoded_expected)
 
         result = redis_dict[key]
 
-        self.assertNotEqual(encoded_expected, expected)
+        #self.assertNotEqual(encoded_expected, expected)
         self.assertIsInstance(result, EncryptedStringClassBased)
         self.assertEqual(result, expected)
 

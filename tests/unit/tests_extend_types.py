@@ -57,6 +57,7 @@ class BaseRedisDictTest(unittest.TestCase):
         internal_result_type, internal_result_value = stored_in_redis_as.split(sep, 1)
         return internal_result_type, internal_result_value
 
+
 class TestRedisDictExtendTypesDefault(BaseRedisDictTest):
 
     def test_customer_encoding_and_decoding(self):
@@ -166,9 +167,6 @@ class TestRedisDictExtendTypesEncodeDecodeFunctionsProvided(BaseRedisDictTest):
         self.assertEqual(result_two.name, expected_person.name)
         self.assertEqual(result_two.age, expected_person.age)
         self.assertEqual(result_two.address, expected_person.address)
-
-
-#  Start test for simple encryption storing of data.
 
 
 class EncryptedRot13String(str):
@@ -557,7 +555,6 @@ class TestRedisDictExtendTypesCompressed(BaseRedisDictTest):
         self.assertEqual(decoded, expected)
         self.assertEqual(len(decoded), original_size)
 
-
     def test_compression_timing_comparison(self):
             """Compare timing of operations between compressed and uncompressed strings"""
             redis_dict = self.redis_dict # A new instance for regular strings
@@ -594,7 +591,6 @@ class TestRedisDictExtendTypesCompressed(BaseRedisDictTest):
             print(f"Regular string set time: {regular_set_time:.6f} seconds")
             print(f"Compressed string get time: {compressed_get_time:.6f} seconds")
             print(f"Regular string get time: {regular_get_time:.6f} seconds")
-
 
 
 class TestNewTypeComplianceFailures(BaseRedisDictTest):
