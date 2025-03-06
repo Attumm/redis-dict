@@ -1,7 +1,6 @@
 import sys
 import unittest
 
-from pathlib import Path
 from uuid import UUID
 from pathlib import Path
 from decimal import Decimal
@@ -9,8 +8,6 @@ from datetime import datetime, date, time, timedelta, timezone
 from collections import OrderedDict, defaultdict
 
 from redis_dict import RedisDict
-
-import src.redis_dict.type_management
 
 sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
 from redis_dict.type_management import _default_decoder
