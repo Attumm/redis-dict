@@ -1,4 +1,4 @@
-name: Valkey Support
+name: Supports Valkey
 
 on:
   pull_request:
