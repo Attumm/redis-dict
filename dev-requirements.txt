@@ -20,7 +20,7 @@ pyflakes==3.0.1
 pylama==8.4.1
 pylint==3.2.7
 redis==5.2.0
-setuptools==75.3.0
+setuptools==78.1.1
 snowballstemmer==2.2.0
 sortedcontainers==2.4.0
 tomli==2.0.1
