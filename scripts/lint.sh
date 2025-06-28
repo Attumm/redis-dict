@@ -1,7 +1,5 @@
 #!/bin/bash
-set -e
 
-#!/bin/bash
 set -e
 
 if [ ! -d ".venv_dev" ]; then
