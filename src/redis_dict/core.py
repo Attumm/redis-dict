@@ -12,6 +12,7 @@ from .type_management import _create_default_encode, _create_default_decode, _de
 from .type_management import encoding_registry as enc_reg
 from .type_management import decoding_registry as dec_reg
 
+_DEFAULT_SEPARATOR = '➡️    '
 
 # pylint: disable=R0902, R0904
 class RedisDict:
@@ -47,6 +48,7 @@ class RedisDict:
              preserve_expiration: Optional[bool] = False,
              redis: "Optional[StrictRedis[Any]]" = None,
              raise_key_error_delete: bool = False,
+             separator: str = _DEFAULT_SEPARATOR,
              **redis_kwargs: Any) -> None:  # noqa: D202:R0913 pydocstyle clashes with Sphinx
         """
         Initialize a RedisDict instance.
@@ -59,6 +61,8 @@ class RedisDict:
             preserve_expiration (Optional[bool], optional): Preserve expiration on key updates.
             redis (Optional[StrictRedis[Any]], optional): A Redis connection instance.
             raise_key_error_delete (bool): Enable strict Python dict behavior raise if key not found when deleting.
+            separator (str): Delimiter used to join keys in chain and nested-dict operations. Defaults to '➡️    '
+                , a string that cannot appear in ordinary user keys.
             **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.
         """
 
@@ -66,6 +70,7 @@ class RedisDict:
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
         self.raise_key_error_delete: bool = raise_key_error_delete
+        self.separator: str = separator
         if redis:
             redis.connection_pool.connection_kwargs["decode_responses"] = True
 
@@ -352,9 +357,12 @@ class RedisDict:
             KeyError: If the key is not found.
         """
         found, value = self._load(item)
-        if not found:
-            raise KeyError(item)
-        return value
+        if found:
+            return value
+        found, value = self._load_nested_dict(item)
+        if found:
+            return value
+        raise KeyError(item)
 
     def __setitem__(self, key: str, value: Any) -> None:
         """
@@ -364,7 +372,13 @@ class RedisDict:
             key (str): The key to store the value.
             value (Any): The value to be stored.
         """
-        self._store(key, value)
+        if isinstance(value, dict):
+            self._store_nested_dict(key, value)
+        else:
+            old_nested_keys = list(self._scan_keys(key + self.separator))
+            if old_nested_keys:
+                self.redis.delete(*old_nested_keys)
+            self._store(key, value)
 
     def __delitem__(self, key: str) -> None:
         """
@@ -387,6 +401,9 @@ class RedisDict:
         """
         formatted_key = self._format_key(key)
         result = self.redis.delete(formatted_key)
+        nested_deleted = self.multi_del(key + self.separator)
+        if not result:
+            result = nested_deleted
         if self.raise_key_error_delete and not result:
             raise KeyError(key)
 
@@ -400,7 +417,9 @@ class RedisDict:
         Returns:
             bool: True if the key exists, False otherwise.
         """
-        return self._load(key)[0]
+        if self._load(key)[0]:
+            return True
+        return self._load_nested_dict(key)[0]
 
     def __len__(self) -> int:
         """
@@ -409,7 +428,7 @@ class RedisDict:
         Returns:
             int: The number of items in the RedisDict.
         """
-        return sum(1 for _ in self._scan_keys(full_scan=True))
+        return sum(1 for _ in self.keys())
 
     def __iter__(self) -> Iterator[str]:
         """
@@ -600,9 +619,12 @@ class RedisDict:
             Any: The value associated with the key or the default value.
         """
         found, item = self._load(key)
-        if not found:
-            return default
-        return item
+        if found:
+            return item
+        found, item = self._load_nested_dict(key)
+        if found:
+            return item
+        return default
 
     def keys(self) -> Iterator[str]:
         """Return an Iterator of keys in the RedisDict, analogous to a dictionary's keys method.
@@ -611,7 +633,15 @@ class RedisDict:
             Iterator[str]: A list of keys in the RedisDict.
         """
         to_rm = len(self.namespace) + 1
-        return (str(item[to_rm:]) for item in self._scan_keys())
+        seen: set = set()
+        result = []
+        for redis_key in self._scan_keys():
+            k = str(redis_key[to_rm:])
+            logical = k.split(self.separator, 1)[0] if self.separator in k else k
+            if logical not in seen:
+                seen.add(logical)
+                result.append(logical)
+        return iter(result)
 
     def key(self, search_term: str = '') -> Optional[str]:
         """Return the first value for search_term if it exists, otherwise return None.
@@ -636,10 +666,9 @@ class RedisDict:
         Yields:
             Iterator[Tuple[str, Any]]: A list of key-value pairs in the RedisDict.
         """
-        to_rm = len(self.namespace) + 1
-        for item in self._scan_keys():
+        for key in self.keys():
             try:
-                yield str(item[to_rm:]), self[item[to_rm:]]
+                yield key, self[key]
             except KeyError:
                 pass
 
@@ -651,10 +680,9 @@ class RedisDict:
         Yields:
             List[Any]: A list of values in the RedisDict.
         """
-        to_rm = len(self.namespace) + 1
-        for item in self._scan_keys():
+        for key in self.keys():
             try:
-                yield self[item[to_rm:]]
+                yield self[key]
             except KeyError:
                 pass
 
@@ -708,13 +736,14 @@ class RedisDict:
         Raises:
             KeyError: If the key is not found and no default value is provided.
         """
-        formatted_key = self._format_key(key)
-        value = self._pop(formatted_key)
-        if value is None:
+        try:
+            value = self[key]
+            del self[key]
+            return value
+        except KeyError:
             if default is not SENTINEL:
                 return default
-            raise KeyError(formatted_key)
-        return self._transform(value)
+            raise
 
     def popitem(self) -> Tuple[str, Any]:
         """Remove and return a random (key, value) pair from the RedisDict as a tuple.
@@ -730,7 +759,7 @@ class RedisDict:
             KeyError: If RedisDict is empty.
         """
         while True:
-            key = self.key()
+            key = next(iter(self.keys()), None)
             if key is None:
                 raise KeyError("popitem(): dictionary is empty")
             try:
@@ -840,6 +869,104 @@ class RedisDict:
         """
         return self.to_dict().__sizeof__()
 
+    @staticmethod
+    def _structured_to_flattened_dict(nested: Dict[str, Any], separator: str, prefix: str = '') -> Dict[str, Any]:
+        """Recursively flatten a nested dict to a flat dict with separator-joined keys.
+
+        Args:
+            nested (Dict[str, Any]): The nested dict to flatten.
+            separator (str): The separator to join key segments with.
+            prefix (str): Accumulated key prefix for the current recursion level.
+
+        Returns:
+            Dict[str, Any]: A flat dict whose keys are separator-joined paths to leaf values.
+        """
+        flat: Dict[str, Any] = {}
+        for k, v in nested.items():
+            full_key = f"{prefix}{k}"
+            if isinstance(v, dict):
+                flat.update(RedisDict._structured_to_flattened_dict(v, separator, f"{full_key}{separator}"))
+            else:
+                flat[full_key] = v
+        return flat
+
+    @staticmethod
+    def _flattened_to_structured_dict(
+        flat: Dict[str, Any],
+        separator: str,
+        _base: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Recursively reconstruct a nested dict from a flat dict with separator-joined keys.
+
+        Args:
+            flat (Dict[str, Any]): The flat dict to reconstruct.
+            separator (str): The separator used to split key segments.
+            _base (Optional[Dict[str, Any]]): Existing dict to merge results into (used in recursion).
+
+        Returns:
+            Dict[str, Any]: The reconstructed nested dict.
+        """
+        nested: Dict[str, Any] = _base.copy() if _base else {}
+        for k, v in flat.items():
+            if separator in k:
+                first, rest = k.split(separator, 1)
+                if first not in nested:
+                    nested[first] = {}
+                nested[first].update(
+                    RedisDict._flattened_to_structured_dict({rest: v}, separator, nested[first])
+                )
+            else:
+                nested[k] = v
+        return nested
+
+    def _store_nested_dict(self, key: str, value: Dict[str, Any]) -> None:
+        """Store a dict value as individual chain keys in Redis.
+
+        Removes any pre-existing parent key and sub-keys before storing the
+        new leaf values.  Supports arbitrary-depth nesting via
+        ``_structured_to_flattened_dict``.
+
+        Args:
+            key (str): The base key under which to store the nested dict.
+            value (Dict[str, Any]): The dict whose items will be stored as chain keys.
+        """
+        formatted_key = self._format_key(key)
+        old_keys = list(self._scan_keys(key + self.separator))
+        if old_keys:
+            self.redis.delete(*old_keys)
+        flat = self._structured_to_flattened_dict(value, self.separator)
+        # Remove any pre-existing scalar stored at the parent key.
+        self.redis.delete(formatted_key)
+        for sub_key, v in flat.items():
+            self._store(f"{key}{self.separator}{sub_key}", v)
+
+    def _load_nested_dict(self, key: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        """Load a dict assembled from chain keys stored under the given key prefix.
+
+        Supports arbitrary-depth nesting via ``_flattened_to_structured_dict``.
+
+        Args:
+            key (str): The base key whose chain sub-keys will be assembled into a dict.
+
+        Returns:
+            Tuple[bool, Optional[Dict[str, Any]]]: A tuple of (found, result_dict).
+                found is True when at least one chain key exists; result_dict is None
+                when no chain keys were found.
+        """
+        search_prefix = key + self.separator
+        ns_len = len(self.namespace) + 1  # namespace + ':'
+        prefix_len = ns_len + len(search_prefix)
+        flat: Dict[str, Any] = {}
+        for redis_key in self._scan_keys(search_prefix):
+            sub_key = redis_key[prefix_len:]
+            if sub_key:
+                found, val = self._load(redis_key[ns_len:])
+                if found:
+                    flat[sub_key] = val
+        if flat:
+            return True, self._flattened_to_structured_dict(flat, self.separator)
+        return False, None
+
     def chain_set(self, iterable: List[str], v: Any) -> None:
         """
         Set a value in the RedisDict using a chain of keys.
@@ -848,7 +975,7 @@ class RedisDict:
             iterable (List[str]): A list of keys representing the chain.
             v (Any): The value to be set.
         """
-        self[':'.join(iterable)] = v
+        self[self.separator.join(iterable)] = v
 
     def chain_get(self, iterable: List[str]) -> Any:
         """
@@ -860,7 +987,7 @@ class RedisDict:
         Returns:
             Any: The value associated with the chain of keys.
         """
-        return self[':'.join(iterable)]
+        return self[self.separator.join(iterable)]
 
     def chain_del(self, iterable: List[str]) -> None:
         """
@@ -869,7 +996,7 @@ class RedisDict:
         Args:
             iterable (List[str]): A list of keys representing the chain.
         """
-        del self[':'.join(iterable)]
+        del self[self.separator.join(iterable)]
 
     #  def expire_at(self, sec_epoch: int | timedelta) -> Iterator[None]:
     #  compatibility with Python 3.9 typing
@@ -929,7 +1056,7 @@ class RedisDict:
         Returns:
             List[Any]: A list of values associated with the chain of keys.
         """
-        return self.multi_get(':'.join(keys))
+        return self.multi_get(self.separator.join(keys))
 
     def multi_dict(self, key: str) -> Dict[str, Any]:
         """
