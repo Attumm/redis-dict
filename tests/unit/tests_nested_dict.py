@@ -107,6 +107,24 @@ class TestNestedDict(_NestedDictTestBase):
         r['key'] = 'hello'
         self.assertEqual(r['key'], 'hello')
 
+    def test_subscript_assignment_updates_redis(self):
+        """rd['key']['sub'] = value persists the new leaf value in Redis."""
+        r = self.create_redis_dict()
+        r['var'] = {'c': 1, 'c2': 3}
+        r['var']['c'] = 2
+        self.assertEqual(r['var'], {'c': 2, 'c2': 3})
+        self.assertEqual(self.redisdb.get(f'{TEST_NAMESPACE_PREFIX}:var{SEP}c'), b'int:2')
+
+    def test_subscript_assignment_deep_nesting(self):
+        """rd['key']['a']['b'] = value persists correctly for deep nesting."""
+        r = self.create_redis_dict()
+        r['root'] = {'a': {'b': 1, 'c': 2}}
+        r['root']['a']['b'] = 99
+        self.assertEqual(r['root'], {'a': {'b': 99, 'c': 2}})
+        self.assertEqual(
+            self.redisdb.get(f'{TEST_NAMESPACE_PREFIX}:root{SEP}a{SEP}b'), b'int:99'
+        )
+
     def test_chain_set_and_nested_dict_interoperable(self):
         """chain_set can add sub-keys to a key that was set as a nested dict."""
         r = self.create_redis_dict()

@@ -14,6 +14,56 @@ from .type_management import decoding_registry as dec_reg
 
 _DEFAULT_SEPARATOR = '➡️    '
 
+
+class _NestedDictProxy(Mapping):
+    """Proxy for a nested dict stored as chain keys in Redis.
+
+    Returned by :meth:`RedisDict.__getitem__` when the retrieved value is a
+    nested dict assembled from chain keys.  Writes via ``__setitem__`` are
+    forwarded to Redis so that expressions like ``rd["key"]["sub"] = value``
+    persist correctly without a separate :meth:`RedisDict.chain_set` call.
+    """
+
+    __slots__ = ('_rd', '_base_key', '_data')
+
+    def __init__(self, rd: 'RedisDict', base_key: str, data: Dict[str, Any]) -> None:
+        self._rd = rd
+        self._base_key = base_key
+        self._data = data
+
+    def __getitem__(self, key: str) -> Any:
+        value = self._data[key]
+        if isinstance(value, dict):
+            return _NestedDictProxy(self._rd, f"{self._base_key}{self._rd.separator}{key}", value)
+        return value
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        full_key = f"{self._base_key}{self._rd.separator}{key}"
+        self._rd[full_key] = value
+        self._data[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        full_key = f"{self._base_key}{self._rd.separator}{key}"
+        del self._rd[full_key]
+        del self._data[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, _NestedDictProxy):
+            return self._data == other._data
+        if isinstance(other, dict):
+            return self._data == other
+        return NotImplemented
+
+    def __repr__(self) -> str:
+        return repr(self._data)
+
+
 # pylint: disable=R0902, R0904
 class RedisDict:
     """Python dictionary with Redis as backend.
@@ -357,12 +407,12 @@ class RedisDict:
             KeyError: If the key is not found.
         """
         found, value = self._load(item)
-        if found:
-            return value
-        found, value = self._load_nested_dict(item)
-        if found:
-            return value
-        raise KeyError(item)
+        if not found:
+            found, value = self._load_nested_dict(item)
+            if not found:
+                raise KeyError(item)
+            return _NestedDictProxy(self, item, value)
+        return value
 
     def __setitem__(self, key: str, value: Any) -> None:
         """
@@ -924,7 +974,7 @@ class RedisDict:
 
         Removes any pre-existing parent key and sub-keys before storing the
         new leaf values.  Supports arbitrary-depth nesting via
-        ``_structured_to_flattened_dict``.
+        `_structured_to_flattened_dict`.
 
         Args:
             key (str): The base key under which to store the nested dict.
@@ -943,7 +993,7 @@ class RedisDict:
     def _load_nested_dict(self, key: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """Load a dict assembled from chain keys stored under the given key prefix.
 
-        Supports arbitrary-depth nesting via ``_flattened_to_structured_dict``.
+        Supports arbitrary-depth nesting via `_flattened_to_structured_dict`.
 
         Args:
             key (str): The base key whose chain sub-keys will be assembled into a dict.
