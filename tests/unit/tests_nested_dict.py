@@ -240,6 +240,35 @@ class TestNestedDict(_NestedDictTestBase):
         self.assertEqual(value, {'c': 1, 'c2': 3})
         self.assertEqual(len(r), 0)
 
+    # --- empty dict ---
+
+    def test_empty_dict_roundtrip(self):
+        """Setting a key to {} stores and retrieves an empty dict without KeyError."""
+        r = self.create_redis_dict()
+        r['var'] = {}
+        self.assertEqual(r['var'], {})
+
+    def test_empty_dict_in_contains(self):
+        """A key set to {} is found by the 'in' operator."""
+        r = self.create_redis_dict()
+        r['var'] = {}
+        self.assertIn('var', r)
+
+    def test_dict_with_empty_dict_value_roundtrip(self):
+        """A dict whose only leaf values are empty dicts round-trips correctly."""
+        r = self.create_redis_dict()
+        r['var'] = {'a': {}}
+        self.assertEqual(r['var'], {'a': {}})
+
+    def test_overwrite_with_empty_dict(self):
+        """Overwriting a populated nested dict with {} stores an empty dict and removes old chain keys."""
+        r = self.create_redis_dict()
+        r['var'] = {'c': 1, 'c2': 3}
+        r['var'] = {}
+        self.assertEqual(r['var'], {})
+        self.assertIsNone(self.redisdb.get(f'{TEST_NAMESPACE_PREFIX}:var{SEP}c'))
+        self.assertIsNone(self.redisdb.get(f'{TEST_NAMESPACE_PREFIX}:var{SEP}c2'))
+
 
 if __name__ == '__main__':
     unittest.main()
