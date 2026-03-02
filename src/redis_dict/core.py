@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type
 
 from datetime import timedelta
 from contextlib import contextmanager
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 
 from redis import StrictRedis
 
@@ -15,7 +15,7 @@ from .type_management import decoding_registry as dec_reg
 _DEFAULT_SEPARATOR = '➡️    '
 
 
-class _NestedDictProxy(Mapping):
+class _NestedDictProxy(MutableMapping):
     """Proxy for a nested dict stored as chain keys in Redis.
 
     Returned by :meth:`RedisDict.__getitem__` when the retrieved value is a
