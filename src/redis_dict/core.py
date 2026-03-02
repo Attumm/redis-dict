@@ -987,6 +987,11 @@ class RedisDict:
         flat = self._structured_to_flattened_dict(value, self.separator)
         # Remove any pre-existing scalar stored at the parent key.
         self.redis.delete(formatted_key)
+        if not flat:
+            # Empty dict (or a dict whose only leaves are empty dicts) has no
+            # chain keys to store, so fall back to storing it as a scalar value.
+            self._store(key, value)
+            return
         for sub_key, v in flat.items():
             self._store(f"{key}{self.separator}{sub_key}", v)
 
