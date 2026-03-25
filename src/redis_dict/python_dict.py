@@ -1,5 +1,5 @@
 """Python Redis Dict module."""
-from typing import Any, Iterator, Tuple, Union, Optional, List, Dict
+from typing import Any, Iterator, Tuple, Union, Optional, List, Dict, cast
 
 import time
 from datetime import timedelta
@@ -292,10 +292,13 @@ class PythonRedisDict(RedisDict):
             if first:
                 cursor = 0
                 first = False
-            cursor, data = self.get_redis.zscan(
-                name=self._insertion_order_key,
-                cursor=cursor,
-                count=1
+            cursor, data = cast(
+                Tuple[int, List[Tuple[str, float]]],
+                self.get_redis.zscan(
+                    name=self._insertion_order_key,
+                    cursor=cursor,
+                    count=1,
+                ),
             )
             yield from (item[0] for item in data)
 
@@ -327,5 +330,5 @@ class PythonRedisDict(RedisDict):
         Returns:
             Union[str, None]: The most recently inserted key, or None if the dictionary is empty.
         """
-        result = self.redis.zrange(self._insertion_order_key, -1, -1)
+        result = cast(List[str], self.redis.zrange(self._insertion_order_key, -1, -1))
         return result[0] if result else None

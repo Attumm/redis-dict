@@ -1,5 +1,5 @@
 """Redis Dict module."""
-from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type
+from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type, cast
 
 from datetime import timedelta
 from contextlib import contextmanager
@@ -15,7 +15,7 @@ from .type_management import decoding_registry as dec_reg
 _DEFAULT_SEPARATOR = '➡️    '
 
 
-class _NestedDictProxy(MutableMapping):
+class _NestedDictProxy(MutableMapping[str, Any]):
     """Proxy for a nested dict stored as chain keys in Redis.
 
     Returned by :meth:`RedisDict.__getitem__` when the retrieved value is a
@@ -238,7 +238,7 @@ class RedisDict:
         result = self.get_redis.get(self._format_key(key))
         if result is None:
             return False, None
-        return True, self._transform(result)
+        return True, self._transform(cast(str, result))
 
     def _transform(self, result: str) -> Any:
         """
@@ -411,7 +411,7 @@ class RedisDict:
             found, value = self._load_nested_dict(item)
             if not found:
                 raise KeyError(item)
-            return _NestedDictProxy(self, item, value)
+            return _NestedDictProxy(self, item, cast(Dict[str, Any], value))
         return value
 
     def __setitem__(self, key: str, value: Any) -> None:
@@ -683,7 +683,7 @@ class RedisDict:
             Iterator[str]: A list of keys in the RedisDict.
         """
         to_rm = len(self.namespace) + 1
-        seen: set = set()
+        seen: set[str] = set()
         result = []
         for redis_key in self._scan_keys():
             k = str(redis_key[to_rm:])
@@ -704,7 +704,7 @@ class RedisDict:
         """
         to_rm = len(self.namespace) + 1
         search_query = self._create_iter_query(search_term)
-        _, data = self.get_redis.scan(match=search_query, count=1)
+        _, data = cast(Tuple[int, List[str]], self.get_redis.scan(match=search_query, count=1))
         for item in data:
             return str(item[to_rm:])
 
@@ -860,7 +860,7 @@ class RedisDict:
         if result is None:
             return default_value
 
-        return self._transform(result)
+        return self._transform(cast(str, result))
 
     def copy(self) -> Dict[str, Any]:
         """Create a shallow copy of the RedisDict and return it as a standard Python dictionary.
@@ -1099,7 +1099,7 @@ class RedisDict:
         found_keys = list(self._scan_keys(key))
         if len(found_keys) == 0:
             return []
-        return [self._transform(i) for i in self.redis.mget(found_keys) if i is not None]
+        return [self._transform(cast(str, i)) for i in cast(List[Any], self.redis.mget(found_keys)) if i is not None]
 
     def multi_chain_get(self, keys: List[str]) -> List[Any]:
         """
@@ -1128,7 +1128,7 @@ class RedisDict:
             return {}
         to_rm = keys[0].rfind(':') + 1
         return dict(
-            zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None))
+            zip([i[to_rm:] for i in keys], (self._transform(cast(str, i)) for i in cast(List[Any], self.redis.mget(keys)) if i is not None))
         )
 
     def multi_del(self, key: str) -> int:
@@ -1153,7 +1153,7 @@ class RedisDict:
         Returns:
             dict: The information and statistics from the Redis server in a dictionary.
         """
-        return dict(self.redis.info())
+        return dict(cast(Dict[str, Any], self.redis.info()))
 
     def get_ttl(self, key: str) -> Optional[int]:
         """Get the Time To Live from Redis.
