@@ -422,6 +422,8 @@ class RedisDict:
             key (str): The key to store the value.
             value (Any): The value to be stored.
         """
+        if not self._valid_input(value) or not self._valid_input(key):
+            raise ValueError("Invalid input value or key size exceeded the maximum limit.")
         if isinstance(value, dict):
             self._store_nested_dict(key, value)
         else:
@@ -1126,7 +1128,7 @@ class RedisDict:
         keys = list(self._scan_keys(key))
         if len(keys) == 0:
             return {}
-        to_rm = keys[0].rfind(':') + 1
+        to_rm = len(self.namespace) + 1
         return dict(
             zip([i[to_rm:] for i in keys], (self._transform(cast(str, i)) for i in cast(List[Any], self.redis.mget(keys)) if i is not None))
         )

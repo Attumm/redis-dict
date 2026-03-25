@@ -141,17 +141,11 @@ class PythonRedisDict(RedisDict):
 
         return self._transform(result)
 
-    def __len__(self) -> int:
-        """
-        Get the number of items in the RedisDict, analogous to a dictionary.
-
-        Returns:
-            int: The number of items in the RedisDict.
-        """
-        return self._insertion_order_len()
-
     def _scan_keys(self, search_term: str = '', full_scan: bool = False) -> Iterator[str]:
-        return self._insertion_order_iter()
+        prefix = self._create_iter_query(search_term).rstrip('*')
+        for key in self._insertion_order_iter():
+            if key.startswith(prefix):
+                yield key
 
     def clear(self) -> None:
         """Remove all key-value pairs from the RedisDict in one batch operation using pipelining.
