@@ -77,8 +77,10 @@ for key, val in items.items():
     dd.chain_set(['keys', key], val)
 
 assert len(dd) == len(items)
+sep = dd.separator
 assert sorted(dd.multi_get('keys')) == sorted(list(items.values()))
-assert dd.multi_dict('keys') == items
+expected_multi = {f'keys{sep}{k}': v for k, v in items.items()}
+assert dd.multi_dict('keys') == expected_multi
 
 long_key = 'thekeyislongbutstill'
 items = {'K1': 'V1', 'KK22': 'VV22', 'KKK333': 'VVV333'}
@@ -86,7 +88,8 @@ for key, val in items.items():
     dd.chain_set([long_key, key], val)
 
 assert sorted(dd.multi_get(long_key)) == sorted(list(items.values()))
-assert dd.multi_dict(long_key) == items
+expected_multi = {f'{long_key}{sep}{k}': v for k, v in items.items()}
+assert dd.multi_dict(long_key) == expected_multi
 dd.multi_del(long_key)
 
 dd['one_item'] = 'im here'
