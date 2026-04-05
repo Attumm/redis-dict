@@ -12,6 +12,8 @@ from .type_management import _create_default_encode, _create_default_decode, _de
 from .type_management import encoding_registry as enc_reg
 from .type_management import decoding_registry as dec_reg
 
+_DEFAULT_SEPARATOR = '➡️    '
+
 
 # pylint: disable=R0902, R0904
 class RedisDict:
@@ -47,6 +49,7 @@ class RedisDict:
              preserve_expiration: Optional[bool] = False,
              redis: "Optional[StrictRedis[Any]]" = None,
              raise_key_error_delete: bool = False,
+             separator: str = _DEFAULT_SEPARATOR,
              **redis_kwargs: Any) -> None:  # noqa: D202:R0913 pydocstyle clashes with Sphinx
         """
         Initialize a RedisDict instance.
@@ -59,6 +62,8 @@ class RedisDict:
             preserve_expiration (Optional[bool], optional): Preserve expiration on key updates.
             redis (Optional[StrictRedis[Any]], optional): A Redis connection instance.
             raise_key_error_delete (bool): Enable strict Python dict behavior raise if key not found when deleting.
+            separator (str): Delimiter used to join keys in chain and nested-dict operations. Defaults to '➡️    '
+                , a string that cannot appear in ordinary user keys.
             **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.
         """
 
@@ -66,6 +71,7 @@ class RedisDict:
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
         self.raise_key_error_delete: bool = raise_key_error_delete
+        self.separator: str = separator
         if redis:
             redis.connection_pool.connection_kwargs["decode_responses"] = True
 
@@ -848,7 +854,7 @@ class RedisDict:
             iterable (List[str]): A list of keys representing the chain.
             v (Any): The value to be set.
         """
-        self[':'.join(iterable)] = v
+        self[self.separator.join(iterable)] = v
 
     def chain_get(self, iterable: List[str]) -> Any:
         """
@@ -860,7 +866,7 @@ class RedisDict:
         Returns:
             Any: The value associated with the chain of keys.
         """
-        return self[':'.join(iterable)]
+        return self[self.separator.join(iterable)]
 
     def chain_del(self, iterable: List[str]) -> None:
         """
@@ -869,7 +875,7 @@ class RedisDict:
         Args:
             iterable (List[str]): A list of keys representing the chain.
         """
-        del self[':'.join(iterable)]
+        del self[self.separator.join(iterable)]
 
     #  def expire_at(self, sec_epoch: int | timedelta) -> Iterator[None]:
     #  compatibility with Python 3.9 typing
@@ -929,7 +935,7 @@ class RedisDict:
         Returns:
             List[Any]: A list of values associated with the chain of keys.
         """
-        return self.multi_get(':'.join(keys))
+        return self.multi_get(self.separator.join(keys))
 
     def multi_dict(self, key: str) -> Dict[str, Any]:
         """
@@ -944,7 +950,7 @@ class RedisDict:
         keys = list(self._scan_keys(key))
         if len(keys) == 0:
             return {}
-        to_rm = keys[0].rfind(':') + 1
+        to_rm = len(self.namespace) + 1
         return dict(
             zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None))
         )
