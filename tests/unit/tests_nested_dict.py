@@ -10,9 +10,9 @@ import unittest
 import redis
 
 from redis_dict import RedisDict
-from redis_dict.core import _DEFAULT_SEPARATOR
+from redis_dict.core import _DEFAULT_CHAIN_SEPARATOR
 
-SEP = _DEFAULT_SEPARATOR
+SEP = _DEFAULT_CHAIN_SEPARATOR
 
 TEST_NAMESPACE_PREFIX = '__test_nested_dict_8130__'
 
@@ -134,7 +134,7 @@ class TestNestedDict(_NestedDictTestBase):
 
     def test_nested_dict_with_custom_separator(self):
         """Nested dict works correctly combined with a non-default separator."""
-        r = self.create_redis_dict(separator='/')
+        r = self.create_redis_dict(chain_separator='/')
         r['var'] = {'c': 1, 'c2': 3}
         self.assertEqual(self.redisdb.get('{}:var/c'.format(TEST_NAMESPACE_PREFIX)), b'int:1')
         self.assertEqual(self.redisdb.get('{}:var/c2'.format(TEST_NAMESPACE_PREFIX)), b'int:3')

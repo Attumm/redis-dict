@@ -12,7 +12,8 @@ from .type_management import _create_default_encode, _create_default_decode, _de
 from .type_management import encoding_registry as enc_reg
 from .type_management import decoding_registry as dec_reg
 
-_DEFAULT_SEPARATOR = '➡️    '
+# TODO (major release): reconsider default separator value
+_DEFAULT_CHAIN_SEPARATOR = ':'
 
 
 class _NestedDictProxy(MutableMapping[str, Any]):
@@ -34,16 +35,16 @@ class _NestedDictProxy(MutableMapping[str, Any]):
     def __getitem__(self, key: str) -> Any:
         value = self._data[key]
         if isinstance(value, dict):
-            return _NestedDictProxy(self._rd, f"{self._base_key}{self._rd.separator}{key}", value)
+            return _NestedDictProxy(self._rd, f"{self._base_key}{self._rd.chain_separator}{key}", value)
         return value
 
     def __setitem__(self, key: str, value: Any) -> None:
-        full_key = f"{self._base_key}{self._rd.separator}{key}"
+        full_key = f"{self._base_key}{self._rd.chain_separator}{key}"
         self._rd[full_key] = value
         self._data[key] = value
 
     def __delitem__(self, key: str) -> None:
-        full_key = f"{self._base_key}{self._rd.separator}{key}"
+        full_key = f"{self._base_key}{self._rd.chain_separator}{key}"
         del self._rd[full_key]
         del self._data[key]
 
@@ -98,7 +99,7 @@ class RedisDict:
              preserve_expiration: Optional[bool] = False,
              redis: "Optional[StrictRedis[Any]]" = None,
              raise_key_error_delete: bool = False,
-             separator: str = _DEFAULT_SEPARATOR,
+             chain_separator: str = _DEFAULT_CHAIN_SEPARATOR,
              **redis_kwargs: Any) -> None:  # noqa: D202:R0913 pydocstyle clashes with Sphinx
         """
         Initialize a RedisDict instance.
@@ -111,8 +112,7 @@ class RedisDict:
             preserve_expiration (Optional[bool], optional): Preserve expiration on key updates.
             redis (Optional[StrictRedis[Any]], optional): A Redis connection instance.
             raise_key_error_delete (bool): Enable strict Python dict behavior raise if key not found when deleting.
-            separator (str): Delimiter used to join keys in chain and nested-dict operations. Defaults to '➡️    '
-                , a string that cannot appear in ordinary user keys.
+            chain_separator (str): Delimiter used to join keys in chain and nested-dict operations. Defaults to ':'.
             **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.
         """
 
@@ -120,7 +120,7 @@ class RedisDict:
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
         self.raise_key_error_delete: bool = raise_key_error_delete
-        self.separator: str = separator
+        self.chain_separator: str = chain_separator
         if redis:
             redis.connection_pool.connection_kwargs["decode_responses"] = True
 
@@ -427,7 +427,7 @@ class RedisDict:
         if isinstance(value, dict):
             self._store_nested_dict(key, value)
         else:
-            old_nested_keys = list(self._scan_keys(key + self.separator))
+            old_nested_keys = list(self._scan_keys(key + self.chain_separator))
             if old_nested_keys:
                 self.redis.delete(*old_nested_keys)
             self._store(key, value)
@@ -453,7 +453,7 @@ class RedisDict:
         """
         formatted_key = self._format_key(key)
         result = self.redis.delete(formatted_key)
-        nested_deleted = self.multi_del(key + self.separator)
+        nested_deleted = self.multi_del(key + self.chain_separator)
         if not result:
             result = nested_deleted
         if self.raise_key_error_delete and not result:
@@ -689,7 +689,7 @@ class RedisDict:
         result = []
         for redis_key in self._scan_keys():
             k = str(redis_key[to_rm:])
-            logical = k.split(self.separator, 1)[0] if self.separator in k else k
+            logical = k.split(self.chain_separator, 1)[0] if self.chain_separator in k else k
             if logical not in seen:
                 seen.add(logical)
                 result.append(logical)
@@ -983,10 +983,10 @@ class RedisDict:
             value (Dict[str, Any]): The dict whose items will be stored as chain keys.
         """
         formatted_key = self._format_key(key)
-        old_keys = list(self._scan_keys(key + self.separator))
+        old_keys = list(self._scan_keys(key + self.chain_separator))
         if old_keys:
             self.redis.delete(*old_keys)
-        flat = self._structured_to_flattened_dict(value, self.separator)
+        flat = self._structured_to_flattened_dict(value, self.chain_separator)
         # Remove any pre-existing scalar stored at the parent key.
         self.redis.delete(formatted_key)
         if not flat:
@@ -995,7 +995,7 @@ class RedisDict:
             self._store(key, value)
             return
         for sub_key, v in flat.items():
-            self._store(f"{key}{self.separator}{sub_key}", v)
+            self._store(f"{key}{self.chain_separator}{sub_key}", v)
 
     def _load_nested_dict(self, key: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """Load a dict assembled from chain keys stored under the given key prefix.
@@ -1010,7 +1010,7 @@ class RedisDict:
                 found is True when at least one chain key exists; result_dict is None
                 when no chain keys were found.
         """
-        search_prefix = key + self.separator
+        search_prefix = key + self.chain_separator
         ns_len = len(self.namespace) + 1  # namespace + ':'
         prefix_len = ns_len + len(search_prefix)
         flat: Dict[str, Any] = {}
@@ -1021,7 +1021,7 @@ class RedisDict:
                 if found:
                     flat[sub_key] = val
         if flat:
-            return True, self._flattened_to_structured_dict(flat, self.separator)
+            return True, self._flattened_to_structured_dict(flat, self.chain_separator)
         return False, None
 
     def chain_set(self, iterable: List[str], v: Any) -> None:
@@ -1032,7 +1032,7 @@ class RedisDict:
             iterable (List[str]): A list of keys representing the chain.
             v (Any): The value to be set.
         """
-        self[self.separator.join(iterable)] = v
+        self[self.chain_separator.join(iterable)] = v
 
     def chain_get(self, iterable: List[str]) -> Any:
         """
@@ -1044,7 +1044,7 @@ class RedisDict:
         Returns:
             Any: The value associated with the chain of keys.
         """
-        return self[self.separator.join(iterable)]
+        return self[self.chain_separator.join(iterable)]
 
     def chain_del(self, iterable: List[str]) -> None:
         """
@@ -1053,7 +1053,7 @@ class RedisDict:
         Args:
             iterable (List[str]): A list of keys representing the chain.
         """
-        del self[self.separator.join(iterable)]
+        del self[self.chain_separator.join(iterable)]
 
     #  def expire_at(self, sec_epoch: int | timedelta) -> Iterator[None]:
     #  compatibility with Python 3.9 typing
@@ -1113,7 +1113,7 @@ class RedisDict:
         Returns:
             List[Any]: A list of values associated with the chain of keys.
         """
-        return self.multi_get(self.separator.join(keys))
+        return self.multi_get(self.chain_separator.join(keys))
 
     def multi_dict(self, key: str) -> Dict[str, Any]:
         """

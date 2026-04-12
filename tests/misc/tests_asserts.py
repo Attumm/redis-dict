@@ -78,7 +78,7 @@ for key, val in items.items():
 
 assert len(dd) == 1
 assert dd['keys'] == items
-sep = dd.separator
+sep = dd.chain_separator
 assert sorted(dd.multi_get('keys')) == sorted(list(items.values()))
 expected_multi = {f'keys{sep}{k}': v for k, v in items.items()}
 assert dd.multi_dict('keys') == expected_multi
