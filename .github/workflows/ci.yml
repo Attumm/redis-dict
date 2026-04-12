@@ -44,6 +44,7 @@ jobs:
 
       - name: Run Pylama
         run: |
+          python -m pip install setuptools
           python -m pylama -i E501,E231 src
 
       - name: Run type check with mypy strict
