@@ -120,7 +120,7 @@ exclude_lines = [
 show_missing = true
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 strict = true
 mypy_path = "src"
 files = ["src"]
