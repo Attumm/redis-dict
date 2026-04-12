@@ -37,7 +37,7 @@ class PythonRedisDict(RedisDict):
                  expire: Union[int, timedelta, None] = None,
                  preserve_expiration: Optional[bool] = False,
                  redis: "Optional[StrictRedis[Any]]" = None,
-                 **redis_kwargs: Any) -> None:  # noqa: D202 pydocstyle clashes with Sphinx
+                 **redis_kwargs: Any) -> None:
         """
         Initialize a RedisDict instance.
 

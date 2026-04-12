@@ -13,7 +13,6 @@ from .type_management import encoding_registry as enc_reg
 from .type_management import decoding_registry as dec_reg
 
 
-# pylint: disable=R0902, R0904
 class RedisDict:
     """Python dictionary with Redis as backend.
 
@@ -40,14 +39,13 @@ class RedisDict:
     encoding_registry: EncodeType = enc_reg
     decoding_registry: DecodeType = dec_reg
 
-    # pylint: disable=R0913
     def __init__(self,
              namespace: str = 'main',
              expire: Union[int, timedelta, None] = None,
              preserve_expiration: Optional[bool] = False,
              redis: "Optional[StrictRedis[Any]]" = None,
              raise_key_error_delete: bool = False,
-             **redis_kwargs: Any) -> None:  # noqa: D202:R0913 pydocstyle clashes with Sphinx
+             **redis_kwargs: Any) -> None:
         """
         Initialize a RedisDict instance.
 
@@ -61,7 +59,6 @@ class RedisDict:
             raise_key_error_delete (bool): Enable strict Python dict behavior raise if key not found when deleting.
             **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.
         """
-
         self.namespace: str = namespace
         self.expire: Union[int, timedelta, None] = expire
         self.preserve_expiration: Optional[bool] = preserve_expiration
@@ -226,7 +223,6 @@ class RedisDict:
                 raise NotImplementedError(
                     f"Class {class_type.__name__} does not implement the required {decode_method_name} class method.")
 
-    # pylint: disable=too-many-arguments
     def extends_type(
             self,
             class_type: type,
@@ -234,7 +230,7 @@ class RedisDict:
             decode: Optional[DecodeFuncType] = None,
             encoding_method_name: Optional[str] = None,
             decoding_method_name: Optional[str] = None,
-    ) -> None: # noqa: D202 pydocstyle clashes with Sphinx
+    ) -> None:
         """
         Extend RedisDict to support a custom type in the encode/decode mapping.
 
@@ -293,7 +289,6 @@ class RedisDict:
             This method raises a NotImplementedError if either `encode` or `decode` is `None`
             and the class does not implement the corresponding method.
         """
-
         if encode is None or decode is None:
             encode_method_name = encoding_method_name or self.custom_encode_method
             if encode is None:
