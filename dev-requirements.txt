@@ -9,16 +9,12 @@ exceptiongroup==1.1.1
 future==0.18.3
 hypothesis==6.70.1
 isort==5.13.2
-mccabe==0.7.0
+ruff>=0.4.0
 mypy==1.13.0
 mypy-extensions==1.0.0
 platformdirs==4.3.6
-pycodestyle==2.10.0
 pycparser==2.21
 pydocstyle==6.3.0
-pyflakes==3.0.1
-pylama==8.4.1
-pylint==3.2.7
 redis==5.2.0
 setuptools==78.1.1
 snowballstemmer==2.2.0

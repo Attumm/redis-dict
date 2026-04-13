@@ -42,9 +42,9 @@ jobs:
         run: |
           pip install ".[dev]"
 
-      - name: Run Pylama
+      - name: Run Ruff
         run: |
-          python -m pylama -i E501,E231 src
+          ruff check src
 
       - name: Run type check with mypy strict
         run: |

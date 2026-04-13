@@ -72,16 +72,9 @@ dev = [
     "setuptools>=68.0.0",
 
     "bandit",
-    "pylama>=8.4.1",
-    "pycodestyle==2.10.0",
+    "ruff>=0.4.0",
     "pydocstyle==6.3.0",
-    "pyflakes==3.0.1",
-    "mccabe==0.7.0",
-    "pylint==3.2.7",
     "darglint",
-    "pydocstyle",
-
-    "autopep8",
 ]
 
 docs = [
@@ -127,18 +120,13 @@ files = ["src"]
 namespace_packages = true
 explicit_package_bases = true
 
-[tool.pylama]
-ignore = "E501,E231"
-skip = "*/.tox/*,*/.env/*,build/*"
-linters = "pycodestyle,pyflakes,mccabe"
-max_line_length = 120
-paths = ["src/redis_dict"]
+[tool.ruff]
+line-length = 120
+target-version = "py38"
 
-[tool.autopep8]
-max_line_length = 120
-aggressive = 1
-recursive = true
--in-place = true
+[tool.ruff.lint]
+select = ["E", "W", "F", "C90"]
+ignore = ["E501", "E231"]
 
 [project.urls]
 Homepage = "https://github.com/Attumm/redisdict"

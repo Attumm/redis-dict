@@ -17,16 +17,13 @@ python -m mypy
 # Doctype Check
 darglint src/redis_dict/
 
-# Multiple linters
-python -m pylama -i E501,E231 src
+# Linting
+ruff check src
 
 # Security Check
 bandit -r src/redis_dict
 
 # Docstring Check
 pydocstyle src/redis_dict/
-
-# Pylint
-pylint src/
 
 deactivate
