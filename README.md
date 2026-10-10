@@ -374,9 +374,6 @@ For now code example within this test file. [encrypted test](https://github.com/
 Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
 [Setup guide](https://github.com/Attumm/redis-dict/blob/main/docs/tutorials/encrypted_redis.MD)
 
-### Tests
-The RedisDict library includes a comprehensive suite of tests that ensure its correctness and resilience. The test suite covers various data types, edge cases, and error handling scenarios. It also employs the Hypothesis library for property-based testing, which provides fuzz testing to evaluate the implementation
-
 ### Redis config
 To configure RedisDict using your Redis config.
 
@@ -400,3 +397,85 @@ pip install redis-dict
 ### Note
 * Please be aware that this project is currently being utilized by various organizations in their production environments. If you have any questions or concerns, feel free to raise issues
 * This project only uses redis as dependency
+
+## Development
+The project uses [uv](https://docs.astral.sh/uv/) for development. The exact versions of all dependencies are pinned in `uv.lock`, which is committed to the repository.
+
+### Prerequisites
+* [uv](https://docs.astral.sh/uv/getting-started/installation/)
+* Python 3.8 or newer
+* A Redis server on `localhost:6379` for the tests, version 6.2 or newer (the tests use `GETDEL` and `SET` options). The tests use database 11.
+
+Start Redis or Valkey in Docker. Both use port 6379, so run one at a time.
+```sh
+bash scripts/start_redis_docker.sh   # container "my-redis"
+bash scripts/start_valkey_docker.sh  # container "my-valkey"
+```
+The scripts fail when the container already exists. After the first time, use `docker start my-redis` or `docker start my-valkey`.
+
+### Setup
+```sh
+uv sync --locked --extra dev
+```
+This creates `.venv` with the exact versions from `uv.lock`, just like CI. `--locked` stops with an error instead of changing `uv.lock`.
+
+The scripts use their own environment, `.venv_dev`. Create it with:
+```sh
+bash scripts/build_dev.sh
+```
+Run the scripts with `bash` from the project root. They aren't marked executable, so `./scripts/...` fails. `tests.sh`, `verify.sh` and `lint.sh` expect `.venv_dev` to exist, so run `build_dev.sh` first.
+
+Without uv, the scripts fall back to pip and venv. This happens automatically when uv isn't installed, or on request:
+```sh
+USE_UV=false bash scripts/build_dev.sh
+bash scripts/build_dev.sh false
+```
+The pip fallback recreates `.venv_dev` with `python3 -m venv` and installs the project with `pip install -e ".[dev]"`. It doesn't use `uv.lock`, so the versions can differ from CI.
+
+### Tests
+The RedisDict library includes a comprehensive suite of tests that ensure its correctness and resilience. The test suite covers various data types, edge cases, and error handling scenarios. It also employs the Hypothesis library for property-based testing, which provides fuzz testing to evaluate the implementation.
+
+```sh
+bash scripts/tests.sh                                       # in .venv_dev, verbose, stops at the first failure
+uv run --locked --extra dev python -m unittest discover -s tests  # in .venv
+```
+
+### Quality checks
+```sh
+bash scripts/verify.sh            # mypy, darglint, pylama, unit tests, bandit, pydocstyle
+bash scripts/build_dev_checks.sh  # sets up .venv_dev, then mypy, darglint, bandit, pylama, unit tests
+bash scripts/lint.sh              # mypy, darglint, pylama, bandit, pydocstyle, pylint
+```
+CI runs the same checks as `verify.sh`.
+
+### Documentation
+```sh
+bash scripts/build_docs.sh  # docs env in .venv_docs, builds docs/build/html
+bash scripts/view_docs.sh   # opens docs/build/html/index.html (macOS)
+```
+`build_docs.sh` first removes the generated `docs/Makefile`, `docs/build` and `docs/source`, then generates them again. Like `build_dev.sh`, it accepts `false` or `USE_UV=false` for pip.
+
+### Dependencies and uv.lock
+CI installs with `uv sync --locked`, which fails when `pyproject.toml` and `uv.lock` don't match. Commit `uv.lock` together with every `pyproject.toml` change.
+```sh
+uv lock                                 # after changing dependencies in pyproject.toml
+uv lock --check                         # check that uv.lock matches pyproject.toml
+uv lock --upgrade                       # update all packages to the latest allowed versions
+uv lock --upgrade-package cryptography  # update a single package
+uv version X.Y.Z                        # bump the version in pyproject.toml and uv.lock
+```
+`uv.lock` also records the project version, so a version bump needs `uv version X.Y.Z` or `uv lock` afterwards.
+
+### Contributing and releases
+Every version is collected on its own branch before it goes to `main`.
+
+1. A new version gets one branch, `vX.Y.Z-pre-release`, created from `main`. Its first commit is `bumped version vX.Y.Z`.
+2. Each change is its own branch made from `vX.Y.Z-pre-release`, with a squash PR back into it. External contributors: open your PR against the current pre-release branch, not `main`.
+3. When the version is ready, one squash PR goes from `vX.Y.Z-pre-release` into `main`. The merge into `main` deploys the docs.
+4. The release is a GitHub Release, made by hand, which creates the tag `vX.Y.Z`. The tag starts the upload to PyPI.
+
+Checks on pull requests:
+* **CI** (`ci.yml`): Python 3.8 to 3.12 against Redis, with the quality checks and unit tests. Also runs on every push.
+* **Supports Valkey** (`valkey_support.yml`): the unit tests on Python 3.8 to 3.12 against Valkey.
+* **Build and Upload to PyPI** (`build_package_pypi.yml`): the quality checks, unit tests and package build, on PRs into `main` and into `vX.Y.Z-pre-release`. It only publishes on a release tag.
+* **Build and Deploy Documentation** (`deploy_docs.yml`): builds the docs on PRs into `main` and into `vX.Y.Z-pre-release`. It only deploys to GitHub Pages on a push to `main`.
