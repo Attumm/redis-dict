@@ -1,13 +1,11 @@
 #!/bin/bash
 set -e
+cd "$(dirname "$0")/.."
 
-#!/bin/bash
-set -e
+source scripts/lib/env.sh
+resolve_use_uv "$1"
 
-if [ ! -d ".venv_dev" ]; then
-    echo "Virtual environment not found. Running build script..."
-    ./scripts/build_dev.sh
-fi
+ensure_env .venv_dev dev
 
 source .venv_dev/bin/activate
 
