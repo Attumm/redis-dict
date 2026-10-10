@@ -3,22 +3,15 @@ name: Build and Deploy Documentation
 on:
   push:
     branches: ["main"]
+  pull_request:
+    branches: ["main", "v*-pre-release"]
   workflow_dispatch:
 
 permissions:
-  id-token: write
-  pages: write
   contents: read
 
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,13 +30,27 @@ jobs:
       - name: Build documentation
         run: bash scripts/build_docs.sh
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'docs/build/html'
+
+  deploy:
+    needs: [build]
+    if: github.event_name != 'pull_request'
+    permissions:
+      id-token: write
+      pages: write
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - name: Deploy to GitHub Pages
         id: deployment
