@@ -67,3 +67,44 @@ jobs:
         uses: codecov/codecov-action@v4.0.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  # The unit tests with the lowest supported redis-py, so the floor in pyproject.toml stays true.
+  # Keep REDIS_PY_MIN equal to the redis requirement in pyproject.toml.
+  min-redis-py:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.15"]
+
+    env:
+      REDIS_PY_MIN: "6.0.0"
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv with Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.0"
+          python-version: ${{ matrix.python-version }}
+          activate-environment: true
+
+      - name: Install dependencies with the lowest supported redis-py
+        run: |
+          uv sync --locked --extra dev
+          uv pip install "redis==$REDIS_PY_MIN"
+          python -c "import redis; print('redis-py', redis.__version__)"
+
+      - name: Check that the floor matches pyproject.toml
+        run: |
+          grep -q "\"redis>=$REDIS_PY_MIN\"" pyproject.toml
+
+      - name: Run Unit Tests
+        run: |
+          python -m unittest discover -s tests
