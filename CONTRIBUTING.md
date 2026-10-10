@@ -13,7 +13,7 @@ Start Redis or Valkey in Docker. Both use port 6379, so run one at a time.
 bash scripts/start_redis_docker.sh   # container "my-redis"
 bash scripts/start_valkey_docker.sh  # container "my-valkey"
 ```
-The scripts fail when the container already exists. After the first time, use `docker start my-redis` or `docker start my-valkey`.
+When the container already exists, the scripts start it again.
 
 ## Setup
 The project uses [uv](https://docs.astral.sh/uv/). The exact versions of all dependencies are pinned in `uv.lock`, which is committed to the repository.

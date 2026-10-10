@@ -3450,7 +3450,7 @@ requires-dist = [
     { name = "pyflakes", marker = "extra == 'dev'", specifier = ">=3.0.1" },
     { name = "pylama", marker = "extra == 'dev'", specifier = ">=8.4.1" },
     { name = "pylint", marker = "extra == 'dev'", specifier = ">=3.2.7" },
-    { name = "redis", specifier = ">=4.0.0" },
+    { name = "redis", specifier = ">=6.0.0" },
     { name = "setuptools", marker = "extra == 'dev'", specifier = ">=68.0.0,<81" },
     { name = "snowballstemmer", marker = "extra == 'dev'", specifier = ">=2.2.0" },
     { name = "sortedcontainers", marker = "extra == 'dev'", specifier = ">=2.4.0" },
