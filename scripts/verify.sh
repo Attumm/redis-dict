@@ -15,8 +15,8 @@ python -m mypy
 # Doctype Check
 darglint src/redis_dict/
 
-# Multiple linters
-python -m pylama -i E501,E231 src
+# Style checks: pycodestyle, pyflakes, mccabe (the same checks pylama ran)
+python scripts/lib/style_checks.py src/redis_dict
 
 # Unit tests
 python -m unittest discover -s tests

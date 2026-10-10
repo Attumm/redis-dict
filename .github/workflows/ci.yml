@@ -39,9 +39,9 @@ jobs:
         run: |
           uv sync --locked --extra dev
 
-      - name: Run Pylama
+      - name: Run style checks (pycodestyle, pyflakes, mccabe)
         run: |
-          python -m pylama -i E501,E231 src
+          python scripts/lib/style_checks.py src/redis_dict
 
       - name: Run type check with mypy strict
         run: |

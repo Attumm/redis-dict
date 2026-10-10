@@ -48,9 +48,9 @@ uv run --locked --extra dev python -m unittest discover -s tests/fuzzing
 
 ## Quality checks
 ```sh
-bash scripts/verify.sh            # mypy, darglint, pylama, unit tests, bandit, pydocstyle
-bash scripts/build_dev_checks.sh  # sets up .venv_dev, then mypy, darglint, bandit, pylama, unit tests, pydocstyle
-bash scripts/lint.sh              # mypy, darglint, pylama, bandit, pydocstyle, pylint
+bash scripts/verify.sh            # mypy, darglint, pycodestyle, pyflakes, mccabe, unit tests, bandit, pydocstyle
+bash scripts/build_dev_checks.sh  # sets up .venv_dev, then mypy, darglint, bandit, pycodestyle, pyflakes, mccabe, unit tests, pydocstyle
+bash scripts/lint.sh              # mypy, darglint, pycodestyle, pyflakes, mccabe, bandit, pydocstyle, pylint
 ```
 `ci.yml` runs the same checks as `verify.sh`, on Python 3.8 to 3.15. Run `verify.sh` before opening a PR.
 

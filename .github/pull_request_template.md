@@ -20,7 +20,7 @@ The full process is in [CONTRIBUTING.md](https://github.com/Attumm/redis-dict/bl
 
 ## Checklist
 - [ ] This branch was created from the latest `origin/vX.Y.Z-pre-release` (fetched first), and the base of this PR is that branch, not `main`.
-- [ ] `./scripts/verify.sh` passes locally: mypy, darglint, pylama, the unit tests, bandit and pydocstyle. The tests need Redis 6.2 or newer on `localhost:6379`: `./scripts/start_redis_docker.sh`.
+- [ ] `./scripts/verify.sh` passes locally: mypy, darglint, pycodestyle, pyflakes, mccabe, the unit tests, bandit and pydocstyle. The tests need Redis 6.2 or newer on `localhost:6379`: `./scripts/start_redis_docker.sh`.
 - [ ] Tests are added or updated for the change.
 - [ ] If `pyproject.toml` changed: `uv lock` was run and `uv.lock` is committed in this PR.
 - [ ] Docs are updated if the behaviour changed (README, docstrings).
