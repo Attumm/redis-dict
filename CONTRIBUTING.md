@@ -4,7 +4,7 @@ Thank you for helping out. This guide explains how to set up the project, run th
 
 ## Prerequisites
 * [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.7 or newer (CI uses 0.13.0)
-* Python 3.8 to 3.12, the versions CI tests
+* Python 3.8 to 3.15, the versions CI tests
 * Docker (for the Redis and Valkey scripts) and `make` (for the docs)
 * A Redis server on `localhost:6379` for the tests, version 6.2 or newer (redis-dict uses `GETDEL` and `SET ... KEEPTTL`). **The tests flush databases 0 and 11**, so use a throwaway Redis, such as the Docker container below, and not one that holds data you care about.
 
@@ -52,7 +52,7 @@ bash scripts/verify.sh            # mypy, darglint, pylama, unit tests, bandit, 
 bash scripts/build_dev_checks.sh  # sets up .venv_dev, then mypy, darglint, bandit, pylama, unit tests, pydocstyle
 bash scripts/lint.sh              # mypy, darglint, pylama, bandit, pydocstyle, pylint
 ```
-`ci.yml` runs the same checks as `verify.sh`, on Python 3.8 to 3.12. Run `verify.sh` before opening a PR.
+`ci.yml` runs the same checks as `verify.sh`, on Python 3.8 to 3.15. Run `verify.sh` before opening a PR.
 
 ## Documentation
 ```sh
@@ -95,8 +95,8 @@ Every version is collected on its own branch, `vX.Y.Z-pre-release`, before it go
 4. A maintainer creates the GitHub Release, which publishes the version to PyPI. See [RELEASING.md](RELEASING.md).
 
 ### Checks on pull requests
-* **CI** (`ci.yml`): Python 3.8 to 3.12 against Redis, with the quality checks and unit tests. Also runs on every push.
-* **Supports Valkey** (`valkey_support.yml`): the unit tests on Python 3.8 to 3.12 against Valkey.
+* **CI** (`ci.yml`): Python 3.8 to 3.15 against Redis, with the quality checks and unit tests. Also runs on every push.
+* **Supports Valkey** (`valkey_support.yml`): the unit tests on Python 3.8 to 3.15 against Valkey.
 * **Build and Upload to PyPI** (`build_package_pypi.yml`): the quality checks, unit tests and package build, on PRs into `main` and into `vX.Y.Z-pre-release`. It only publishes on a release tag.
 * **Build and Deploy Documentation** (`deploy_docs.yml`): builds the docs on PRs into `main` and into `vX.Y.Z-pre-release`. It only deploys to GitHub Pages on a push to `main`.
 
