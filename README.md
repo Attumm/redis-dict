@@ -400,3 +400,6 @@ pip install redis-dict
 ### Note
 * Please be aware that this project is currently being utilized by various organizations in their production environments. If you have any questions or concerns, feel free to raise issues
 * This project only uses redis as dependency
+
+## Contributing
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/Attumm/redis-dict/blob/main/CONTRIBUTING.md) for the development setup, tests and how to open a pull request, and [RELEASING.md](https://github.com/Attumm/redis-dict/blob/main/RELEASING.md) for how releases are made.
