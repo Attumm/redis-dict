@@ -471,6 +471,13 @@ Every version is collected on its own branch before it goes to `main`.
 
 1. A new version gets one branch, `vX.Y.Z-pre-release`, created from `main`. Its first commit is `bumped version vX.Y.Z`.
 2. Each change is its own branch made from `vX.Y.Z-pre-release`, with a squash PR back into it. External contributors: open your PR against the current pre-release branch, not `main`.
+   ```sh
+   git fetch origin
+   git checkout -b my-change origin/vX.Y.Z-pre-release
+   # work, commit, push
+   git push -u origin my-change
+   ```
+   Then open the PR with base `vX.Y.Z-pre-release` (not `main`), and squash merge it.
 3. When the version is ready, one squash PR goes from `vX.Y.Z-pre-release` into `main`. The merge into `main` deploys the docs.
 4. The release is a GitHub Release, made by hand, which creates the tag `vX.Y.Z`. The tag starts the upload to PyPI.
 
