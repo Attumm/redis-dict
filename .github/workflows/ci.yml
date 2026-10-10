@@ -28,19 +28,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Set up uv with Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v7
         with:
+          version: "0.13.0"
           python-version: ${{ matrix.python-version }}
+          activate-environment: true
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip setuptools
-          pip install -r requirements.txt
-
-      - name: Install test dependencies
-        run: |
-          pip install ".[dev]"
+          uv sync --locked --extra dev
 
       - name: Run Pylama
         run: |

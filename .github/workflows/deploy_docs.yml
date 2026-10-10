@@ -29,6 +29,11 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.0"
+
       - name: Build documentation
         run: bash scripts/build_docs.sh
 
