@@ -41,7 +41,9 @@ jobs:
 
       - name: Run style checks (pycodestyle, pyflakes, mccabe)
         run: |
-          python scripts/lib/style_checks.py src/redis_dict
+          python -m pycodestyle src/redis_dict
+          python -m pyflakes src/redis_dict
+          source scripts/lib/checks.sh && check_complexity src/redis_dict/*.py
 
       - name: Run type check with mypy strict
         run: |
