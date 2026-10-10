@@ -12,7 +12,7 @@ Every version is collected on its own branch, `vX.Y.Z-pre-release`, before it go
    git checkout -b my-change origin/vX.Y.Z-pre-release
    ```
 2. **Pull request:** open this PR with **base `vX.Y.Z-pre-release`, not `main`**. Keep it to one change. If there is no open pre-release branch, target `main`, and a maintainer will retarget it.
-3. **Checks:** CI (Python 3.8 to 3.12 against Redis), Supports Valkey, Build and Upload to PyPI (build only, nothing is published) and the docs build run on this PR. All of them must be green.
+3. **Checks:** CI (Python 3.8 to 3.15 against Redis), Supports Valkey, Build and Upload to PyPI (build only, nothing is published) and the docs build run on this PR. All of them must be green.
 4. **Merge:** a maintainer squash merges this PR into the pre-release branch, together with the other changes for that version.
 5. **Release:** when the version is ready, one PR goes from `vX.Y.Z-pre-release` into `main`. A maintainer then creates the GitHub Release, which publishes the version to PyPI.
 
