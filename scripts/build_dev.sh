@@ -1,11 +1,8 @@
 #!/bin/bash
 set -e
+cd "$(dirname "$0")/.."
 
-rm -rf .venv_dev
-python3 -m venv .venv_dev
-source .venv_dev/bin/activate
+source scripts/lib/env.sh
+resolve_use_uv "$1"
 
-pip install --upgrade pip
-pip install -e ".[dev]"
-
-deactivate
+setup_env .venv_dev dev

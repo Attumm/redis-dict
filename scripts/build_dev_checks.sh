@@ -1,12 +1,12 @@
 #!/bin/bash
 set -e
+cd "$(dirname "$0")/.."
 
-rm -rf .venv_dev
-python3 -m venv .venv_dev
+source scripts/lib/env.sh
+resolve_use_uv "$1"
+
+setup_env .venv_dev dev
 source .venv_dev/bin/activate
-
-pip install --upgrade pip
-pip install -e ".[dev]"
 
 # Type Check
 python -m mypy
@@ -24,6 +24,6 @@ python -m pylama -i E501,E231 src
 python -m unittest discover -s tests
 
 # Docstring Check
-# pydocstyle src/redis_dict/
+pydocstyle src/redis_dict/
 
 deactivate
