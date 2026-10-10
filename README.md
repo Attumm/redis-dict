@@ -486,3 +486,13 @@ Checks on pull requests:
 * **Supports Valkey** (`valkey_support.yml`): the unit tests on Python 3.8 to 3.12 against Valkey.
 * **Build and Upload to PyPI** (`build_package_pypi.yml`): the quality checks, unit tests and package build, on PRs into `main` and into `vX.Y.Z-pre-release`. It only publishes on a release tag.
 * **Build and Deploy Documentation** (`deploy_docs.yml`): builds the docs on PRs into `main` and into `vX.Y.Z-pre-release`. It only deploys to GitHub Pages on a push to `main`.
+
+#### Why this flow
+* **Each change works with the work of others.** Every change starts from the pre-release branch, which already contains everything merged for that version. Changes are built and tested together, one PR at a time, instead of meeting for the first time at release.
+* **`main` always matches a release.** Only one tested squash PR per version reaches `main`, and the release tags that exact commit.
+* **Work in progress has its own place.** Several people can work on the same version without each of them having to keep `main` releasable.
+* **Small, focused PRs.** One squash commit per change makes reviews easy, keeps conflicts small, and a change is easy to revert.
+* **Checks run twice.** On every PR into the pre-release branch, and again on the complete version in the PR into `main`, before anything reaches PyPI.
+* **Releasing is a deliberate step.** Merging publishes nothing. A person creates the GitHub Release, which matters because PyPI never accepts the same version twice.
+
+Trade-off: when `main` moves ahead, merge `main` into the open pre-release branch.
