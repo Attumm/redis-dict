@@ -26,7 +26,7 @@ The scripts use their own environment, `.venv_dev`. Create it with:
 ```sh
 bash scripts/build_dev.sh
 ```
-Run the scripts with `bash` from the project root. They aren't marked executable, so `./scripts/...` fails. `tests.sh`, `verify.sh` and `lint.sh` expect `.venv_dev` to exist, so run `build_dev.sh` first.
+The scripts can be run from any directory, as `./scripts/<name>.sh` or `bash scripts/<name>.sh`. `tests.sh`, `verify.sh`, `lint.sh` and `formatter.sh` set up `.venv_dev` themselves: with uv they run `uv sync --locked` first on every run, so the tools always match `uv.lock`.
 
 Without uv, the scripts fall back to pip and venv. This happens automatically when uv isn't installed, or on request:
 ```sh
@@ -49,7 +49,7 @@ uv run --locked --extra dev python -m unittest discover -s tests/fuzzing
 ## Quality checks
 ```sh
 bash scripts/verify.sh            # mypy, darglint, pylama, unit tests, bandit, pydocstyle
-bash scripts/build_dev_checks.sh  # sets up .venv_dev, then mypy, darglint, bandit, pylama, unit tests
+bash scripts/build_dev_checks.sh  # sets up .venv_dev, then mypy, darglint, bandit, pylama, unit tests, pydocstyle
 bash scripts/lint.sh              # mypy, darglint, pylama, bandit, pydocstyle, pylint
 ```
 `ci.yml` runs the same checks as `verify.sh`, on Python 3.8 to 3.12. Run `verify.sh` before opening a PR.
@@ -59,7 +59,9 @@ bash scripts/lint.sh              # mypy, darglint, pylama, bandit, pydocstyle, 
 bash scripts/build_docs.sh  # docs env in .venv_docs, builds docs/build/html
 bash scripts/view_docs.sh   # opens docs/build/html/index.html (macOS)
 ```
-`build_docs.sh` first removes the generated `docs/Makefile`, `docs/build` and `docs/source`, then generates them again. Like `build_dev.sh`, it accepts `false` or `USE_UV=false` for pip.
+`build_docs.sh` first removes the generated `docs/Makefile`, `docs/build` and `docs/source`, then generates them again.
+
+All scripts that set up or use an environment accept `false` or `USE_UV=false` for pip, like `build_dev.sh`.
 
 ## Dependencies and uv.lock
 CI installs with `uv sync --locked`, which fails when `pyproject.toml` and `uv.lock` don't match. Commit `uv.lock` together with every `pyproject.toml` change.
