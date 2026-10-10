@@ -25,12 +25,10 @@ pycparser==3.11
 pydocstyle==6.3.0
 pyflakes==4.0.3
 pygments==2.21.0
-pylama==8.4.1
 pylint==4.1.2
 pyyaml==6.0.3
 redis==8.1.0
 rich==15.0.0
-setuptools==80.10.2
 snowballstemmer==3.1.1
 sortedcontainers==2.4.0
 stevedore==5.9.1
