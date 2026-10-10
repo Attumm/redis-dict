@@ -5,6 +5,8 @@
 # To use pip/venv instead, set USE_UV=false or pass "false" as the first argument:
 #   USE_UV=false ./scripts/build_dev.sh
 #   ./scripts/build_dev.sh false
+# This works for every script that sets up or uses an environment
+# (build_dev, build_dev_checks, build_docs, tests, verify, lint, formatter).
 # When uv is not installed, pip/venv is used.
 # Install uv: https://docs.astral.sh/uv/getting-started/installation/
 
@@ -48,5 +50,17 @@ setup_env() {
         python3 -m venv "$venv_dir"
         "$venv_dir/bin/pip" install --upgrade pip
         "$venv_dir/bin/pip" install -e ".[$extras]"
+    fi
+}
+
+# Make sure the environment is ready before running tools in it.
+# uv: always sync, which is fast and keeps the environment equal to uv.lock.
+# pip/venv: only build the environment when it doesn't exist yet.
+# Usage: ensure_env <venv_dir> <extra> [<extra> ...]
+ensure_env() {
+    local venv_dir="$1"
+
+    if [ "$USE_UV_FLAG" = true ] || [ ! -d "$venv_dir" ]; then
+        setup_env "$@"
     fi
 }
