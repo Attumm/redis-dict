@@ -72,10 +72,8 @@ dev = [
     "snowballstemmer>=2.2.0",
     "sortedcontainers>=2.4.0",
     "tomli>=2.0.1",
-    "setuptools>=68.0.0,<81",
 
     "bandit",
-    "pylama>=8.4.1",
     "pycodestyle>=2.10.0",
     "pydocstyle>=6.3.0",
     "pyflakes>=3.0.1",
@@ -129,13 +127,6 @@ mypy_path = "src"
 files = ["src"]
 namespace_packages = true
 explicit_package_bases = true
-
-[tool.pylama]
-ignore = "E501,E231"
-skip = "*/.tox/*,*/.env/*,build/*"
-linters = "pycodestyle,pyflakes,mccabe"
-max_line_length = 120
-paths = ["src/redis_dict"]
 
 [tool.pylint.format]
 max-line-length = 120
