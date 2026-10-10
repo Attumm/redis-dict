@@ -1,12 +1,11 @@
 #!/bin/bash
 set -e
 
-rm -rf .venv_dev
-python3 -m venv .venv_dev
-source .venv_dev/bin/activate
+source "$(dirname "$0")/lib/env.sh"
+resolve_use_uv "$1"
 
-pip install --upgrade pip
-pip install -e ".[dev]"
+setup_env .venv_dev dev
+source .venv_dev/bin/activate
 
 # Type Check
 python -m mypy
