@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
+cd "$(dirname "$0")/.."
 
-source "$(dirname "$0")/lib/env.sh"
+source scripts/lib/env.sh
 resolve_use_uv "$1"
 
 setup_env .venv_dev dev
@@ -23,6 +24,6 @@ python -m pylama -i E501,E231 src
 python -m unittest discover -s tests
 
 # Docstring Check
-# pydocstyle src/redis_dict/
+pydocstyle src/redis_dict/
 
 deactivate

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Shared environment setup, sourced by the build scripts.
+# Shared environment setup, sourced by the build scripts (which first cd to the project root).
 #
 # uv is used by default and installs the exact versions pinned in uv.lock.
 # To use pip/venv instead, set USE_UV=false or pass "false" as the first argument:
