@@ -35,7 +35,9 @@ jobs:
       run: |
         python -m mypy
         darglint src/redis_dict/
-        python -m pylama -i E501,E231 src
+        python -m pycodestyle src/redis_dict
+        python -m pyflakes src/redis_dict
+        source scripts/lib/checks.sh && check_complexity src/redis_dict/*.py
         python -m unittest discover -s tests
 
     - name: Run Security check
