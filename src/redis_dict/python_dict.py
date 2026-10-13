@@ -1,5 +1,5 @@
 """Python Redis Dict module."""
-from typing import Any, Iterator, Tuple, Union, Optional, List, Dict
+from typing import Any, Iterator, Tuple, Union, Optional, List, Dict, cast
 
 import time
 from datetime import timedelta
@@ -141,17 +141,11 @@ class PythonRedisDict(RedisDict):
 
         return self._transform(result)
 
-    def __len__(self) -> int:
-        """
-        Get the number of items in the RedisDict, analogous to a dictionary.
-
-        Returns:
-            int: The number of items in the RedisDict.
-        """
-        return self._insertion_order_len()
-
     def _scan_keys(self, search_term: str = '', full_scan: bool = False) -> Iterator[str]:
-        return self._insertion_order_iter()
+        prefix = self._create_iter_query(search_term).rstrip('*')
+        for key in self._insertion_order_iter():
+            if key.startswith(prefix):
+                yield key
 
     def clear(self) -> None:
         """Remove all key-value pairs from the RedisDict in one batch operation using pipelining.
@@ -292,10 +286,13 @@ class PythonRedisDict(RedisDict):
             if first:
                 cursor = 0
                 first = False
-            cursor, data = self.get_redis.zscan(
-                name=self._insertion_order_key,
-                cursor=cursor,
-                count=1
+            cursor, data = cast(
+                Tuple[int, List[Tuple[str, float]]],
+                self.get_redis.zscan(
+                    name=self._insertion_order_key,
+                    cursor=cursor,
+                    count=1,
+                ),
             )
             yield from (item[0] for item in data)
 
@@ -327,5 +324,5 @@ class PythonRedisDict(RedisDict):
         Returns:
             Union[str, None]: The most recently inserted key, or None if the dictionary is empty.
         """
-        result = self.redis.zrange(self._insertion_order_key, -1, -1)
+        result = cast(List[str], self.redis.zrange(self._insertion_order_key, -1, -1))
         return result[0] if result else None

@@ -2254,7 +2254,8 @@ class TestRedisDictMulti(unittest.TestCase):
         """Test setting a chain with 2 elements."""
         self.r.chain_set(['foo', 'bar'], 'melons')
 
-        expected_key = '{}:foo:bar'.format(TEST_NAMESPACE_PREFIX)
+        sep = self.r.chain_separator
+        expected_key = '{}:foo{}bar'.format(TEST_NAMESPACE_PREFIX, sep)
         self.assertEqual(self.redisdb.get(expected_key), b'str:melons')
 
     def test_chain_set_overwrite(self):
