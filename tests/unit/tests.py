@@ -1868,6 +1868,26 @@ class TestRedisDictComparison(unittest.TestCase):
     def test_neq_with_dict(self):
         self.assertNotEqual(self.r1, self.d2)
 
+    def test_eq_with_none(self):
+        self.assertFalse(self.r1 == None)  # noqa: E711
+        self.assertTrue(self.r1 != None)  # noqa: E711
+        self.assertFalse(None == self.r1)  # noqa: E711
+
+    def test_eq_with_list_of_pairs(self):
+        pairs = list(self.d1.items())
+        self.assertFalse(self.r1 == pairs)
+        self.assertTrue(self.r1 != pairs)
+
+    def test_eq_with_non_mapping_types(self):
+        for other in (1, 1.5, "a", b"a", [1], (1,), {1}, object()):
+            with self.subTest(other=other):
+                self.assertFalse(self.r1 == other)
+                self.assertTrue(self.r1 != other)
+
+    def test_in_list_with_non_mappings(self):
+        self.assertFalse(self.r1 in [None, 1, "a"])
+        self.assertTrue(self.r1 in [None, 1, self.d1])
+
     def test_neq_empty(self):
         empty_r = RedisDict(namespace="test_empty")
         self.assertNotEqual(self.r1, {})
