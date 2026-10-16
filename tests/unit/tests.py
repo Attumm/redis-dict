@@ -385,6 +385,28 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(KeyError):
             redis_dic.popitem()
 
+    def test_dict_method_eq_with_non_mapping(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "str": "im a string",
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        for other in (None, 1, 1.5, "a", b"a", [1], (1,), {1}, list(input_items.items())):
+            with self.subTest(other=other):
+                self.assertIs(dic.__eq__(other), NotImplemented)
+                self.assertIs(redis_dic.__eq__(other), NotImplemented)
+                self.assertIs(dic.__ne__(other), NotImplemented)
+                self.assertIs(redis_dic.__ne__(other), NotImplemented)
+
+                self.assertEqual(dic == other, redis_dic == other)
+                self.assertEqual(dic != other, redis_dic != other)
+
     @skip_before_python39
     def test_dict_method_or(self):
         redis_dic = self.create_redis_dict()
