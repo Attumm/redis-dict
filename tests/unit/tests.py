@@ -1591,26 +1591,62 @@ class TestRedisDict(unittest.TestCase):
 
         self.assertEqual(result, expected)
 
-    @unittest.skip
     def test_set_get_mixed_type_set(self):
         key = "mixed_type_set"
         value = {1, "foobar", 3.14, (1, 2, 3)}
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-    @unittest.skip  # this highlights that sets, and tuples not fully supported
     def test_set_get_nested_tuple(self):
         key = "nested_tuple"
         value = (1, (2, 3), (4, 5))
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-    @unittest.skip  # this highlights that sets, and tuples not fully supported
     def test_set_get_nested_tuple_triple(self):
         key = "nested_tuple"
         value = (1, (2, 3), (4, (5, 6)))
         self.r[key] = value
         self.assertEqual(self.r[key], value)
+
+    def _assert_round_trip(self, key, value):
+        self.r[key] = value
+        result = self.r[key]
+        self.assertEqual(result, value)
+        self.assertIs(type(result), type(value))
+
+    def test_set_and_frozenset_of_tuples_round_trip(self):
+        self._assert_round_trip("set_of_tuples", {(1, 2), (3, 4)})
+        self._assert_round_trip("frozenset_of_tuples", frozenset({(1, 2), (3, 4)}))
+        self.assertEqual(
+            dict(self.r.items()),
+            {"set_of_tuples": {(1, 2), (3, 4)}, "frozenset_of_tuples": frozenset({(1, 2), (3, 4)})},
+        )
+
+    def test_tuples_nested_in_list_dict_and_tuple_round_trip(self):
+        self._assert_round_trip("tuple_in_tuple", ((1, 2), (3, 4)))
+        self._assert_round_trip("tuple_in_list", [(1, 2), (3, 4)])
+        self._assert_round_trip("tuple_in_dict", {"a": (1, 2)})
+        self.assertIsInstance(self.r["tuple_in_list"][0], tuple)
+        self.assertIsInstance(self.r["tuple_in_dict"]["a"], tuple)
+
+    def test_dict_with_int_keys_round_trips(self):
+        self._assert_round_trip("int_keys", {1: "a", 2: "b"})
+        self._assert_round_trip("mixed_keys", {1: "a", "1": "b"})
+        self.assertEqual(self.r["int_keys"][1], "a")
+
+    def test_dict_with_type_marker_keys_round_trips(self):
+        # A user dict with "__type__" and "value" keys must not be decoded as another type (#6).
+        cases = [
+            ("int_marker", {"__type__": "int", "value": "5"}),
+            ("extra_keys", {"__type__": "int", "value": "5", "other": 1}),
+            ("tuple_marker", {"__type__": "tuple", "value": [1, 2]}),
+            ("nested", {"outer": {"__type__": "int", "value": "5"}}),
+            ("in_list", [1, {"__type__": "bytes", "value": "aGk="}, "x"]),
+        ]
+        for key, value in cases:
+            with self.subTest(key=key):
+                self._assert_round_trip(key, value)
 
     def test_init_redis_dict_with_redis_instance(self):
         test_key = "test_key"

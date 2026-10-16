@@ -29,7 +29,7 @@ class TestJsonEncoding(unittest.TestCase):
             "str", "int", "float", "dict", "list",
             "NoneType", "defaultdict", "OrderedDict",
             "bool", "str,int,bool in list", "None,float,list in list",
-            "str,dict,set in list",
+            "str,dict,set in list", "tuple",
         }
 
     def _assert_value_encodes_decodes(self, value: Any) -> None:
@@ -48,7 +48,7 @@ class TestJsonEncoding(unittest.TestCase):
 
             ([1, 2, 3], "list"),
             ({"a": 1, "b": 2}, "dict"),
-            #((1, 2, 3), "tuple"),
+            ((1, 2, 3), "tuple"),
             ({1, 2, 3}, "set"),
 
             (datetime(2024, 1, 1, 12, 30, 45), "datetime"),
@@ -84,7 +84,7 @@ class TestJsonEncoding(unittest.TestCase):
 
             ([], "list"),
             ({}, "dict"),
-            # ((), "tuple"), TODO Handle tuple
+            ((), "tuple"),
             (set(), "set"),
 
             (datetime.min, "datetime"),
@@ -120,7 +120,7 @@ class TestJsonEncoding(unittest.TestCase):
 
             ({"value": [1, 2, 3]}, "list"),
             ({"value": {"a": 1, "b": 2}}, "dict"),
-            # ({"value": (1, 2, 3)}, "tuple"),  TODO Handle tuple
+            ({"value": (1, 2, 3)}, "tuple"),
             ({"value": {1, 2, 3}}, "set"),
 
             ({"value": datetime(2024, 1, 1, 12, 30, 45)}, "datetime"),
@@ -156,7 +156,7 @@ class TestJsonEncoding(unittest.TestCase):
 
             ({"level1": {"value": [1, 2, 3]}}, "list"),
             ({"level1": {"value": {"a": 1, "b": 2}}}, "dict"),
-            # ({"level1": {"value": (1, 2, 3)}}, "tuple"),  TODO Handle tuple
+            ({"level1": {"value": (1, 2, 3)}}, "tuple"),
             ({"level1": {"value": {1, 2, 3}}}, "set"),
 
             ({"level1": {"value": datetime(2024, 1, 1, 12, 30, 45)}}, "datetime"),
@@ -192,7 +192,7 @@ class TestJsonEncoding(unittest.TestCase):
 
             ([[1, 2, 3]], "list"),
             ([{"a": 1, "b": 2}], "dict"),
-            # ([(1, 2, 3)], "tuple"),  TODO Handle tuple
+            ([(1, 2, 3)], "tuple"),
             ([{1, 2, 3}], "set"),
 
             ([datetime(2024, 1, 1, 12, 30, 45)], "datetime"),
@@ -334,6 +334,21 @@ class TestJsonEncoding(unittest.TestCase):
                 with self.assertRaises(TypeError,  msg=test_case_title):
                     result = json.dumps(test_case_input, cls=RedisDictJSONEncoder)
                     print(result)
+
+    def test_format_of_earlier_versions_still_decodes(self):
+        # Values stored by earlier versions must stay readable.
+        test_cases = [
+            ('{"a": {"__type__": "set", "value": "[1, 2]"}}', {"a": {1, 2}}),
+            ('[{"__type__": "frozenset", "value": "[1]"}]', [frozenset({1})]),
+            ('{"a": [1, 2], "b": {"__type__": "datetime", "value": "2024-01-01T12:30:45"}}',
+             {"a": [1, 2], "b": datetime(2024, 1, 1, 12, 30, 45)}),
+            ('{"1": "a"}', {"1": "a"}),
+        ]
+        for encoded, expected in test_cases:
+            with self.subTest(encoded=encoded):
+                self.assertEqual(json.loads(encoded, cls=RedisDictJSONDecoder), expected)
+                self.assertEqual(decode_json(encoded), expected)
+
 
 if __name__ == '__main__':
     unittest.main()
