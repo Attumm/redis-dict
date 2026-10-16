@@ -226,6 +226,42 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(sorted(map(str, input_values)), sorted(map(str, result_values)))
         self.assertEqual(sorted(map(str, dic_values)), sorted(map(str, result_values)))
 
+    # RedisDict makes no order promise, so the iteration tests below compare sets and counts only.
+    def test_iter_single_loop_yields_every_key_once(self):
+        redis_dic = self.create_redis_dict(namespace="dict_one")
+        redis_dic.update({"a": 1, "b": 1, "c": 1})
+
+        keys = [key for key in redis_dic]
+        self.assertEqual(len(keys), 3)
+        self.assertEqual(set(keys), {"a", "b", "c"})
+
+    def test_iter_nested_loops_yield_every_pair(self):
+        redis_dic = self.create_redis_dict(namespace="dict_one")
+        redis_dic.update({"a": 1, "b": 1, "c": 1})
+
+        pairs = [(x, y) for x in redis_dic for y in redis_dic]
+        self.assertEqual(len(pairs), 9)
+        self.assertEqual(set(pairs), {(x, y) for x in "abc" for y in "abc"})
+
+    def test_iter_two_open_iterators_are_independent(self):
+        redis_dic = self.create_redis_dict(namespace="dict_one")
+        redis_dic.update({"a": 1, "b": 1, "c": 1})
+
+        first, second = iter(redis_dic), iter(redis_dic)
+        self.assertEqual(len(list(zip(first, second))), 3)
+
+    def test_iter_interleaved_iterators_each_yield_every_key(self):
+        redis_dic = self.create_redis_dict(namespace="dict_one")
+        redis_dic.update({"a": 1, "b": 1, "c": 1})
+
+        first, second = iter(redis_dic), iter(redis_dic)
+        seen_first, seen_second = [], []
+        for _ in range(3):
+            seen_first.append(next(first))
+            seen_second.append(next(second))
+        self.assertEqual(set(seen_first), {"a", "b", "c"})
+        self.assertEqual(set(seen_second), {"a", "b", "c"})
+
     def test_dict_method_update(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
