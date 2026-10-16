@@ -385,6 +385,49 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(KeyError):
             redis_dic.popitem()
 
+    def test_dict_method_popitem_with_other_namespace_in_same_db(self):
+        # Edge case: one SCAN step only visits a few slots of the whole database, here filled with dict_one's keys.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_two = self.create_redis_dict(namespace="dict_two")
+
+        with dict_one.pipeline():
+            for i in range(3000):
+                dict_one[f"k{i}"] = i
+        dict_two["only"] = 1
+
+        self.assertEqual(dict_two.popitem(), ("only", 1))
+        self.assertEqual(len(dict_two), 0)
+        self.assertEqual(len(dict_one), 3000)
+
+    def test_dict_method_key_with_other_namespace_in_same_db(self):
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_two = self.create_redis_dict(namespace="dict_two")
+
+        with dict_one.pipeline():
+            for i in range(3000):
+                dict_one[f"k{i}"] = i
+        dict_two["only"] = 1
+
+        self.assertEqual(dict_two.key(), "only")
+        self.assertEqual(dict_two.key("on"), "only")
+        self.assertIsNone(dict_two.key("zzz"))
+
+    def test_dict_method_popitem_drains_with_other_namespace_in_same_db(self):
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_two = self.create_redis_dict(namespace="dict_two")
+
+        with dict_one.pipeline():
+            for i in range(3000):
+                dict_one[f"k{i}"] = i
+        expected = {f"k{i}": i for i in range(5)}
+        dict_two.update(expected)
+
+        popped = dict(dict_two.popitem() for _ in range(len(expected)))
+        self.assertEqual(popped, expected)
+        with self.assertRaisesRegex(KeyError, r"^'popitem\(\): dictionary is empty'$"):
+            dict_two.popitem()
+        self.assertEqual(len(dict_one), 3000)
+
     @skip_before_python39
     def test_dict_method_or(self):
         redis_dic = self.create_redis_dict()

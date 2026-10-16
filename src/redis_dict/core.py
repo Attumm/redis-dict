@@ -623,11 +623,8 @@ class RedisDict:
             str: The first key associated with the given search term.
         """
         to_rm = len(self.namespace) + 1
-        search_query = self._create_iter_query(search_term)
-        _, data = self.get_redis.scan(match=search_query, count=1)
-        for item in data:
+        for item in self._scan_keys(search_term):
             return str(item[to_rm:])
-
         return None
 
     def items(self) -> Iterator[Tuple[str, Any]]:

@@ -151,7 +151,8 @@ class PythonRedisDict(RedisDict):
         return self._insertion_order_len()
 
     def _scan_keys(self, search_term: str = '', full_scan: bool = False) -> Iterator[str]:
-        return self._insertion_order_iter()
+        prefix = self._format_key(search_term)
+        return (key for key in self._insertion_order_iter() if key.startswith(prefix))
 
     def clear(self) -> None:
         """Remove all key-value pairs from the RedisDict in one batch operation using pipelining.
