@@ -385,6 +385,28 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(KeyError):
             redis_dic.popitem()
 
+    def test_dict_method_eq_with_non_mapping(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "str": "im a string",
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        for other in (None, 1, 1.5, "a", b"a", [1], (1,), {1}, list(input_items.items())):
+            with self.subTest(other=other):
+                self.assertIs(dic.__eq__(other), NotImplemented)
+                self.assertIs(redis_dic.__eq__(other), NotImplemented)
+                self.assertIs(dic.__ne__(other), NotImplemented)
+                self.assertIs(redis_dic.__ne__(other), NotImplemented)
+
+                self.assertEqual(dic == other, redis_dic == other)
+                self.assertEqual(dic != other, redis_dic != other)
+
     @skip_before_python39
     def test_dict_method_or(self):
         redis_dic = self.create_redis_dict()
@@ -1867,26 +1889,6 @@ class TestRedisDictComparison(unittest.TestCase):
 
     def test_neq_with_dict(self):
         self.assertNotEqual(self.r1, self.d2)
-
-    def test_eq_with_none(self):
-        self.assertFalse(self.r1 == None)  # noqa: E711
-        self.assertTrue(self.r1 != None)  # noqa: E711
-        self.assertFalse(None == self.r1)  # noqa: E711
-
-    def test_eq_with_list_of_pairs(self):
-        pairs = list(self.d1.items())
-        self.assertFalse(self.r1 == pairs)
-        self.assertTrue(self.r1 != pairs)
-
-    def test_eq_with_non_mapping_types(self):
-        for other in (1, 1.5, "a", b"a", [1], (1,), {1}, object()):
-            with self.subTest(other=other):
-                self.assertFalse(self.r1 == other)
-                self.assertTrue(self.r1 != other)
-
-    def test_in_list_with_non_mappings(self):
-        self.assertFalse(self.r1 in [None, 1, "a"])
-        self.assertTrue(self.r1 in [None, 1, self.d1])
 
     def test_neq_empty(self):
         empty_r = RedisDict(namespace="test_empty")
