@@ -271,9 +271,9 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(len(dic), len(input_items) - i)
             self.assertEqual(len(redis_dic), len(input_items) - i)
 
-        with self.assertRaises(KeyError):
+        with self.assertRaisesRegex(KeyError, "^'item'$"):
             dic.pop("item")
-        with self.assertRaises(KeyError):
+        with self.assertRaisesRegex(KeyError, "^'item'$"):
             redis_dic.pop("item")
 
     def test_dict_method_pop_default(self):
@@ -627,7 +627,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             )
             self.assertEqual(other_expected_value, redis_dic[key])
         time.sleep(1.5)
-        with self.assertRaisesRegex(KeyError, key):
+        with self.assertRaisesRegex(KeyError, f"^'{key}'$"):
             redis_dic[key]
 
     def test_setdefault_with_preserve_ttl(self):
@@ -655,7 +655,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         time.sleep(sleep_time)
 
         # TTL should be expired, thus key and value should be missing, and thus we will set the default value.
-        with self.assertRaisesRegex(KeyError, key):
+        with self.assertRaisesRegex(KeyError, f"^'{key}'$"):
             redis_dic[key]
 
         expected_value_two = "expected_value_two"
@@ -781,10 +781,15 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         redis_dic = self.create_redis_dict()
         dic = dict()
 
-        with self.assertRaisesRegex(KeyError, "appel"):
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
             dic['appel']
-        with self.assertRaisesRegex(KeyError, "appel"):
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
             redis_dic['appel']
+
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
+            dic.pop('appel')
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
+            redis_dic.pop('appel')
 
         with self.assertRaisesRegex(KeyError, r"popitem\(\): dictionary is empty"):
             dic.popitem()

@@ -713,7 +713,7 @@ class RedisDict:
         if value is None:
             if default is not SENTINEL:
                 return default
-            raise KeyError(formatted_key)
+            raise KeyError(key)
         return self._transform(value)
 
     def popitem(self) -> Tuple[str, Any]:
