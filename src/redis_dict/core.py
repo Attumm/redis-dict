@@ -3,7 +3,6 @@ from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type
 
 from datetime import timedelta
 from contextlib import contextmanager
-from collections.abc import Mapping
 
 from redis import StrictRedis
 
@@ -444,17 +443,17 @@ class RedisDict:
 
         Returns a new dictionary with items from both dictionaries.
 
+        Returns NotImplemented for operands without a keys() method,
+        so Python raises TypeError for unsupported types, as dict does.
+
         Args:
             other (Dict[str, Any]): The dictionary to merge with.
-
-        Raises:
-            TypeError: If other does not adhere to Mapping.
 
         Returns:
             Dict[str, Any]: A new dictionary containing items from both dictionaries.
         """
-        if not isinstance(other, Mapping):
-            raise TypeError(f"unsupported operand type(s) for |: '{type(other).__name__}' and 'RedisDict'")
+        if not hasattr(other, "keys"):
+            return NotImplemented
 
         result = {}
         result.update(self.to_dict())
@@ -467,17 +466,17 @@ class RedisDict:
 
         Called when RedisDict is on the right side of |.
 
+        Returns NotImplemented for operands without a keys() method,
+        so Python raises TypeError for unsupported types, as dict does.
+
         Args:
             other (Dict[str, Any]): The dictionary to merge with.
-
-        Raises:
-            TypeError: If other does not adhere to Mapping.
 
         Returns:
             Dict[str, Any]: A new dictionary containing items from both dictionaries.
         """
-        if not isinstance(other, Mapping):
-            raise TypeError(f"unsupported operand type(s) for |: 'RedisDict' and '{type(other).__name__}'")
+        if not hasattr(other, "keys"):
+            return NotImplemented
 
         result = {}
         result.update(other)
@@ -490,17 +489,17 @@ class RedisDict:
 
         Modifies the current dictionary by adding items from other.
 
+        Returns NotImplemented for operands without a keys() method,
+        so Python raises TypeError for unsupported types, as dict does.
+
         Args:
             other (Dict[str, Any]): The dictionary to merge with.
-
-        Raises:
-            TypeError: If other does not adhere to Mapping.
 
         Returns:
             RedisDict: The modified RedisDict instance.
         """
-        if not isinstance(other, Mapping):
-            raise TypeError(f"unsupported operand type(s) for |: '{type(other).__name__}' and 'RedisDict'")
+        if not hasattr(other, "keys"):
+            return NotImplemented
 
         self.update(other)
         return self
