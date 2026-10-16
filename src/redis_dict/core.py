@@ -316,9 +316,13 @@ class RedisDict:
         Args:
             other (Any): The object to compare with.
 
+        Returns NotImplemented for operands without a keys() method, so Python returns False, as dict does.
+
         Returns:
             bool: True if equal, False otherwise
         """
+        if not hasattr(other, "keys"):
+            return NotImplemented
         if len(self) != len(other):
             return False
         for key, value in self.items():
@@ -336,6 +340,8 @@ class RedisDict:
         Returns:
             bool: False if equal, True otherwise
         """
+        if not hasattr(other, "keys"):
+            return NotImplemented
         return not self.__eq__(other)
 
     def __getitem__(self, item: str) -> Any:
