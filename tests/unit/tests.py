@@ -1163,6 +1163,25 @@ class TestPythonRedisDictBehaviorDict(TestRedisDictBehaviorDict):
         config.update(kwargs)
         return PythonRedisDict(namespace=namespace+"_PythonRedisDict", **config)
 
+    def test_iter_interleaved_iterators_keep_insertion_order(self):
+        # PythonRedisDict promises insertion order: every open iterator yields the keys in dict's order.
+        # 100 keys stays below the 128-member boundary of the insertion-order zset (#7).
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        for i in range(100):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        first, second = iter(redis_dic), iter(redis_dic)
+        seen_first, seen_second = [], []
+        for _ in range(len(dic)):
+            seen_first.append(next(first))
+            seen_second.append(next(second))
+
+        self.assertEqual(seen_first, list(dic))
+        self.assertEqual(seen_second, list(dic))
+
     def test_dict_method_update_reversed(self):
         """
         PythonRedisDict Currently support insertion order with
