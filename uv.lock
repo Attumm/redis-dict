@@ -3322,7 +3322,7 @@ wheels = [
 
 [[package]]
 name = "redis-dict"
-version = "3.4.1"
+version = "3.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "redis", version = "6.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },

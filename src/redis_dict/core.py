@@ -3,7 +3,6 @@ from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type
 
 from datetime import timedelta
 from contextlib import contextmanager
-from collections.abc import Mapping
 
 from redis import StrictRedis
 
@@ -60,7 +59,16 @@ class RedisDict:
             redis (Optional[StrictRedis[Any]], optional): A Redis connection instance.
             raise_key_error_delete (bool): Enable strict Python dict behavior raise if key not found when deleting.
             **redis_kwargs (Any): Additional kwargs for Redis connection if not provided.
+
+        Raises:
+            ValueError: If the namespace contains the namespace delimiter or a glob character.
         """
+
+        self.namespace_delimiter: str = ':'
+        self.key_delimiter: str = ':'
+        if any(char in namespace for char in self.namespace_delimiter + '*?[]\\'):
+            raise ValueError(f"Namespace {namespace!r} contains a special character: "
+                             f"{self.namespace_delimiter!r} and the glob characters * ? [ ] \\ are not allowed.")
 
         self.namespace: str = namespace
         self.expire: Union[int, timedelta, None] = expire
@@ -91,7 +99,7 @@ class RedisDict:
         Returns:
             str: The formatted key with the namespace prefix.
         """
-        return f'{self.namespace}:{key}'
+        return f'{self.namespace}{self.namespace_delimiter}{key}'
 
     def _parse_key(self, key: str) -> str:
         """
@@ -103,7 +111,7 @@ class RedisDict:
         Returns:
             str: The parsed key
         """
-        return key[len(self.namespace) + 1:]
+        return key[len(self.namespace) + len(self.namespace_delimiter):]
 
     def _valid_input(self, value: Any) -> bool:
         """
@@ -135,7 +143,7 @@ class RedisDict:
         """
         store_type = type(value).__name__
         encoded_value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
-        return f'{store_type}:{encoded_value}'
+        return f'{store_type}{self.key_delimiter}{encoded_value}'
 
     def _store_set(self, formatted_key: str, formatted_value: str) -> None:
         if self.preserve_expiration and self.get_redis.exists(formatted_key):
@@ -195,7 +203,7 @@ class RedisDict:
         Returns:
             Any: The transformed Python object.
         """
-        type_, value = result.split(':', 1)
+        type_, value = result.split(self.key_delimiter, 1)
         return self.decoding_registry.get(type_, _default_decoder)(value)
 
     def new_type_compliance(
@@ -316,9 +324,13 @@ class RedisDict:
         Args:
             other (Any): The object to compare with.
 
+        Returns NotImplemented for operands without a keys() method, so Python returns False, as dict does.
+
         Returns:
             bool: True if equal, False otherwise
         """
+        if not hasattr(other, "keys"):
+            return NotImplemented
         if len(self) != len(other):
             return False
         for key, value in self.items():
@@ -336,6 +348,8 @@ class RedisDict:
         Returns:
             bool: False if equal, True otherwise
         """
+        if not hasattr(other, "keys"):
+            return NotImplemented
         return not self.__eq__(other)
 
     def __getitem__(self, item: str) -> Any:
@@ -444,17 +458,17 @@ class RedisDict:
 
         Returns a new dictionary with items from both dictionaries.
 
+        Returns NotImplemented for operands without a keys() method,
+        so Python raises TypeError for unsupported types, as dict does.
+
         Args:
             other (Dict[str, Any]): The dictionary to merge with.
-
-        Raises:
-            TypeError: If other does not adhere to Mapping.
 
         Returns:
             Dict[str, Any]: A new dictionary containing items from both dictionaries.
         """
-        if not isinstance(other, Mapping):
-            raise TypeError(f"unsupported operand type(s) for |: '{type(other).__name__}' and 'RedisDict'")
+        if not hasattr(other, "keys"):
+            return NotImplemented
 
         result = {}
         result.update(self.to_dict())
@@ -467,17 +481,17 @@ class RedisDict:
 
         Called when RedisDict is on the right side of |.
 
+        Returns NotImplemented for operands without a keys() method,
+        so Python raises TypeError for unsupported types, as dict does.
+
         Args:
             other (Dict[str, Any]): The dictionary to merge with.
-
-        Raises:
-            TypeError: If other does not adhere to Mapping.
 
         Returns:
             Dict[str, Any]: A new dictionary containing items from both dictionaries.
         """
-        if not isinstance(other, Mapping):
-            raise TypeError(f"unsupported operand type(s) for |: 'RedisDict' and '{type(other).__name__}'")
+        if not hasattr(other, "keys"):
+            return NotImplemented
 
         result = {}
         result.update(other)
@@ -490,17 +504,17 @@ class RedisDict:
 
         Modifies the current dictionary by adding items from other.
 
+        Returns NotImplemented for operands without a keys() method,
+        so Python raises TypeError for unsupported types, as dict does.
+
         Args:
             other (Dict[str, Any]): The dictionary to merge with.
-
-        Raises:
-            TypeError: If other does not adhere to Mapping.
 
         Returns:
             RedisDict: The modified RedisDict instance.
         """
-        if not isinstance(other, Mapping):
-            raise TypeError(f"unsupported operand type(s) for |: '{type(other).__name__}' and 'RedisDict'")
+        if not hasattr(other, "keys"):
+            return NotImplemented
 
         self.update(other)
         return self
@@ -571,7 +585,7 @@ class RedisDict:
             >>> print(query)
             'foo:bar*'
         """
-        return f'{self.namespace}:{search_term}*'
+        return f'{self.namespace}{self.namespace_delimiter}{search_term}*'
 
     def _scan_keys(self, search_term: str = '', full_scan: bool = False) -> Iterator[str]:
         """Scan for Redis keys matching the given search term.
@@ -610,7 +624,7 @@ class RedisDict:
         Returns:
             Iterator[str]: A list of keys in the RedisDict.
         """
-        to_rm = len(self.namespace) + 1
+        to_rm = len(self.namespace) + len(self.namespace_delimiter)
         return (str(item[to_rm:]) for item in self._scan_keys())
 
     def key(self, search_term: str = '') -> Optional[str]:
@@ -622,7 +636,7 @@ class RedisDict:
         Returns:
             str: The first key associated with the given search term.
         """
-        to_rm = len(self.namespace) + 1
+        to_rm = len(self.namespace) + len(self.namespace_delimiter)
         search_query = self._create_iter_query(search_term)
         _, data = self.get_redis.scan(match=search_query, count=1)
         for item in data:
@@ -636,7 +650,7 @@ class RedisDict:
         Yields:
             Iterator[Tuple[str, Any]]: A list of key-value pairs in the RedisDict.
         """
-        to_rm = len(self.namespace) + 1
+        to_rm = len(self.namespace) + len(self.namespace_delimiter)
         for item in self._scan_keys():
             try:
                 yield str(item[to_rm:]), self[item[to_rm:]]
@@ -651,7 +665,7 @@ class RedisDict:
         Yields:
             List[Any]: A list of values in the RedisDict.
         """
-        to_rm = len(self.namespace) + 1
+        to_rm = len(self.namespace) + len(self.namespace_delimiter)
         for item in self._scan_keys():
             try:
                 yield self[item[to_rm:]]
@@ -713,7 +727,7 @@ class RedisDict:
         if value is None:
             if default is not SENTINEL:
                 return default
-            raise KeyError(formatted_key)
+            raise KeyError(key)
         return self._transform(value)
 
     def popitem(self) -> Tuple[str, Any]:

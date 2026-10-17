@@ -271,9 +271,9 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(len(dic), len(input_items) - i)
             self.assertEqual(len(redis_dic), len(input_items) - i)
 
-        with self.assertRaises(KeyError):
+        with self.assertRaisesRegex(KeyError, "^'item'$"):
             dic.pop("item")
-        with self.assertRaises(KeyError):
+        with self.assertRaisesRegex(KeyError, "^'item'$"):
             redis_dic.pop("item")
 
     def test_dict_method_pop_default(self):
@@ -384,6 +384,28 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             dic.popitem()
         with self.assertRaises(KeyError):
             redis_dic.popitem()
+
+    def test_dict_method_eq_with_non_mapping(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "str": "im a string",
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        for other in (None, 1, 1.5, "a", b"a", [1], (1,), {1}, list(input_items.items())):
+            with self.subTest(other=other):
+                self.assertIs(dic.__eq__(other), NotImplemented)
+                self.assertIs(redis_dic.__eq__(other), NotImplemented)
+                self.assertIs(dic.__ne__(other), NotImplemented)
+                self.assertIs(redis_dic.__ne__(other), NotImplemented)
+
+                self.assertEqual(dic == other, redis_dic == other)
+                self.assertEqual(dic != other, redis_dic != other)
 
     @skip_before_python39
     def test_dict_method_or(self):
@@ -508,6 +530,109 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(TypeError):
             redis_dic |= [1, 2]
 
+    @skip_before_python39
+    def test_dict_method_or_with_redis_dict(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        dic = dict()
+        other_dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+            "new_bool": False,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+        other_redis_dic.update(additional_items)
+        other_dic.update(additional_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(other_redis_dic), 3)
+
+        redis_result = redis_dic | other_redis_dic
+        dict_result = dic | other_dic
+
+        self.assertEqual(len(redis_result), len(dict_result))
+        self.assertEqual(dict(redis_result), dict_result)
+
+        # Verify neither operand was modified
+        self.assertEqual(dict(redis_dic), dic)
+        self.assertEqual(dict(other_redis_dic), other_dic)
+
+    @skip_before_python39
+    def test_dict_method_or_with_redis_dict_reversed_operands(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        dic = dict()
+        other_dic = dict()
+
+        input_items = {
+            "int": 1,
+            "str": "im a string",
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+        other_redis_dic.update(additional_items)
+        other_dic.update(additional_items)
+
+        # Overlapping key "str": right-hand operand wins, as with dict
+        redis_result = other_redis_dic | redis_dic
+        dict_result = other_dic | dic
+
+        self.assertEqual(dict(redis_result), dict_result)
+        self.assertEqual(redis_result["str"], "im a string")
+
+    @skip_before_python39
+    def test_dict_method_ior_with_redis_dict(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        dic = dict()
+        other_dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+            "new_bool": False,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+        other_redis_dic.update(additional_items)
+        other_dic.update(additional_items)
+
+        redis_dic |= other_redis_dic
+        dic |= other_dic
+
+        self.assertEqual(len(redis_dic), len(dic))
+        self.assertEqual(dict(redis_dic), dic)
+
+        # Verify right-hand operand was not modified
+        self.assertEqual(dict(other_redis_dic), other_dic)
+
     def test_dict_method_reversed_(self):
         """
         RedisDict without the flag dict_compliant insertion order doens't make use of insert_order.
@@ -627,7 +752,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             )
             self.assertEqual(other_expected_value, redis_dic[key])
         time.sleep(1.5)
-        with self.assertRaisesRegex(KeyError, key):
+        with self.assertRaisesRegex(KeyError, f"^'{key}'$"):
             redis_dic[key]
 
     def test_setdefault_with_preserve_ttl(self):
@@ -655,7 +780,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         time.sleep(sleep_time)
 
         # TTL should be expired, thus key and value should be missing, and thus we will set the default value.
-        with self.assertRaisesRegex(KeyError, key):
+        with self.assertRaisesRegex(KeyError, f"^'{key}'$"):
             redis_dic[key]
 
         expected_value_two = "expected_value_two"
@@ -741,6 +866,73 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(redis_dic), 0)
         self.assertEqual(len(dic), 0)
 
+    def test_dict_method_clear_keeps_other_namespace(self):
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_two = self.create_redis_dict(namespace="dict_two")
+
+        dict_one["key"] = "value one"
+        dict_two["key"] = "value two"
+
+        dict_one.clear()
+
+        self.assertEqual(len(dict_one), 0)
+        self.assertEqual(dict_two["key"], "value two")
+        self.assertEqual(len(dict_two), 1)
+
+    def test_dict_method_clear_keeps_namespace_that_starts_with_same_name(self):
+        # Edge case: namespace "dict_one" scans "dict_one:*", so a namespace "dict_one:two" would fall inside it.
+        # A namespace may not contain the namespace delimiter ":", so it can't be created.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_one["key"] = "value one"
+
+        for namespace in ("dict_one:two", "dict_one:", ":dict_one"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+                    self.create_redis_dict(namespace=namespace)
+
+        dict_one.clear()
+        self.assertEqual(len(dict_one), 0)
+
+    def test_chain_set_keeps_namespace_that_starts_with_same_name(self):
+        # Edge case: chain_set joins with ":", so dict_one.chain_set(["two", "key"]) is stored as "dict_one:two:key",
+        # the key that dict_two["key"] would get with namespace "dict_one:two". That namespace can't be created.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+
+        dict_one.chain_set(["two", "key"], "value one")
+
+        with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+            self.create_redis_dict(namespace="dict_one:two")
+
+        self.assertEqual(dict_one.chain_get(["two", "key"]), "value one")
+        self.assertEqual(len(dict_one), 1)
+
+    def test_len_and_keys_ignore_namespace_that_starts_with_same_name(self):
+        # Edge case: dict_one is empty; namespace "dict_one:two" can't be created, so nothing lands inside dict_one.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+
+        with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+            self.create_redis_dict(namespace="dict_one:two")
+
+        self.assertEqual(len(dict_one), 0)
+        self.assertEqual(list(dict_one.keys()), [])
+
+    def test_namespace_with_glob_characters_is_rejected(self):
+        for namespace in ("dict[one]", "dict_*", "dict_?", "dict\\one"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+                    self.create_redis_dict(namespace=namespace)
+
+    def test_namespace_with_glob_character_at_start_or_end_is_rejected(self):
+        for namespace in ("*", "?", "[", "]", "*dict_one", "dict_one*", ":", "dict_one:two"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+                    self.create_redis_dict(namespace=namespace)
+
+    def test_plain_namespaces_are_accepted(self):
+        for namespace in ("dict_one", "dict_two", "dict-one", "dict.one", "main"):
+            with self.subTest(namespace=namespace):
+                self.assertTrue(self.create_redis_dict(namespace=namespace).namespace.startswith(namespace))
+
     def test_dict_method_clear_1(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -781,10 +973,15 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         redis_dic = self.create_redis_dict()
         dic = dict()
 
-        with self.assertRaisesRegex(KeyError, "appel"):
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
             dic['appel']
-        with self.assertRaisesRegex(KeyError, "appel"):
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
             redis_dic['appel']
+
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
+            dic.pop('appel')
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
+            redis_dic.pop('appel')
 
         with self.assertRaisesRegex(KeyError, r"popitem\(\): dictionary is empty"):
             dic.popitem()
