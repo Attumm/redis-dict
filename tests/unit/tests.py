@@ -866,6 +866,73 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(redis_dic), 0)
         self.assertEqual(len(dic), 0)
 
+    def test_dict_method_clear_keeps_other_namespace(self):
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_two = self.create_redis_dict(namespace="dict_two")
+
+        dict_one["key"] = "value one"
+        dict_two["key"] = "value two"
+
+        dict_one.clear()
+
+        self.assertEqual(len(dict_one), 0)
+        self.assertEqual(dict_two["key"], "value two")
+        self.assertEqual(len(dict_two), 1)
+
+    def test_dict_method_clear_keeps_namespace_that_starts_with_same_name(self):
+        # Edge case: namespace "dict_one" scans "dict_one:*", so a namespace "dict_one:two" would fall inside it.
+        # A namespace may not contain the namespace delimiter ":", so it can't be created.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_one["key"] = "value one"
+
+        for namespace in ("dict_one:two", "dict_one:", ":dict_one"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+                    self.create_redis_dict(namespace=namespace)
+
+        dict_one.clear()
+        self.assertEqual(len(dict_one), 0)
+
+    def test_chain_set_keeps_namespace_that_starts_with_same_name(self):
+        # Edge case: chain_set joins with ":", so dict_one.chain_set(["two", "key"]) is stored as "dict_one:two:key",
+        # the key that dict_two["key"] would get with namespace "dict_one:two". That namespace can't be created.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+
+        dict_one.chain_set(["two", "key"], "value one")
+
+        with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+            self.create_redis_dict(namespace="dict_one:two")
+
+        self.assertEqual(dict_one.chain_get(["two", "key"]), "value one")
+        self.assertEqual(len(dict_one), 1)
+
+    def test_len_and_keys_ignore_namespace_that_starts_with_same_name(self):
+        # Edge case: dict_one is empty; namespace "dict_one:two" can't be created, so nothing lands inside dict_one.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+
+        with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+            self.create_redis_dict(namespace="dict_one:two")
+
+        self.assertEqual(len(dict_one), 0)
+        self.assertEqual(list(dict_one.keys()), [])
+
+    def test_namespace_with_glob_characters_is_rejected(self):
+        for namespace in ("dict[one]", "dict_*", "dict_?", "dict\\one"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+                    self.create_redis_dict(namespace=namespace)
+
+    def test_namespace_with_glob_character_at_start_or_end_is_rejected(self):
+        for namespace in ("*", "?", "[", "]", "*dict_one", "dict_one*", ":", "dict_one:two"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+                    self.create_redis_dict(namespace=namespace)
+
+    def test_plain_namespaces_are_accepted(self):
+        for namespace in ("dict_one", "dict_two", "dict-one", "dict.one", "main"):
+            with self.subTest(namespace=namespace):
+                self.assertTrue(self.create_redis_dict(namespace=namespace).namespace.startswith(namespace))
+
     def test_dict_method_clear_1(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
