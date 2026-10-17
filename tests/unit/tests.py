@@ -530,6 +530,109 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(TypeError):
             redis_dic |= [1, 2]
 
+    @skip_before_python39
+    def test_dict_method_or_with_redis_dict(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        dic = dict()
+        other_dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+            "new_bool": False,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+        other_redis_dic.update(additional_items)
+        other_dic.update(additional_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(other_redis_dic), 3)
+
+        redis_result = redis_dic | other_redis_dic
+        dict_result = dic | other_dic
+
+        self.assertEqual(len(redis_result), len(dict_result))
+        self.assertEqual(dict(redis_result), dict_result)
+
+        # Verify neither operand was modified
+        self.assertEqual(dict(redis_dic), dic)
+        self.assertEqual(dict(other_redis_dic), other_dic)
+
+    @skip_before_python39
+    def test_dict_method_or_with_redis_dict_reversed_operands(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        dic = dict()
+        other_dic = dict()
+
+        input_items = {
+            "int": 1,
+            "str": "im a string",
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+        other_redis_dic.update(additional_items)
+        other_dic.update(additional_items)
+
+        # Overlapping key "str": right-hand operand wins, as with dict
+        redis_result = other_redis_dic | redis_dic
+        dict_result = other_dic | dic
+
+        self.assertEqual(dict(redis_result), dict_result)
+        self.assertEqual(redis_result["str"], "im a string")
+
+    @skip_before_python39
+    def test_dict_method_ior_with_redis_dict(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        dic = dict()
+        other_dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+            "new_bool": False,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+        other_redis_dic.update(additional_items)
+        other_dic.update(additional_items)
+
+        redis_dic |= other_redis_dic
+        dic |= other_dic
+
+        self.assertEqual(len(redis_dic), len(dic))
+        self.assertEqual(dict(redis_dic), dic)
+
+        # Verify right-hand operand was not modified
+        self.assertEqual(dict(other_redis_dic), other_dic)
+
     def test_dict_method_reversed_(self):
         """
         RedisDict without the flag dict_compliant insertion order doens't make use of insert_order.
