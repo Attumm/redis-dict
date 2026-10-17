@@ -433,7 +433,7 @@ class RedisDict:
             Iterator[str]: An iterator over the keys of the RedisDict.
         """
         self._iter = self.keys()
-        return self
+        return iter(self.keys())
 
     def __repr__(self) -> str:
         """

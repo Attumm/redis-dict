@@ -226,6 +226,180 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(sorted(map(str, input_values)), sorted(map(str, result_values)))
         self.assertEqual(sorted(map(str, dic_values)), sorted(map(str, result_values)))
 
+    # Iteration (#10). RedisDict makes no order promise, so these tests compare sorted lists or sets;
+    # the insertion-order promise of PythonRedisDict is tested in TestPythonRedisDictBehaviorDict.
+    def test_iter_nested_loops_yield_every_pair(self):
+        # A nested loop over the same dict opens a second iterator while the first is still open.
+        # dict gives every iterator its own position, so the inner loop never ends the outer loop.
+        # Before #10, RedisDict kept one iterator on the instance: the inner loop used it up and
+        # the outer loop stopped after its first key (3 pairs instead of 9).
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        redis_dic.update({"a": 1, "b": 2, "c": 3})
+        dic.update({"a": 1, "b": 2, "c": 3})
+
+        # Expected
+        expected = [(x, y) for x in dic for y in dic]
+
+        # Run
+        result = [(x, y) for x in redis_dic for y in redis_dic]
+
+        # Assert
+        self.assertEqual(len(result), len(expected))
+        self.assertEqual(sorted(result), sorted(expected))
+
+    def test_iter_interleaved_iterators_each_yield_every_key(self):
+        # Two iterators open on one dict at the same time, advanced in turns. dict gives every
+        # iter() call its own iterator, so both yield every key once. Before #10, RedisDict kept
+        # one iterator on the instance (iter() returned self), so the two shared it and each saw
+        # only part of the keys before StopIteration.
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        redis_dic.update({"a": 1, "b": 2, "c": 3})
+        dic.update({"a": 1, "b": 2, "c": 3})
+
+        # Expected
+        first, second = iter(dic), iter(dic)
+        expected_first, expected_second = [], []
+        for _ in range(len(dic)):
+            expected_first.append(next(first))
+            expected_second.append(next(second))
+
+        # Run
+        first, second = iter(redis_dic), iter(redis_dic)
+        result_first, result_second = [], []
+        for _ in range(len(dic)):
+            result_first.append(next(first))
+            result_second.append(next(second))
+
+        # Assert
+        self.assertEqual(sorted(result_first), sorted(expected_first))
+        self.assertEqual(sorted(result_second), sorted(expected_second))
+
+    def test_iter_interleaved_iterators_across_scan_batches(self):
+        # Same as above, but past one SCAN batch: 150 keys with a batch size of 10 for RedisDict, and
+        # past 128 members of the insertion-order zset for PythonRedisDict. Each open iterator then
+        # holds its own cursor across many round trips to Redis, and the round trips of the two
+        # cursors are interleaved. The 3-key test is answered by a single SCAN call.
+        redis_dic = self.create_redis_dict()
+        redis_dic._batch_size = 10
+        dic = dict()
+
+        for i in range(150):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        # Expected
+        first, second = iter(dic), iter(dic)
+        expected_first, expected_second = [], []
+        for _ in range(len(dic)):
+            expected_first.append(next(first))
+            expected_second.append(next(second))
+        expected_exhausted = (next(first, None), next(second, None))
+
+        # Run
+        first, second = iter(redis_dic), iter(redis_dic)
+        result_first, result_second = [], []
+        for _ in range(len(dic)):
+            result_first.append(next(first))
+            result_second.append(next(second))
+        result_exhausted = (next(first, None), next(second, None))
+
+        # Assert
+        self.assertEqual(sorted(result_first), sorted(expected_first))
+        self.assertEqual(sorted(result_second), sorted(expected_second))
+        self.assertEqual(result_exhausted, expected_exhausted)
+
+    def test_iter_nested_loops_across_scan_batches(self):
+        # Same as the nested loop above, but past one SCAN batch: the outer cursor is paused halfway
+        # through Redis while every inner loop runs a full scan with its own cursor.
+        # dict yields every (x, y) pair, len(d) ** 2 in total.
+        redis_dic = self.create_redis_dict()
+        redis_dic._batch_size = 10
+        dic = dict()
+
+        for i in range(150):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        # Expected
+        expected = [(x, y) for x in dic for y in dic]
+
+        # Run
+        result = [(x, y) for x in redis_dic for y in redis_dic]
+
+        # Assert
+        self.assertEqual(len(result), len(expected))
+        self.assertEqual(sorted(result), sorted(expected))
+
+    def test_iter_single_loop_across_scan_batches_yields_every_key_once(self):
+        # One loop over a dict yields each key exactly once. RedisDict reads its keys in SCAN batches
+        # (ZSCAN for PythonRedisDict), so one loop is many round trips; a key lost or repeated at a
+        # batch boundary would break that. Sorted lists, not sets: a set would hide a repeated key.
+        redis_dic = self.create_redis_dict()
+        redis_dic._batch_size = 10
+        dic = dict()
+
+        for i in range(150):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        # Expected
+        expected = sorted(key for key in dic)
+
+        # Run
+        result = sorted(key for key in redis_dic)
+
+        # Assert
+        self.assertEqual(result, expected)
+
+    def test_iter_empty_dict(self):
+        # An empty namespace: SCAN returns cursor 0 with no keys on the first call, and the
+        # insertion-order zset of PythonRedisDict does not exist. Iteration must end at once.
+        # dict: iterating {} yields nothing, a nested loop yields nothing, next() raises StopIteration.
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        # Expected
+        expected_keys = list(dic)
+        expected_pairs = [(x, y) for x in dic for y in dic]
+        with self.assertRaises(StopIteration):
+            next(iter(dic))
+
+        # Run
+        result_keys = list(redis_dic)
+        result_pairs = [(x, y) for x in redis_dic for y in redis_dic]
+
+        # Assert
+        self.assertEqual(result_keys, expected_keys)
+        self.assertEqual(result_pairs, expected_pairs)
+        with self.assertRaises(StopIteration):
+            next(iter(redis_dic))
+
+    def test_next_on_instance_after_iter_still_works(self):
+        # Not dict behaviour: a dict is not an iterator, next(dic) raises TypeError. RedisDict has
+        # its own public __next__/next(). #10 made iter() return a new iterator and keeps
+        # self._iter, so the existing `iter(d); next(d)` usage still yields every key once.
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        redis_dic.update({"a": 1, "b": 2, "c": 3})
+        dic.update({"a": 1, "b": 2, "c": 3})
+
+        # Expected
+        expected = sorted(dic)
+
+        # Run
+        iter(redis_dic)
+        result = sorted(next(redis_dic) for _ in range(len(dic)))
+
+        # Assert
+        self.assertEqual(result, expected)
+        with self.assertRaises(StopIteration):
+            next(redis_dic)
+
     def test_dict_method_update(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -1182,6 +1356,54 @@ class TestPythonRedisDictBehaviorDict(TestRedisDictBehaviorDict):
         config = redis_config.copy()
         config.update(kwargs)
         return PythonRedisDict(namespace=namespace+"_PythonRedisDict", **config)
+
+    def test_iter_interleaved_iterators_keep_insertion_order(self):
+        # PythonRedisDict promises insertion order, like dict: every open iterator yields the keys
+        # in dict's order. Above 128 keys the order breaks; see the skipped test below (#7).
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        for i in range(100):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        # Expected
+        expected = list(dic)
+
+        # Run
+        first, second = iter(redis_dic), iter(redis_dic)
+        seen_first, seen_second = [], []
+        for _ in range(len(dic)):
+            seen_first.append(next(first))
+            seen_second.append(next(second))
+
+        # Assert
+        self.assertEqual(seen_first, expected)
+        self.assertEqual(seen_second, expected)
+
+    @unittest.skip("#7: PythonRedisDict loses insertion order above 128 keys")
+    def test_iter_interleaved_iterators_keep_insertion_order_past_128_keys(self):
+        # Same as above with 200 keys. Fails today: same keys as dict, not in dict's order.
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        for i in range(200):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        # Expected
+        expected = list(dic)
+
+        # Run
+        first, second = iter(redis_dic), iter(redis_dic)
+        seen_first, seen_second = [], []
+        for _ in range(len(dic)):
+            seen_first.append(next(first))
+            seen_second.append(next(second))
+
+        # Assert
+        self.assertEqual(seen_first, expected)
+        self.assertEqual(seen_second, expected)
 
     def test_dict_method_update_reversed(self):
         """
