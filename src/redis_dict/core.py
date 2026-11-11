@@ -3,6 +3,7 @@ from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type
 
 from datetime import timedelta
 from contextlib import contextmanager
+from itertools import chain
 
 from redis import StrictRedis
 
@@ -817,8 +818,9 @@ class RedisDict:
             other (Any): Optional mapping or iterable of (key, value) pairs.
             **kwargs (Any): Additional key-value pairs to update the RedisDict.
         """
+        pairs = ((k, other[k]) for k in other.keys()) if hasattr(other, "keys") else other
         with self.pipeline():
-            for key, value in dict(other, **kwargs).items():
+            for key, value in chain(pairs, kwargs.items()):
                 self[key] = value
 
     def fromkeys(self, iterable: List[str], value: Optional[Any] = None) -> 'RedisDict':
