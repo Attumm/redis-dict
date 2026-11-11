@@ -898,8 +898,10 @@ class RedisDict:
             ContextManager: A context manager during which the expiration time is the time set.
         """
         self.expire, temp = sec_epoch, self.expire
-        yield
-        self.expire = temp
+        try:
+            yield
+        finally:
+            self.expire = temp
 
     @contextmanager
     def pipeline(self) -> Iterator[None]:
