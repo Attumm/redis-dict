@@ -274,12 +274,12 @@ from datetime import datetime, timedelta
 dic["now"] = datetime.now()
 print(dic["now"])  # 2025-02-20 19:25:38.835816
 
-# SRedis dict support timedelta and more types
+# Redis dict supports timedelta and more types
 dic["time"] = timedelta(days=1)
 print(dic["time"])  # 1 day, 0:00:00
 
 print(dic)
-{'now': datetime.datetime(2025, 2, 20, 19, 25, 38, 835816), 'time': datetime.timedelta(days=1), 'b': 2, 'd': 4}
+# Output: {'now': datetime.datetime(2025, 2, 20, 19, 25, 38, 835816), 'time': datetime.timedelta(days=1), 'b': 2, 'd': 4}
 ```
 
 ### Additional Examples
@@ -315,6 +315,7 @@ RedisDict supports custom type serialization. Here's how to add a new type:
 
 ```python
 import json
+from redis_dict import RedisDict
 
 class Person:
     def __init__(self, name, age):
