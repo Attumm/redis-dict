@@ -5,7 +5,7 @@ import base64
 from collections import OrderedDict, defaultdict
 from datetime import datetime, date, time, timedelta
 
-from typing import Callable, Any, Dict, Tuple, Set
+from typing import Callable, Any, Dict, Iterator, List, Tuple, Set
 
 from uuid import UUID
 from decimal import Decimal
@@ -44,7 +44,7 @@ def _decode_tuple(val: str) -> Tuple[Any, ...]:
     Returns:
         Tuple[Any, ...]: A tuple with the deserialized values from the input string.
     """
-    return tuple(json.loads(val))
+    return tuple(decode_json(val))
 
 
 def _encode_tuple(val: Tuple[Any, ...]) -> str:
@@ -60,7 +60,7 @@ def _encode_tuple(val: Tuple[Any, ...]) -> str:
     Returns:
         str: A JSON-formatted string representing the input tuple.
     """
-    return json.dumps(list(val))
+    return encode_json(list(val))
 
 
 def _decode_set(val: str) -> Set[Any]:
@@ -76,7 +76,7 @@ def _decode_set(val: str) -> Set[Any]:
     Returns:
         set[Any]: A set with the deserialized values from the input string.
     """
-    return set(json.loads(val))
+    return set(decode_json(val))
 
 
 def _encode_set(val: Set[Any]) -> str:
@@ -92,7 +92,7 @@ def _encode_set(val: Set[Any]) -> str:
     Returns:
         str: A JSON-formatted string representing the input set.
     """
-    return json.dumps(list(val))
+    return encode_json(list(val))
 
 
 decoding_registry: DecodeType = {
@@ -119,7 +119,7 @@ decoding_registry: DecodeType = {
     UUID.__name__: UUID,
     OrderedDict.__name__: lambda x: OrderedDict(json.loads(x)),
     defaultdict.__name__: lambda x: defaultdict(type(None), json.loads(x)),
-    frozenset.__name__: lambda x: frozenset(json.loads(x)),
+    frozenset.__name__: lambda x: frozenset(decode_json(x)),
 }
 
 
@@ -138,7 +138,40 @@ encoding_registry: EncodeType = {
     bytes.__name__: lambda x: base64.b64encode(x).decode('ascii'),
     OrderedDict.__name__: lambda x: json.dumps(list(x.items())),
     defaultdict.__name__: lambda x: json.dumps(dict(x)),
-    frozenset.__name__: lambda x: json.dumps(list(x)),
+    frozenset.__name__: lambda x: encode_json(list(x)),
+}
+
+
+def _tag_json_value(obj: Any) -> Any:
+    """
+    Prepare a value for JSON encoding, so types JSON can't represent round-trip.
+
+    Tuples, sets and frozensets become {"__type__": name, "value": [items]}. A dict with a non-str key or
+    a "__type__" key becomes {"__type__": "dict", "value": [[key, value], ...]}. Other values are unchanged.
+
+    Args:
+        obj (Any): The value to prepare.
+
+    Returns:
+        Any: The value with every nested tuple, set, frozenset and such dict tagged.
+    """
+    obj_type = type(obj)
+    if obj_type is list:
+        return [_tag_json_value(item) for item in obj]
+    if obj_type in (tuple, set, frozenset):
+        return {"__type__": obj_type.__name__, "value": [_tag_json_value(item) for item in obj]}
+    if obj_type is dict:
+        if "__type__" in obj or not all(isinstance(key, str) for key in obj):
+            return {"__type__": "dict", "value": [[_tag_json_value(k), _tag_json_value(v)] for k, v in obj.items()]}
+        return {key: _tag_json_value(value) for key, value in obj.items()}
+    return obj
+
+
+_json_container_decoders: Dict[str, Callable[[List[Any]], Any]] = {
+    "tuple": tuple,
+    "set": set,
+    "frozenset": frozenset,
+    "dict": dict,
 }
 
 
@@ -186,6 +219,18 @@ class RedisDictJSONEncoder(json.JSONEncoder):
         except TypeError as e:
             raise TypeError(f"Object of type {type_name} is not JSON serializable") from e
 
+    def iterencode(self, o: Any, _one_shot: bool = False) -> Iterator[str]:
+        """Overwrite iterencode from json encoder, to tag tuples, sets and dicts JSON can't represent.
+
+        Args:
+            o (Any): Object to be serialized.
+            _one_shot (bool): Passed on to json.JSONEncoder.iterencode.
+
+        Returns:
+            Iterator[str]: The encoded JSON chunks.
+        """
+        return super().iterencode(_tag_json_value(o), _one_shot)
+
 
 class RedisDictJSONDecoder(json.JSONDecoder):
     """
@@ -208,9 +253,11 @@ class RedisDictJSONDecoder(json.JSONDecoder):
         """
         def _object_hook(obj: Dict[Any, Any]) -> Any:
             if "__type__" in obj and "value" in obj:
-                type_name = obj["__type__"]
+                type_name, value = obj["__type__"], obj["value"]
+                if isinstance(value, list) and type_name in _json_container_decoders:
+                    return _json_container_decoders[type_name](value)
                 if type_name in decoding_registry:
-                    return decoding_registry[type_name](obj["value"])
+                    return decoding_registry[type_name](value)
             return obj
 
         super().__init__(object_hook=_object_hook, *args, **kwargs)

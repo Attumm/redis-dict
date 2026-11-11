@@ -472,7 +472,41 @@ class TestRedisDictEncryption(unittest.TestCase):
             self.assertNotEqual(internal_result_value, expected, f"testcase {test_num+1} failed")
             self.assertEqual(internal_result_type, expected_internal_type, f"testcase {test_num+1} failed")
 
+    def test_multiple_instances_with_distinct_encryption_keys(self):
+        """Two RedisDict instances can encrypt EncryptedString with distinct AES keys without colliding."""
+        iv = b"0123456789abcdef"
+        nonce = b"fedcba9876543210"
+        key_a = b"A" * 32
+        key_b = b"B" * 32
 
+        dict_a = RedisDict(namespace="encrypt_tenant_a")
+        dict_b = RedisDict(namespace="encrypt_tenant_b")
+        self.addCleanup(dict_a.clear)
+        self.addCleanup(dict_b.clear)
+
+        dict_a.extends_type(
+            EncryptedString,
+            encode_encrypted_string(iv, key_a, nonce),
+            decode_encrypted_string(iv, key_a, nonce),
+        )
+        dict_a["written_before_b"] = EncryptedString("before_b")
+
+        dict_b.extends_type(
+            EncryptedString,
+            encode_encrypted_string(iv, key_b, nonce),
+            decode_encrypted_string(iv, key_b, nonce),
+        )
+
+        dict_a["secret"] = EncryptedString("same_plaintext")
+        dict_b["secret"] = EncryptedString("same_plaintext")
+
+        raw_a = dict_a.redis.get(dict_a._format_key("secret"))
+        raw_b = dict_b.redis.get(dict_b._format_key("secret"))
+        self.assertNotEqual(raw_a, raw_b)
+
+        self.assertEqual(dict_a["written_before_b"], "before_b")
+        self.assertEqual(dict_a["secret"], "same_plaintext")
+        self.assertEqual(dict_b["secret"], "same_plaintext")
 
 
 if __name__ == '__main__':

@@ -15,5 +15,8 @@ dev_venv
 .coverage*
 htmlcov
 
+docs/Makefile
+docs/build/
+docs/source/
 
 .idea/
