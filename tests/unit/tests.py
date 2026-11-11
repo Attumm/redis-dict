@@ -76,6 +76,17 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
     def _is_python_redis_dict(self, redis_dic):
         return getattr(redis_dic, '_insertion_order_key', None) is not None
 
+    def test_is_python_redis_dict(self):
+        redis_dic = self.create_redis_dict()
+        self.assertEqual(
+            self._is_python_redis_dict(redis_dic),
+            isinstance(redis_dic, PythonRedisDict),
+        )
+        self.assertEqual(
+            hasattr(redis_dic, '_insertion_order_key'),
+            isinstance(redis_dic, PythonRedisDict),
+        )
+
     def test_python3_all_methods_from_dictionary_are_implemented(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -492,7 +503,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
     def test_dict_method_popitem_dict_compliant(self):
         redis_dic = self.create_redis_dict()
 
-        if self._is_python_redis_dict(redis_dic):
+        if not self._is_python_redis_dict(redis_dic):
             return
 
         dic = dict()
@@ -797,7 +808,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         redis_dic.update(input_items)
         dic.update(input_items)
 
-        if not self._is_python_redis_dict(redis_dic):
+        if self._is_python_redis_dict(redis_dic):
             self.assertEqual(list(dic), list(redis_dic))
             self.assertEqual(list(reversed(dic)), list(reversed(redis_dic)))
 
@@ -2153,6 +2164,12 @@ class TestRedisDictSecurity(unittest.TestCase):
 
     def _is_python_redis_dict(self, redis_dic):
         return getattr(redis_dic, '_insertion_order_key', None) is not None
+
+    def test_is_python_redis_dict_security(self):
+        self.assertEqual(
+            self._is_python_redis_dict(self.r),
+            isinstance(self.r, PythonRedisDict),
+        )
 
     def test_unicode_key(self):
         # Test handling of Unicode keys
