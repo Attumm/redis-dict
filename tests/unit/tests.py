@@ -2450,6 +2450,62 @@ class TestRedisDictMulti(unittest.TestCase):
         expected_dict = {u'foobar': u'barbar', u'foobaz': u'bazbaz'}
         self.assertEqual(self.r.multi_dict('foo'), expected_dict)
 
+    def test_multi_dict_preserves_key_alignment_when_mget_has_missing_entries(self):
+        """A None result in mget must be skipped together with its key, not shift later values."""
+        expected = {}
+        for idx in range(6):
+            key = 'foo_{}'.format(idx)
+            val = 'val_{}'.format(idx)
+            self.r[key] = val
+            expected[key] = val
+
+        first_raw_key = next(self.r._scan_keys('foo_'))
+        missing_short_key = first_raw_key[len(TEST_NAMESPACE_PREFIX) + 1:]
+        del expected[missing_short_key]
+
+        # Replace that Redis key with a non-string key so SCAN yields it while MGET returns None
+        self.redisdb.delete(first_raw_key)
+        self.redisdb.hset(first_raw_key, 'field', 'non_string')
+
+        self.assertEqual(self.r.multi_dict('foo_'), expected)
+
+        only_missing_raw = '{}:only_hash_1'.format(TEST_NAMESPACE_PREFIX)
+        self.redisdb.hset(only_missing_raw, 'field', 'non_string')
+        self.assertEqual(self.r.multi_dict('only_hash_'), {})
+
+    def test_multi_dict_chain_keys_and_mixed_depths(self):
+        """multi_dict must strip a deterministic prefix across flat, chained, and mixed-depth keys."""
+        self.r.chain_set(['keys', 'k1'], 'v1')
+        self.r.chain_set(['keys', 'k2'], 'v2')
+        self.assertEqual(self.r.multi_dict('keys'), {'k1': 'v1', 'k2': 'v2'})
+
+        self.r.chain_set(['foo', 's1', 'x'], 1)
+        self.r.chain_set(['foo', 'longer2', 'y'], 2)
+        self.assertEqual(self.r.multi_dict('foo'), {'s1:x': 1, 'longer2:y': 2})
+
+        self.r.chain_set(['grp', 'top'], 'v_top')
+        self.r.chain_set(['grp', 'nested', 'leaf'], 'v_leaf')
+        self.assertEqual(self.r.multi_dict('grp'), {'top': 'v_top', 'nested:leaf': 'v_leaf'})
+
+        self.r['cfg'] = 'root'
+        self.r.chain_set(['cfg', 'cfg'], 'sub')
+        self.assertEqual(self.r.multi_dict('cfg'), {'cfg': 'root', 'cfg:cfg': 'sub'})
+
+    def test_multi_get_and_multi_dict_inside_pipeline(self):
+        """multi_get and multi_dict must read committed Redis state via get_redis inside pipeline()."""
+        self.r['foo1'] = 'v1'
+        self.r['foo2'] = 'v2'
+
+        with self.r.pipeline():
+            self.r['foo3'] = 'v3'
+            self.assertEqual(sorted(self.r.multi_get('foo')), ['v1', 'v2'])
+            self.assertEqual(self.r.multi_dict('foo'), {'foo1': 'v1', 'foo2': 'v2'})
+
+        self.assertEqual(
+            self.r.multi_dict('foo'),
+            {'foo1': 'v1', 'foo2': 'v2', 'foo3': 'v3'},
+        )
+
     def test_multi_del_empty(self):
         """Tests the multi_del function with no keys set."""
         self.assertEqual(self.r.multi_del('foobar'), 0)
