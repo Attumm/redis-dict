@@ -255,9 +255,11 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
         self.assertEqual(dict(redis_dic), dic)
 
-        # Single-pass generator of (key, value) tuples
+        # Single-pass generator of (key, value) tuples and 2-char string pairs
         dic.update((k, v) for k, v in [("gen_a", 10), ("gen_b", 20)])
         redis_dic.update((k, v) for k, v in [("gen_a", 10), ("gen_b", 20)])
+        dic.update(["ab", "cd"])
+        redis_dic.update(["ab", "cd"])
 
         self.assertEqual(dict(redis_dic), dic)
 
@@ -265,8 +267,9 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         redis_dic = self.create_redis_dict()
         dic = dict()
 
-        dic.update(alpha=1, beta="two", dic="param_name_collision")
-        redis_dic.update(alpha=1, beta="two", dic="param_name_collision")
+        # Include parameter-name collisions ('self', 'other', 'dic', 'args', 'kwargs')
+        dic.update(alpha=1, self="s", other="o", dic="d", args="a", kwargs="k")
+        redis_dic.update(alpha=1, self="s", other="o", dic="d", args="a", kwargs="k")
 
         self.assertEqual(dict(redis_dic), dic)
 
@@ -278,11 +281,11 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         redis_dic.update({"a": 1, "b": 2}, b=20, c=30)
         self.assertEqual(dict(redis_dic), dic)
 
-        dic.update([("x", 1), ("y", 2)], y=22, z=33)
-        redis_dic.update([("x", 1), ("y", 2)], y=22, z=33)
+        dic.update([("x", 1), ("y", 2), ("y", 3)], y=22, z=33)
+        redis_dic.update([("x", 1), ("y", 2), ("y", 3)], y=22, z=33)
         self.assertEqual(dict(redis_dic), dic)
 
-    def test_dict_method_update_no_arguments(self):
+    def test_dict_method_update_no_arguments_and_empty_boundaries(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
 
@@ -292,11 +295,19 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
         dic["kept"] = 42
         redis_dic["kept"] = 42
-        dic.update()
-        redis_dic.update()
+        for empty in ({}, [], (), set()):
+            with self.subTest(empty=empty):
+                dic.update(empty)
+                redis_dic.update(empty)
+                self.assertEqual(dict(redis_dic), dic)
+
+        dic.update(iter([]))
+        redis_dic.update(iter([]))
+        dic.update(**{})
+        redis_dic.update(**{})
         self.assertEqual(dict(redis_dic), dic)
 
-    def test_dict_method_update_with_redis_dict_and_custom_mapping(self):
+    def test_dict_method_update_with_redis_dict_self_and_custom_mapping(self):
         redis_dic = self.create_redis_dict()
         other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_update_other")
         dic = dict()
@@ -304,6 +315,15 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         other_redis_dic["from_redis"] = "val"
         dic.update({"from_redis": "val"})
         redis_dic.update(other_redis_dic)
+        self.assertEqual(dict(redis_dic), dic)
+
+        # Self-update boundary (with and without extra keyword arguments)
+        dic.update(dic)
+        redis_dic.update(redis_dic)
+        self.assertEqual(dict(redis_dic), dic)
+
+        dic.update(dic, self_extra=99)
+        redis_dic.update(redis_dic, self_extra=99)
         self.assertEqual(dict(redis_dic), dic)
 
         class MinimalMapping:
@@ -320,23 +340,49 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
     def test_dict_method_update_invalid_arguments(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
+        dic["kept"] = "initial"
+        redis_dic["kept"] = "initial"
+
+        # More than one positional argument: args[1], args[2], and extra positional + kwargs
+        for extra_positional in (
+            ({"a": 1}, {"b": 2}),
+            ({"a": 1}, {"b": 2}, {"c": 3}),
+            ([("a", 1)], [("b", 2)]),
+        ):
+            with self.subTest(extra_positional=extra_positional):
+                with self.assertRaises(TypeError):
+                    dic.update(*extra_positional)
+                with self.assertRaises(TypeError):
+                    redis_dic.update(*extra_positional)
+                self.assertEqual(dict(redis_dic), dic)
 
         with self.assertRaises(TypeError):
-            dic.update({"a": 1}, {"b": 2})
+            dic.update({"a": 1}, {"b": 2}, c=3)
         with self.assertRaises(TypeError):
-            redis_dic.update({"a": 1}, {"b": 2})
+            redis_dic.update({"a": 1}, {"b": 2}, c=3)
+        self.assertEqual(dict(redis_dic), dic)
 
-        with self.assertRaises(TypeError):
-            dic.update(42)
-        with self.assertRaises(TypeError):
-            redis_dic.update(42)
+        for non_iterable in (None, 42, 3.14, True):
+            with self.subTest(non_iterable=non_iterable):
+                with self.assertRaises(TypeError):
+                    dic.update(non_iterable)
+                with self.assertRaises(TypeError):
+                    redis_dic.update(non_iterable)
+                self.assertEqual(dict(redis_dic), dic)
 
-        for bad_seq in ([("only_one",)], [("a", 1, 2)]):
+        for bad_seq in ([()], [("only_one",)], [("a", 1, 2)], "abc"):
             with self.subTest(bad_seq=bad_seq):
                 with self.assertRaises(ValueError):
                     dic.update(bad_seq)
                 with self.assertRaises(ValueError):
                     redis_dic.update(bad_seq)
+                self.assertEqual(dict(redis_dic), dic)
+
+        with self.assertRaises(TypeError):
+            dic.update([123])
+        with self.assertRaises(TypeError):
+            redis_dic.update([123])
+        self.assertEqual(dict(redis_dic), dic)
 
     def test_dict_method_pop(self):
         redis_dic = self.create_redis_dict()
