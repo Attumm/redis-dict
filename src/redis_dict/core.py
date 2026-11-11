@@ -810,28 +810,15 @@ class RedisDict:
         """
         return self.to_dict()
 
-    def update(self, *args: Any, **kwargs: Any) -> None:
+    def update(self, other: Any = (), /, **kwargs: Any) -> None:
         """Update the RedisDict with key-value pairs from a mapping, iterable, and/or keyword arguments.
 
         Args:
-            *args (Any): Optional single mapping or iterable of (key, value) pairs.
+            other (Any): Optional mapping or iterable of (key, value) pairs.
             **kwargs (Any): Additional key-value pairs to update the RedisDict.
-
-        Raises:
-            TypeError: If more than one positional argument is passed.
         """
-        if len(args) > 1:
-            raise TypeError(f"update expected at most 1 argument, got {len(args)}")
         with self.pipeline():
-            if args:
-                other = args[0]
-                if hasattr(other, "keys"):
-                    for key in other.keys():
-                        self[key] = other[key]
-                else:
-                    for key, value in other:
-                        self[key] = value
-            for key, value in kwargs.items():
+            for key, value in dict(other, **kwargs).items():
                 self[key] = value
 
     def fromkeys(self, iterable: List[str], value: Optional[Any] = None) -> 'RedisDict':
