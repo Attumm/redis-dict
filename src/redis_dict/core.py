@@ -933,7 +933,7 @@ class RedisDict:
         found_keys = list(self._scan_keys(key))
         if len(found_keys) == 0:
             return []
-        return [self._transform(i) for i in self.redis.mget(found_keys) if i is not None]
+        return [self._transform(i) for i in self.get_redis.mget(found_keys) if i is not None]
 
     def multi_chain_get(self, keys: List[str]) -> List[Any]:
         """
@@ -960,10 +960,16 @@ class RedisDict:
         keys = list(self._scan_keys(key))
         if len(keys) == 0:
             return {}
-        to_rm = keys[0].rfind(':') + 1
-        return dict(
-            zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None))
-        )
+        pairs = [
+            (raw_key, raw_val)
+            for raw_key, raw_val in zip(keys, self.get_redis.mget(keys))
+            if raw_val is not None
+        ]
+        ns_prefix = f"{self.namespace}{self.namespace_delimiter}"
+        chain_prefix = f"{ns_prefix}{key}{self.key_delimiter}"
+        use_chain = bool(key) and all(raw_key.startswith(chain_prefix) for raw_key, _ in pairs)
+        to_rm = len(chain_prefix) if use_chain else len(ns_prefix)
+        return {raw_key[to_rm:]: self._transform(raw_val) for raw_key, raw_val in pairs}
 
     def multi_del(self, key: str) -> int:
         """
