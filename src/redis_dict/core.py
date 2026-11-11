@@ -589,6 +589,7 @@ class RedisDict:
         """
         return f'{self.namespace}{self.namespace_delimiter}{search_term}*'
 
+    # pylint: disable=unused-argument
     def _scan_keys(self, search_term: str = '', full_scan: bool = False) -> Iterator[str]:
         """Scan for Redis keys matching the given search term.
 
@@ -600,8 +601,7 @@ class RedisDict:
             Iterator[str]: An iterator of matching Redis keys.
         """
         search_query = self._create_iter_query(search_term)
-        count = None if full_scan else self._batch_size
-        return self.get_redis.scan_iter(match=search_query, count=count)
+        return self.get_redis.scan_iter(match=search_query, count=self._batch_size)
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:
         """Return the value for the given key if it exists, otherwise return the default value.

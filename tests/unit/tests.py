@@ -1561,6 +1561,29 @@ class TestRedisDict(unittest.TestCase):
         self.r['foobar2'] = 'barbar2'
         self.assertEqual(len(self.r), 2)
 
+    def test_full_scan_uses_batch_size_for_len_and_clear(self):
+        """_scan_keys(full_scan=True) in len() and clear() must scan in _batch_size batches, not COUNT 10."""
+        with self.r.pipeline():
+            for idx in range(400):
+                self.r['batch_key_{}'.format(idx)] = idx
+
+        scans_before_len = self.r.get_redis.info('commandstats').get('cmdstat_scan', {}).get('calls', 0)
+        self.assertEqual(len(self.r), 400)
+        scans_after_len = self.r.get_redis.info('commandstats').get('cmdstat_scan', {}).get('calls', 0)
+
+        if not isinstance(self.r, PythonRedisDict):
+            # With _batch_size=200 over 400 keys, SCAN takes ~2-3 calls (vs ~40 calls when count=None/10)
+            self.assertLessEqual(scans_after_len - scans_before_len, 6)
+
+        scans_before_clear = self.r.get_redis.info('commandstats').get('cmdstat_scan', {}).get('calls', 0)
+        self.r.clear()
+        scans_after_clear = self.r.get_redis.info('commandstats').get('cmdstat_scan', {}).get('calls', 0)
+
+        if not isinstance(self.r, PythonRedisDict):
+            self.assertLessEqual(scans_after_clear - scans_before_clear, 6)
+
+        self.assertEqual(len(self.r), 0)
+
     def test_to_dict_empty(self):
         """Tests the to_dict function with no keys set."""
         expected_dict = {}
