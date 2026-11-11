@@ -82,6 +82,8 @@ class RedisDict:
 
         self.custom_encode_method = "encode"
         self.custom_decode_method = "decode"
+        self.encoding_registry = enc_reg.copy()
+        self.decoding_registry = dec_reg.copy()
 
         self._iter: Iterator[str] = iter([])
         self._max_string_size: int = 500 * 1024 * 1024  # 500mb
