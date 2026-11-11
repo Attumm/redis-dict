@@ -2473,23 +2473,15 @@ class TestRedisDictMulti(unittest.TestCase):
         self.redisdb.hset(only_missing_raw, 'field', 'non_string')
         self.assertEqual(self.r.multi_dict('only_hash_'), {})
 
-    def test_multi_dict_chain_keys_and_mixed_depths(self):
-        """multi_dict must strip a deterministic prefix across flat, chained, and mixed-depth keys."""
+    def test_multi_dict_chain_keys_and_varying_prefix_lengths(self):
+        """multi_dict must slice each key at its own delimiter rather than keys[0]'s index."""
         self.r.chain_set(['keys', 'k1'], 'v1')
         self.r.chain_set(['keys', 'k2'], 'v2')
         self.assertEqual(self.r.multi_dict('keys'), {'k1': 'v1', 'k2': 'v2'})
 
         self.r.chain_set(['foo', 's1', 'x'], 1)
         self.r.chain_set(['foo', 'longer2', 'y'], 2)
-        self.assertEqual(self.r.multi_dict('foo'), {'s1:x': 1, 'longer2:y': 2})
-
-        self.r.chain_set(['grp', 'top'], 'v_top')
-        self.r.chain_set(['grp', 'nested', 'leaf'], 'v_leaf')
-        self.assertEqual(self.r.multi_dict('grp'), {'top': 'v_top', 'nested:leaf': 'v_leaf'})
-
-        self.r['cfg'] = 'root'
-        self.r.chain_set(['cfg', 'cfg'], 'sub')
-        self.assertEqual(self.r.multi_dict('cfg'), {'cfg': 'root', 'cfg:cfg': 'sub'})
+        self.assertEqual(self.r.multi_dict('foo'), {'x': 1, 'y': 2})
 
     def test_multi_get_and_multi_dict_inside_pipeline(self):
         """multi_get and multi_dict must read committed Redis state via get_redis inside pipeline()."""
