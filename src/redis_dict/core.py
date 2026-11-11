@@ -788,9 +788,12 @@ class RedisDict:
 
         Raises:
             ValueError: If the default_value or key fail validation.
+
+        Note:
+            Deviates from Python's built-in ``dict.setdefault``: Redis closes the connection above
+            its 512 MB bulk-string limit, and the atomic ``SET ... NX GET`` command sends
+            ``default_value`` over the wire even when ``key`` already exists.
         """
-        # Deviates from dict: Redis closes the socket above its 512 MB bulk-string limit,
-        # and atomic `SET ... NX GET` sends default_value over the wire even when key exists.
         if not self._valid_input(default_value) or not self._valid_input(key):
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
 
