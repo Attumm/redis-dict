@@ -1940,6 +1940,23 @@ class TestRedisDictSecurity(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.r['key'] = large_value
 
+    def test_large_key_setdefault(self):
+        large_key = 'k' * (501 * 1024 * 1024)
+        with self.assertRaises(ValueError):
+            self.r.setdefault(large_key, 'value')
+        self.assertEqual(len(self.r), 0)
+
+    def test_large_value_setdefault(self):
+        large_value = 'v' * (501 * 1024 * 1024)
+        with self.assertRaises(ValueError):
+            self.r.setdefault('key', large_value)
+        self.assertEqual(len(self.r), 0)
+
+        self.r['existing'] = 'kept'
+        with self.assertRaises(ValueError):
+            self.r.setdefault('existing', large_value)
+        self.assertEqual(self.r['existing'], 'kept')
+
     def test_injection_attack_get(self):
         injection_key = 'key; GET another_key'
         self.r['another_key'] = 'value'
