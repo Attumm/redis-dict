@@ -327,5 +327,5 @@ class PythonRedisDict(RedisDict):
         Returns:
             Union[str, None]: The most recently inserted key, or None if the dictionary is empty.
         """
-        result = self.redis.zrange(self._insertion_order_key, -1, -1)
+        result = self.get_redis.zrange(self._insertion_order_key, -1, -1)
         return result[0] if result else None

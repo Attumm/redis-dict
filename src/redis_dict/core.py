@@ -987,7 +987,7 @@ class RedisDict:
         Returns:
             dict: The information and statistics from the Redis server in a dictionary.
         """
-        return dict(self.redis.info())
+        return dict(self.get_redis.info())
 
     def get_ttl(self, key: str) -> Optional[int]:
         """Get the Time To Live from Redis.
@@ -1001,7 +1001,7 @@ class RedisDict:
         Returns:
             Optional[int]: The TTL in seconds if the key exists and has an expiry set; otherwise, None.
         """
-        val = self.redis.ttl(self._format_key(key))
+        val = self.get_redis.ttl(self._format_key(key))
         if val < 0:
             return None
         return val

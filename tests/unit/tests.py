@@ -1702,6 +1702,59 @@ class TestRedisDict(unittest.TestCase):
         self.assertEqual(self.r['key8'], 'value8')
         self.assertEqual(self.r['key9'], 'value9')
 
+    def test_pipeline_get_ttl(self):
+        """get_ttl() must read committed TTL via get_redis inside pipeline()."""
+        self.r['permanent'] = 'v1'
+        with self.r.expire_at(3600):
+            self.r['expiring'] = 'v2'
+
+        with self.r.pipeline():
+            self.r['buffered'] = 'v3'
+            self.assertIsNone(self.r.get_ttl('permanent'))
+            self.assertAlmostEqual(3600, self.r.get_ttl('expiring'), delta=2)
+            self.assertIsNone(self.r.get_ttl('buffered'))
+
+        self.assertEqual(self.r['buffered'], 'v3')
+
+    def test_pipeline_get_redis_info(self):
+        """get_redis_info() must read server info via get_redis inside pipeline() without hanging."""
+        import threading
+
+        r = self.create_redis_dict()
+        outcome = {}
+
+        def call_info():
+            try:
+                with r.pipeline():
+                    r['buffered_info'] = 'v1'
+                    outcome['info'] = r.get_redis_info()
+            except BaseException as exc:  # pragma: no cover
+                outcome['exc'] = exc
+
+        worker = threading.Thread(target=call_info, daemon=True)
+        worker.start()
+        worker.join(timeout=1.0)
+        self.assertFalse(worker.is_alive(), "get_redis_info() hung in an infinite loop inside pipeline()")
+        if 'exc' in outcome:
+            raise outcome['exc']
+
+        self.assertIsInstance(outcome['info'], dict)
+        self.assertIn('redis_version', outcome['info'])
+        self.assertEqual(r['buffered_info'], 'v1')
+
+    def test_pipeline_popitem(self):
+        """popitem() must read committed keys via get_redis inside pipeline() without crashing."""
+        self.r['k1'] = 'v1'
+        self.r['k2'] = 'v2'
+
+        with self.r.pipeline():
+            self.r['k3'] = 'v3'
+            popped = self.r.popitem()
+
+        self.assertIn(popped, [('k1', 'v1'), ('k2', 'v2')])
+        self.assertEqual(len(self.r), 2)
+        self.assertEqual(self.r['k3'], 'v3')
+
     def test_expire_at(self):
         self.r['key10'] = 'value10'
         with self.r.expire_at(1):
