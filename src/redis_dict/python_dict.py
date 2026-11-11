@@ -130,8 +130,7 @@ class PythonRedisDict(RedisDict):
 
         Note:
             Deviates from Python's built-in ``dict.setdefault``: Redis closes the connection above
-            its 512 MB bulk-string limit, and the atomic ``SET ... NX GET`` command sends
-            ``default_value`` over the wire even when ``key`` already exists.
+            its 512 MB string limit, so ``key`` and ``default_value`` are validated upfront.
         """
         # Todo bind both commands
         result = super().setdefault(key, default_value)

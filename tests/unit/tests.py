@@ -1941,10 +1941,9 @@ class TestRedisDictSecurity(unittest.TestCase):
             self.r['key'] = large_value
 
     # Intentional deviation from plain `dict`:
-    # In-memory `dict.setdefault` stores object pointers without copying, whereas Redis enforces a hard
-    # 512 MB RESP bulk-string limit (`proto-max-bulk-len`) and drops the TCP socket (`ConnectionError`)
-    # if exceeded. Because `setdefault` sends an atomic `SET key default_value NX GET`, `default_value`
-    # is transmitted over the wire even when `key` already exists, so both must be validated upfront.
+    # In-memory `dict.setdefault` stores object pointers without copying, whereas Redis enforces a
+    # 512 MB string limit and closes the connection if exceeded, so `key` and `default_value` are
+    # validated upfront.
     def test_large_key_setdefault(self):
         large_key = 'k' * (512 * 1024 * 1024)
         dic = {}
