@@ -414,7 +414,7 @@ class RedisDict:
         Returns:
             bool: True if the key exists, False otherwise.
         """
-        return self._load(key)[0]
+        return bool(self.get_redis.exists(self._format_key(key)))
 
     def __len__(self) -> int:
         """
