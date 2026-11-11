@@ -2041,6 +2041,42 @@ class TestRedisDictSecurity(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.r['key'] = large_value
 
+    # Intentional deviation from plain `dict`:
+    # In-memory `dict.setdefault` stores object pointers without copying, whereas Redis enforces a
+    # 512 MB string limit and closes the connection if exceeded, so `key` and `default_value` are
+    # validated upfront.
+    def test_large_key_setdefault(self):
+        large_key = 'k' * (512 * 1024 * 1024)
+        dic = {}
+        self.assertEqual(dic.setdefault(large_key, 'value'), 'value')
+
+        with self.assertRaises(ValueError):
+            self.r.setdefault(large_key, 'value')
+        self.assertEqual(len(self.r), 0)
+
+    def test_large_value_setdefault(self):
+        large_value = 'v' * (512 * 1024 * 1024)
+        dic = {}
+        self.assertEqual(dic.setdefault('key', large_value), large_value)
+
+        with self.assertRaises(ValueError):
+            self.r.setdefault('key', large_value)
+        self.assertEqual(len(self.r), 0)
+
+        self.r['existing'] = 'kept'
+        with self.assertRaises(ValueError):
+            self.r.setdefault('existing', large_value)
+        self.assertEqual(self.r['existing'], 'kept')
+
+        # Exact `_max_string_size` boundary: `< limit` succeeds, `== limit` raises ValueError.
+        bounded = self.create_redis_dict()
+        bounded._max_string_size = 16
+        self.assertEqual(bounded.setdefault('k' * 15, 'v' * 15), 'v' * 15)
+        with self.assertRaises(ValueError):
+            bounded.setdefault('k' * 16, 'ok')
+        with self.assertRaises(ValueError):
+            bounded.setdefault('ok', 'v' * 16)
+
     def test_injection_attack_get(self):
         injection_key = 'key; GET another_key'
         self.r['another_key'] = 'value'

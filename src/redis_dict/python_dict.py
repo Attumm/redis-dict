@@ -127,19 +127,15 @@ class PythonRedisDict(RedisDict):
 
         Returns:
             Any: The value associated with the key or the default value.
+
+        Note:
+            Deviates from Python's built-in ``dict.setdefault``: Redis closes the connection above
+            its 512 MB string limit, so ``key`` and ``default_value`` are validated upfront.
         """
-        formatted_key = self._format_key(key)
-        formatted_value = self._format_value(default_value)
-
         # Todo bind both commands
-        args, options = self._create_set_get_command(formatted_key, formatted_value)
-        result = self.get_redis.execute_command(*args, **options)
-        self._insertion_order_add(formatted_key)
-
-        if result is None:
-            return default_value
-
-        return self._transform(result)
+        result = super().setdefault(key, default_value)
+        self._insertion_order_add(self._format_key(key))
+        return result
 
     def __len__(self) -> int:
         """
