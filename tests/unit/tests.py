@@ -1735,6 +1735,37 @@ class TestRedisDict(unittest.TestCase):
         result = self.r.get_ttl(key)
         self.assertEqual(result, expected)
 
+    def test_expire_at_restores_none_after_exception(self):
+        """An exception inside expire_at() must restore expire=None so later keys do not expire."""
+        r = self.create_redis_dict()
+        r['before'] = 'kept'
+        self.assertIsNone(r.get_ttl('before'))
+
+        with self.assertRaisesRegex(KeyError, "^'missing'$"):
+            with r.expire_at(1):
+                r['inside'] = 'temporary'
+                self.assertAlmostEqual(1, r.get_ttl('inside'), delta=1)
+                _ = r['missing']
+
+        r['after'] = 'kept'
+        self.assertIsNone(r.expire)
+        self.assertIsNone(r.get_ttl('after'))
+
+    def test_expire_at_restores_previous_expire_after_exception(self):
+        """An exception inside nested expire_at() must restore the enclosing and default expire."""
+        r = self.create_redis_dict(expire=3600)
+
+        with r.expire_at(600):
+            with self.assertRaisesRegex(KeyError, "^'missing'$"):
+                with r.expire_at(1):
+                    _ = r['missing']
+
+            r['outer_key'] = 'outer_val'
+            self.assertAlmostEqual(600, r.get_ttl('outer_key'), delta=2)
+
+        r['default_key'] = 'default_val'
+        self.assertAlmostEqual(3600, r.get_ttl('default_key'), delta=2)
+
     def test_set_get_empty_tuple(self):
         key = "empty_tuple"
         value = ()
