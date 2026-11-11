@@ -12,7 +12,7 @@ RedisDict is a Python library that offers a convenient and familiar interface fo
 The library includes utility functions for more complex use cases such as caching, batching, and more. By leveraging Redis for efficient key-value storage, RedisDict enables high-performance data management, maintaining efficiency even with large datasets and Redis instances.
 
 
-[Usage](#Usage) |  [Types](#Types) | [Expiration](#Expiration) | [Batching](#Batching) | [Custom Types](#Custom-Types) | [Security](#Security)
+[Usage](#usage) | [Types](#types) | [Expiration](#expiration) | [Batching](#batching) | [Custom Types](#custom-types) | [Security](#security)
 
 ---
 
@@ -91,7 +91,7 @@ dic["dict"] = {"a": 1, "b": 2}
 dic["tuple"] = (1, 2, 3)
 dic["set"] = {1, 2, 3}
 
-dic["datetime"] = datetime.date(2024, 1, 1, 12, 30, 45)
+dic["datetime"] = datetime(2024, 1, 1, 12, 30, 45)
 dic["date"] = date(2024, 1, 1)
 dic["time"] = time(12, 30, 45)
 dic["delta"] = timedelta(days=1, hours=2)
