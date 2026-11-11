@@ -5,6 +5,7 @@ from datetime import timedelta
 from contextlib import contextmanager
 
 from redis import StrictRedis
+from redis.exceptions import ResponseError
 
 from .type_management import SENTINEL, EncodeFuncType, DecodeFuncType, EncodeType, DecodeType
 from .type_management import _create_default_encode, _create_default_decode, _default_decoder
@@ -646,18 +647,21 @@ class RedisDict:
 
         return None
 
+    def _items(self, search_term: str = '') -> Iterator[Tuple[str, Any]]:
+        for raw_key in self._scan_keys(search_term):
+            key = self._parse_key(raw_key)
+            try:
+                yield key, self[key]
+            except (KeyError, ResponseError):
+                pass
+
     def items(self) -> Iterator[Tuple[str, Any]]:
         """Return a list of key-value pairs (tuples) in the RedisDict, analogous to a dictionary's items method.
 
         Yields:
             Iterator[Tuple[str, Any]]: A list of key-value pairs in the RedisDict.
         """
-        to_rm = len(self.namespace) + len(self.namespace_delimiter)
-        for item in self._scan_keys():
-            try:
-                yield str(item[to_rm:]), self[item[to_rm:]]
-            except KeyError:
-                pass
+        yield from self._items()
 
     def values(self) -> Iterator[Any]:
         """Analogous to a dictionary's values method.
@@ -667,12 +671,8 @@ class RedisDict:
         Yields:
             List[Any]: A list of values in the RedisDict.
         """
-        to_rm = len(self.namespace) + len(self.namespace_delimiter)
-        for item in self._scan_keys():
-            try:
-                yield self[item[to_rm:]]
-            except KeyError:
-                pass
+        for _, value in self._items():
+            yield value
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the RedisDict to a Python dictionary.
@@ -932,10 +932,7 @@ class RedisDict:
         Returns:
             List[Any]: A list of values associated with the key prefix.
         """
-        found_keys = list(self._scan_keys(key))
-        if len(found_keys) == 0:
-            return []
-        return [self._transform(i) for i in self.redis.mget(found_keys) if i is not None]
+        return [value for _, value in self._items(key)]
 
     def multi_chain_get(self, keys: List[str]) -> List[Any]:
         """
@@ -959,13 +956,7 @@ class RedisDict:
         Returns:
             Dict[str, Any]: A dictionary of key-value pairs associated with the key prefix.
         """
-        keys = list(self._scan_keys(key))
-        if len(keys) == 0:
-            return {}
-        to_rm = keys[0].rfind(':') + 1
-        return dict(
-            zip([i[to_rm:] for i in keys], (self._transform(i) for i in self.redis.mget(keys) if i is not None))
-        )
+        return {k.rsplit(self.key_delimiter, 1)[-1]: v for k, v in self._items(key)}
 
     def multi_del(self, key: str) -> int:
         """
