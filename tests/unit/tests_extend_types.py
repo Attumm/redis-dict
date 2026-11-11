@@ -650,5 +650,65 @@ class TestNewTypeComplianceFailures(BaseRedisDictTest):
         self.assertTrue("Class NonCallableDecodeMethod does not implement the required decode class method" in str(
             context.exception))
 
+
+class TestRedisDictExtendTypesInstanceIsolation(BaseRedisDictTest):
+    def test_extends_type_does_not_leak_across_instances_or_global_registry(self):
+        """Registering a custom type on one RedisDict must not mutate another instance or class defaults."""
+        from redis_dict import PythonRedisDict
+
+        dict_one = RedisDict(namespace="ext_iso_one")
+        dict_two = RedisDict(namespace="ext_iso_two")
+        py_dict = PythonRedisDict(namespace="ext_iso_py")
+        self.addCleanup(dict_one.clear)
+        self.addCleanup(dict_two.clear)
+        self.addCleanup(py_dict.clear)
+        self.addCleanup(lambda: RedisDict.encoding_registry.pop("Customer", None))
+        self.addCleanup(lambda: RedisDict.decoding_registry.pop("Customer", None))
+
+        dict_one.extends_type(Customer)
+
+        self.assertIn("Customer", dict_one.encoding_registry)
+        self.assertIn("Customer", dict_one.decoding_registry)
+        self.assertNotIn("Customer", dict_two.encoding_registry)
+        self.assertNotIn("Customer", dict_two.decoding_registry)
+        self.assertNotIn("Customer", py_dict.encoding_registry)
+        self.assertNotIn("Customer", py_dict.decoding_registry)
+        self.assertNotIn("Customer", RedisDict.encoding_registry)
+        self.assertNotIn("Customer", RedisDict.decoding_registry)
+
+    def test_instances_support_independent_encoders_for_same_type(self):
+        """Two RedisDict instances can register distinct encode/decode functions for the same class."""
+        dict_json = RedisDict(namespace="ext_enc_json")
+        dict_pipe = RedisDict(namespace="ext_enc_pipe")
+        self.addCleanup(dict_json.clear)
+        self.addCleanup(dict_pipe.clear)
+        self.addCleanup(lambda: RedisDict.encoding_registry.pop("Person", None))
+        self.addCleanup(lambda: RedisDict.decoding_registry.pop("Person", None))
+
+        def pipe_encode(obj):
+            return "{}|{}|{}".format(obj.name, obj.age, obj.address)
+
+        def pipe_decode(raw):
+            name, age, address = raw.split("|", 2)
+            return Person(name, int(age), address)
+
+        dict_json.extends_type(Person, person_encode, person_decode)
+        dict_pipe.extends_type(Person, pipe_encode, pipe_decode)
+
+        alice = Person("Alice", 30, "Wonderland")
+        bob = Person("Bob", 40, "Builder")
+
+        dict_json["p"] = alice
+        dict_pipe["p"] = bob
+
+        raw_json = dict_json.redis.get(dict_json._format_key("p"))
+        raw_pipe = dict_pipe.redis.get(dict_pipe._format_key("p"))
+        self.assertEqual(raw_json, "Person:" + person_encode(alice))
+        self.assertEqual(raw_pipe, "Person:Bob|40|Builder")
+
+        self.assertEqual(dict_json["p"], alice)
+        self.assertEqual(dict_pipe["p"], bob)
+
+
 if __name__ == '__main__':
     unittest.main()
