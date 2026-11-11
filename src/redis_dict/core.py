@@ -1,8 +1,9 @@
 """Redis Dict module."""
-from typing import Any, Dict, Iterator, List, Tuple, Union, Optional, Type
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple, Type, Union, cast
 
 from datetime import timedelta
 from contextlib import contextmanager
+from itertools import chain
 
 from redis import StrictRedis
 from redis.exceptions import ResponseError
@@ -822,15 +823,24 @@ class RedisDict:
         """
         return self.to_dict()
 
-    def update(self, dic: Dict[str, Any]) -> None:
-        """
-        Update the RedisDict with key-value pairs from the given mapping, analogous to a dictionary's update method.
+    def update(
+        self,
+        other: Union[Mapping[str, object], 'RedisDict', Iterable[Tuple[str, object]]] = (),
+        /,
+        **kwargs: object,
+    ) -> None:
+        """Update the RedisDict with key-value pairs from a mapping, iterable, and/or keyword arguments.
 
         Args:
-            dic (Mapping[str, Any]): A mapping containing key-value pairs to update the RedisDict.
+            other (Union[Mapping[str, object], RedisDict, Iterable[Tuple[str, object]]]): Optional mapping,
+                RedisDict, or iterable of (key, value) pairs.
+            **kwargs (object): Additional key-value pairs to update the RedisDict.
         """
+        pairs: Iterable[Tuple[str, object]] = (
+            ((k, cast(Mapping[str, object], other)[k]) for k in other.keys()) if hasattr(other, "keys") else other
+        )
         with self.pipeline():
-            for key, value in dic.items():
+            for key, value in chain(pairs, kwargs.items()):
                 self[key] = value
 
     def fromkeys(self, iterable: List[str], value: Optional[Any] = None) -> 'RedisDict':

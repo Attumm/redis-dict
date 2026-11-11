@@ -245,6 +245,153 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(dic), 5)
         self.assertEqual(len(input_items), 5)
 
+    def test_dict_method_update_from_iterable_of_pairs(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        pairs = [("int", 1), ("str", "im a string"), ("int", 2)]
+        dic.update(pairs)
+        redis_dic.update(pairs)
+
+        self.assertEqual(dict(redis_dic), dic)
+
+        # Single-pass generator of (key, value) tuples and 2-char string pairs
+        dic.update((k, v) for k, v in [("gen_a", 10), ("gen_b", 20)])
+        redis_dic.update((k, v) for k, v in [("gen_a", 10), ("gen_b", 20)])
+        dic.update(["ab", "cd"])
+        redis_dic.update(["ab", "cd"])
+
+        self.assertEqual(dict(redis_dic), dic)
+
+    def test_dict_method_update_from_kwargs(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        # Include parameter-name collisions ('self', 'other', 'dic', 'args', 'kwargs')
+        dic.update(alpha=1, self="s", other="o", dic="d", args="a", kwargs="k")
+        redis_dic.update(alpha=1, self="s", other="o", dic="d", args="a", kwargs="k")
+
+        self.assertEqual(dict(redis_dic), dic)
+
+    def test_dict_method_update_mapping_or_iterable_with_kwargs(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        dic.update({"a": 1, "b": 2}, b=20, c=30)
+        redis_dic.update({"a": 1, "b": 2}, b=20, c=30)
+        self.assertEqual(dict(redis_dic), dic)
+
+        dic.update([("x", 1), ("y", 2), ("y", 3)], y=22, z=33)
+        redis_dic.update([("x", 1), ("y", 2), ("y", 3)], y=22, z=33)
+        self.assertEqual(dict(redis_dic), dic)
+
+    def test_dict_method_update_no_arguments_and_empty_boundaries(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        dic.update()
+        redis_dic.update()
+        self.assertEqual(dict(redis_dic), dic)
+
+        dic["kept"] = 42
+        redis_dic["kept"] = 42
+        for empty in ({}, [], (), set()):
+            with self.subTest(empty=empty):
+                dic.update(empty)
+                redis_dic.update(empty)
+                self.assertEqual(dict(redis_dic), dic)
+
+        dic.update(iter([]))
+        redis_dic.update(iter([]))
+        dic.update(**{})
+        redis_dic.update(**{})
+        self.assertEqual(dict(redis_dic), dic)
+
+    def test_dict_method_update_with_redis_dict_self_and_custom_mapping(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_update_other")
+        dic = dict()
+
+        other_redis_dic["from_redis"] = "val"
+        dic.update({"from_redis": "val"})
+        redis_dic.update(other_redis_dic)
+        self.assertEqual(dict(redis_dic), dic)
+
+        # Self-update boundary (with and without extra keyword arguments)
+        dic.update(dic)
+        redis_dic.update(redis_dic)
+        self.assertEqual(dict(redis_dic), dic)
+
+        dic.update(dic, self_extra=99)
+        redis_dic.update(redis_dic, self_extra=99)
+        self.assertEqual(dict(redis_dic), dic)
+
+        class MinimalMapping:
+            def keys(self):
+                return ["m1", "m2"]
+
+            def __getitem__(self, key):
+                return {"m1": 100, "m2": 200}[key]
+
+        dic.update(MinimalMapping())
+        redis_dic.update(MinimalMapping())
+        self.assertEqual(dict(redis_dic), dic)
+
+    def test_dict_method_update_invalid_arguments(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+        dic["kept"] = "initial"
+        redis_dic["kept"] = "initial"
+
+        # More than one positional argument: args[1], args[2], and extra positional + kwargs
+        for extra_positional in (
+            ({"a": 1}, {"b": 2}),
+            ({"a": 1}, {"b": 2}, {"c": 3}),
+            ([("a", 1)], [("b", 2)]),
+        ):
+            with self.subTest(extra_positional=extra_positional):
+                with self.assertRaises(TypeError):
+                    dic.update(*extra_positional)
+                with self.assertRaises(TypeError):
+                    redis_dic.update(*extra_positional)
+                self.assertEqual(dict(redis_dic), dic)
+
+        with self.assertRaises(TypeError):
+            dic.update({"a": 1}, {"b": 2}, c=3)
+        with self.assertRaises(TypeError):
+            redis_dic.update({"a": 1}, {"b": 2}, c=3)
+        self.assertEqual(dict(redis_dic), dic)
+
+        for non_iterable in (None, 42, 3.14, True):
+            with self.subTest(non_iterable=non_iterable):
+                with self.assertRaises(TypeError):
+                    dic.update(non_iterable)
+                with self.assertRaises(TypeError):
+                    redis_dic.update(non_iterable)
+                self.assertEqual(dict(redis_dic), dic)
+
+        for bad_seq in ([()], [("only_one",)], [("a", 1, 2)], "abc"):
+            with self.subTest(bad_seq=bad_seq):
+                with self.assertRaises(ValueError):
+                    dic.update(bad_seq)
+                with self.assertRaises(ValueError):
+                    redis_dic.update(bad_seq)
+                self.assertEqual(dict(redis_dic), dic)
+
+        with self.assertRaises(TypeError):
+            dic.update([123])
+        with self.assertRaises(TypeError):
+            redis_dic.update([123])
+        self.assertEqual(dict(redis_dic), dic)
+
+        # Streaming parity with dict: valid items yielded before a malformed element are applied,
+        # proving no intermediate dict is materialized upfront.
+        with self.assertRaises(ValueError):
+            dic.update([("streamed_before_err", 1), ("only_one",)])
+        with self.assertRaises(ValueError):
+            redis_dic.update([("streamed_before_err", 1), ("only_one",)])
+        self.assertEqual(dict(redis_dic), dic)
+
     def test_dict_method_pop(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
