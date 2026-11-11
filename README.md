@@ -364,12 +364,45 @@ For more information on [extending types](https://github.com/Attumm/redis-dict/b
 ## Security
 
 Security is an important aspect of production projects. Redis-dict was developed within a strict compliance environment.
-Best practice in Redis is to use passwords and network encryption through TLS. However, Redis-dict offers an additional feature by using extended types.
-It is possible to store the values of keys encrypted. The values are encrypted with AES GCM, which is currently considered best practice for security.
+Best practice in Redis is to use passwords/ACLs and network encryption through TLS. On top of transport security, Redis-dict provides `EncryptedRedisDict` to encrypt all stored values (and their Python type tags) at rest using **AES-256-GCM**.
 
 ### Storage Encryption
-For storing data values encrypted can be achieved using encrypted values, more documentation on that later.
-For now code example within this test file. [encrypted test](https://github.com/Attumm/redis-dict/blob/main/tests/unit/tests_encrypt.py).
+
+`redis` remains the sole core dependency of `redis-dict`. Install the optional `crypto` extra to enable AES-GCM storage encryption:
+
+```sh
+pip install "redis-dict[crypto]"
+```
+
+Generate a 256-bit key once and set `REDIS_DICT_AES_KEY` in your environment (a fresh 12-byte random nonce is generated automatically on every write and stored with the ciphertext, so **never** configure a static nonce or IV):
+
+```sh
+export REDIS_DICT_AES_KEY="$(python -m redis_dict.crypto)"
+```
+
+`EncryptedRedisDict` works as a drop-in `RedisDict` replacement—all standard types, nested containers, pipelines, TTLs, and `extends_type()` classes are encrypted automatically, and each ciphertext is bound to `namespace:key` via GCM Associated Authenticated Data (AAD) so values cannot be swapped across keys or namespaces:
+
+```python
+import os
+from datetime import datetime
+from redis_dict import EncryptedRedisDict, generate_key
+
+# In production, set REDIS_DICT_AES_KEY in your environment instead of generating inline
+os.environ.setdefault("REDIS_DICT_AES_KEY", generate_key())
+
+secrets = EncryptedRedisDict(namespace="vault")
+secrets["api_token"] = "sk-live-12345"
+secrets["limits"] = {"rpm": 1000, "rotated_at": datetime(2026, 11, 11, 22, 0)}
+
+assert secrets["api_token"] == "sk-live-12345"
+assert secrets["limits"]["rpm"] == 1000
+```
+
+Customization & key rotation:
+- **Passphrase support**: If `REDIS_DICT_AES_KEY` (or `key=...`) is a human-readable secret string rather than a 256-bit Base64/hex key, a 256-bit key is derived automatically via memory-hard `Scrypt`.
+- **Explicit keys**: Pass `EncryptedRedisDict(namespace="vault", key=my_key)` to override environment variables per instance.
+- **Zero-downtime key rotation**: Set `REDIS_DICT_AES_KEYS="k2:<new_key>,k1:<old_key>"` (or pass `keys={"k2": new_key, "k1": old_key}, primary_key_id="k2"`). New writes use `k2`, existing `k1` entries still decrypt seamlessly, and `secrets.rotate_keys()` re-encrypts older entries in place while preserving Redis TTLs.
+- **Note on keys**: Redis key names (`vault:api_token`) remain plaintext so `SCAN`, `EXISTS`, `DEL`, and `TTL` stay `O(1)`. Avoid placing secret values inside dictionary *keys*.
 
 ### Encryption Network
 Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
@@ -400,7 +433,7 @@ pip install redis-dict
 
 ### Note
 * Please be aware that this project is currently being utilized by various organizations in their production environments. If you have any questions or concerns, feel free to raise issues
-* This project only uses redis as dependency
+* This project only uses `redis` as its core dependency (`cryptography` is only installed with the optional `redis-dict[crypto]` extra)
 
 ## Contributing
 Contributions are welcome. See [CONTRIBUTING.md](https://github.com/Attumm/redis-dict/blob/main/CONTRIBUTING.md) for the development setup, tests and how to open a pull request, and [RELEASING.md](https://github.com/Attumm/redis-dict/blob/main/RELEASING.md) for how releases are made.

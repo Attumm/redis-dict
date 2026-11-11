@@ -1,6 +1,7 @@
 import ast
 import contextlib
 import io
+import os
 import re
 import unittest
 from pathlib import Path
@@ -48,16 +49,22 @@ class TestReadmeExamples(unittest.TestCase):
         )
 
     def setUp(self) -> None:
+        self._saved_aes_key = os.environ.get("REDIS_DICT_AES_KEY")
         self._clean_namespaces()
 
     def tearDown(self) -> None:
         self._clean_namespaces()
+        if self._saved_aes_key is None:
+            os.environ.pop("REDIS_DICT_AES_KEY", None)
+        else:
+            os.environ["REDIS_DICT_AES_KEY"] = self._saved_aes_key
 
     @staticmethod
     def _clean_namespaces() -> None:
         PythonRedisDict(namespace="main").clear()
         RedisDict(namespace="main").clear()
         RedisDict(namespace="example").clear()
+        RedisDict(namespace="vault").clear()
 
     def _run_section_block(self, heading: str, index: int = 0) -> Dict[str, Any]:
         self.assertIn(heading, self.blocks_by_heading, f"Missing README heading: {heading!r}")
@@ -108,6 +115,12 @@ class TestReadmeExamples(unittest.TestCase):
     def test_insertion_order_example(self) -> None:
         ns = self._run_section_block("Insertion Order")
         self.assertEqual(list(ns["dic"].keys()), ["1", "2", "3"])
+
+    def test_storage_encryption_example(self) -> None:
+        os.environ.pop("REDIS_DICT_AES_KEY", None)
+        ns = self._run_section_block("Storage Encryption")
+        self.assertEqual(ns["secrets"]["api_token"], "sk-live-12345")
+        self.assertEqual(ns["secrets"]["limits"]["rpm"], 1000)
 
 
 if __name__ == "__main__":

@@ -109,7 +109,7 @@ class PythonRedisDict(RedisDict):
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
 
         formatted_key = self._format_key(key)
-        formatted_value = self._format_value(value)
+        formatted_value = self._format_value(value, formatted_key)
 
         with self.pipeline():
             self._insertion_order_add(formatted_key)
@@ -179,7 +179,7 @@ class PythonRedisDict(RedisDict):
         key = self._insertion_order_latest()
         if key is None:
             raise KeyError("popitem(): dictionary is empty")
-        return self._parse_key(key), self._transform(self._pop(key))
+        return self._parse_key(key), self._transform(self._pop(key), key)
 
     def _pop(self, formatted_key: str) -> Any:
         """

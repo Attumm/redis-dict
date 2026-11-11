@@ -70,6 +70,7 @@ autodoc_default_options = {{
     'undoc-members': True,
     'show-inheritance': True,
     'special-members': '__init__',
+    'ignore-module-all': True,
 }}
 
 myst_update_mathjax = False
@@ -116,6 +117,8 @@ html_theme = 'sphinx_rtd_theme'
    :maxdepth: 2
 
    redis_dict/core
+   redis_dict/encrypted_dict
+   redis_dict/crypto
    redis_dict/python_dict
    redis_dict/type_management
 """
@@ -157,6 +160,26 @@ html_theme = 'sphinx_rtd_theme'
    :show-inheritance:
    :noindex:
     """
+    encrypted_redis_dict = """Encrypted Redis Dict
+==============================
+
+.. automodule:: redis_dict.encrypted_dict
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :special-members: __init__
+   :noindex:
+    """
+    crypto_module = """Redis Dict Crypto
+==============================
+
+.. automodule:: redis_dict.crypto
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :special-members: __init__
+   :noindex:
+    """
 
     makefile_content = """
 # Minimal makefile for Sphinx documentation
@@ -194,6 +217,12 @@ help:
 
     with open(module_docs_path / 'python_dict.rst', 'w') as f:
         f.write(python_redis_dict)
+
+    with open(module_docs_path / 'encrypted_dict.rst', 'w') as f:
+        f.write(encrypted_redis_dict)
+
+    with open(module_docs_path / 'crypto.rst', 'w') as f:
+        f.write(crypto_module)
 
 if __name__ == '__main__':
     generate_configs()

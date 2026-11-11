@@ -3692,6 +3692,10 @@ build = [
     { name = "twine", version = "6.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "twine", version = "7.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
+crypto = [
+    { name = "cryptography", version = "47.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version <= '3.9'" },
+    { name = "cryptography", version = "50.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version > '3.9'" },
+]
 dev = [
     { name = "attrs", version = "25.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "attrs", version = "26.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
@@ -3771,6 +3775,7 @@ requires-dist = [
     { name = "build", marker = "extra == 'build'" },
     { name = "cffi", marker = "extra == 'dev'", specifier = ">=1.17.0" },
     { name = "coverage", marker = "extra == 'dev'", specifier = ">=5.5" },
+    { name = "cryptography", marker = "extra == 'crypto'", specifier = ">=44.0.1" },
     { name = "cryptography", marker = "extra == 'dev'", specifier = ">=44.0.1" },
     { name = "darglint", marker = "extra == 'dev'" },
     { name = "exceptiongroup", marker = "extra == 'dev'", specifier = ">=1.1.1" },
@@ -3799,7 +3804,7 @@ requires-dist = [
     { name = "types-redis", marker = "extra == 'dev'", specifier = ">=4.6.0" },
     { name = "typing-extensions", marker = "extra == 'dev'", specifier = ">=4.5.0" },
 ]
-provides-extras = ["dev", "docs", "build"]
+provides-extras = ["crypto", "dev", "docs", "build"]
 
 [[package]]
 name = "requests"

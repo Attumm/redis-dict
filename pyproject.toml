@@ -53,6 +53,10 @@ keywords = [
 ]
 
 [project.optional-dependencies]
+crypto = [
+    "cryptography>=44.0.1",
+]
+
 dev = [
     "coverage>=5.5",
     "hypothesis>=6.70.1",

@@ -135,11 +135,13 @@ class RedisDict:
             return len(value) < self._max_string_size
         return True
 
-    def _format_value(self, value: Any) -> str:
+    # pylint: disable=unused-argument
+    def _format_value(self, value: Any, formatted_key: Optional[str] = None) -> str:
         """Format a valid value with the type and encoded representation of the value.
 
         Args:
             value (Any): The value to be encoded and formatted.
+            formatted_key (Optional[str], optional): Full Redis key context for subclasses.
 
         Returns:
             str: The formatted value with the type and encoded representation of the value.
@@ -177,7 +179,7 @@ class RedisDict:
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
 
         formatted_key = self._format_key(key)
-        formatted_value = self._format_value(value)
+        formatted_value = self._format_value(value, formatted_key)
 
         self._store_set(formatted_key, formatted_value)
 
@@ -191,17 +193,20 @@ class RedisDict:
         Returns:
             tuple: A tuple containing a boolean indicating whether the value was found and the value itself.
         """
-        result = self.get_redis.get(self._format_key(key))
+        formatted_key = self._format_key(key)
+        result = self.get_redis.get(formatted_key)
         if result is None:
             return False, None
-        return True, self._transform(result)
+        return True, self._transform(result, formatted_key)
 
-    def _transform(self, result: str) -> Any:
+    # pylint: disable=unused-argument
+    def _transform(self, result: str, formatted_key: Optional[str] = None) -> Any:
         """
         Transform the result string from Redis into the appropriate Python object.
 
         Args:
             result (str): The result string from Redis.
+            formatted_key (Optional[str], optional): Full Redis key context for subclasses.
 
         Returns:
             Any: The transformed Python object.
@@ -727,7 +732,7 @@ class RedisDict:
             if default is not SENTINEL:
                 return default
             raise KeyError(key)
-        return self._transform(value)
+        return self._transform(value, formatted_key)
 
     def popitem(self) -> Tuple[str, Any]:
         """Remove and return a random (key, value) pair from the RedisDict as a tuple.
@@ -796,7 +801,7 @@ class RedisDict:
             raise ValueError("Invalid input value or key size exceeded the maximum limit.")
 
         formatted_key = self._format_key(key)
-        formatted_value = self._format_value(default_value)
+        formatted_value = self._format_value(default_value, formatted_key)
 
         args, options = self._create_set_get_command(formatted_key, formatted_value)
         result = self.get_redis.execute_command(*args, **options)
@@ -804,7 +809,7 @@ class RedisDict:
         if result is None:
             return default_value
 
-        return self._transform(result)
+        return self._transform(result, formatted_key)
 
     def copy(self) -> Dict[str, Any]:
         """Create a shallow copy of the RedisDict and return it as a standard Python dictionary.
