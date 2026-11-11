@@ -1502,6 +1502,31 @@ class TestRedisDict(unittest.TestCase):
         self.r['foobar'] = 'barbar'
         self.assertTrue('foobar' in self.r)
 
+    def test_contains_uses_exists_without_fetching_or_decoding_value(self):
+        """__contains__ must check key existence via EXISTS without GET or value decoding."""
+        self.r['payload'] = {'nested': [1, 2, 3]}
+
+        stats_before = self.r.get_redis.info('commandstats')
+        gets_before = stats_before.get('cmdstat_get', {}).get('calls', 0)
+        exists_before = stats_before.get('cmdstat_exists', {}).get('calls', 0)
+
+        self.assertTrue('payload' in self.r)
+        self.assertFalse('missing' in self.r)
+
+        stats_after = self.r.get_redis.info('commandstats')
+        self.assertEqual(stats_after.get('cmdstat_get', {}).get('calls', 0), gets_before)
+        self.assertEqual(stats_after.get('cmdstat_exists', {}).get('calls', 0), exists_before + 2)
+
+        # Even if a stored value cannot be JSON-decoded, membership check only tests key existence
+        self.redisdb.set(self.r._format_key('raw_unparseable'), 'dict:{not valid json')
+        self.assertTrue('raw_unparseable' in self.r)
+
+        with self.r.pipeline():
+            self.r['buffered_contains'] = 'v'
+            self.assertTrue('payload' in self.r)
+            self.assertFalse('buffered_contains' in self.r)
+        self.assertTrue('buffered_contains' in self.r)
+
     def test_repr_empty(self):
         """Tests the __repr__ function with no keys set."""
         expected_repr = str({})
