@@ -76,6 +76,17 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
     def _is_python_redis_dict(self, redis_dic):
         return getattr(redis_dic, '_insertion_order_key', None) is not None
 
+    def test_is_python_redis_dict(self):
+        redis_dic = self.create_redis_dict()
+        self.assertEqual(
+            self._is_python_redis_dict(redis_dic),
+            isinstance(redis_dic, PythonRedisDict),
+        )
+        self.assertEqual(
+            hasattr(redis_dic, '_insertion_order_key'),
+            isinstance(redis_dic, PythonRedisDict),
+        )
+
     def test_python3_all_methods_from_dictionary_are_implemented(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -226,6 +237,180 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(sorted(map(str, input_values)), sorted(map(str, result_values)))
         self.assertEqual(sorted(map(str, dic_values)), sorted(map(str, result_values)))
 
+    # Iteration (#10). RedisDict makes no order promise, so these tests compare sorted lists or sets;
+    # the insertion-order promise of PythonRedisDict is tested in TestPythonRedisDictBehaviorDict.
+    def test_iter_nested_loops_yield_every_pair(self):
+        # A nested loop over the same dict opens a second iterator while the first is still open.
+        # dict gives every iterator its own position, so the inner loop never ends the outer loop.
+        # Before #10, RedisDict kept one iterator on the instance: the inner loop used it up and
+        # the outer loop stopped after its first key (3 pairs instead of 9).
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        redis_dic.update({"a": 1, "b": 2, "c": 3})
+        dic.update({"a": 1, "b": 2, "c": 3})
+
+        # Expected
+        expected = [(x, y) for x in dic for y in dic]
+
+        # Run
+        result = [(x, y) for x in redis_dic for y in redis_dic]
+
+        # Assert
+        self.assertEqual(len(result), len(expected))
+        self.assertEqual(sorted(result), sorted(expected))
+
+    def test_iter_interleaved_iterators_each_yield_every_key(self):
+        # Two iterators open on one dict at the same time, advanced in turns. dict gives every
+        # iter() call its own iterator, so both yield every key once. Before #10, RedisDict kept
+        # one iterator on the instance (iter() returned self), so the two shared it and each saw
+        # only part of the keys before StopIteration.
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        redis_dic.update({"a": 1, "b": 2, "c": 3})
+        dic.update({"a": 1, "b": 2, "c": 3})
+
+        # Expected
+        first, second = iter(dic), iter(dic)
+        expected_first, expected_second = [], []
+        for _ in range(len(dic)):
+            expected_first.append(next(first))
+            expected_second.append(next(second))
+
+        # Run
+        first, second = iter(redis_dic), iter(redis_dic)
+        result_first, result_second = [], []
+        for _ in range(len(dic)):
+            result_first.append(next(first))
+            result_second.append(next(second))
+
+        # Assert
+        self.assertEqual(sorted(result_first), sorted(expected_first))
+        self.assertEqual(sorted(result_second), sorted(expected_second))
+
+    def test_iter_interleaved_iterators_across_scan_batches(self):
+        # Same as above, but past one SCAN batch: 150 keys with a batch size of 10 for RedisDict, and
+        # past 128 members of the insertion-order zset for PythonRedisDict. Each open iterator then
+        # holds its own cursor across many round trips to Redis, and the round trips of the two
+        # cursors are interleaved. The 3-key test is answered by a single SCAN call.
+        redis_dic = self.create_redis_dict()
+        redis_dic._batch_size = 10
+        dic = dict()
+
+        for i in range(150):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        # Expected
+        first, second = iter(dic), iter(dic)
+        expected_first, expected_second = [], []
+        for _ in range(len(dic)):
+            expected_first.append(next(first))
+            expected_second.append(next(second))
+        expected_exhausted = (next(first, None), next(second, None))
+
+        # Run
+        first, second = iter(redis_dic), iter(redis_dic)
+        result_first, result_second = [], []
+        for _ in range(len(dic)):
+            result_first.append(next(first))
+            result_second.append(next(second))
+        result_exhausted = (next(first, None), next(second, None))
+
+        # Assert
+        self.assertEqual(sorted(result_first), sorted(expected_first))
+        self.assertEqual(sorted(result_second), sorted(expected_second))
+        self.assertEqual(result_exhausted, expected_exhausted)
+
+    def test_iter_nested_loops_across_scan_batches(self):
+        # Same as the nested loop above, but past one SCAN batch: the outer cursor is paused halfway
+        # through Redis while every inner loop runs a full scan with its own cursor.
+        # dict yields every (x, y) pair, len(d) ** 2 in total.
+        redis_dic = self.create_redis_dict()
+        redis_dic._batch_size = 10
+        dic = dict()
+
+        for i in range(150):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        # Expected
+        expected = [(x, y) for x in dic for y in dic]
+
+        # Run
+        result = [(x, y) for x in redis_dic for y in redis_dic]
+
+        # Assert
+        self.assertEqual(len(result), len(expected))
+        self.assertEqual(sorted(result), sorted(expected))
+
+    def test_iter_single_loop_across_scan_batches_yields_every_key_once(self):
+        # One loop over a dict yields each key exactly once. RedisDict reads its keys in SCAN batches
+        # (ZSCAN for PythonRedisDict), so one loop is many round trips; a key lost or repeated at a
+        # batch boundary would break that. Sorted lists, not sets: a set would hide a repeated key.
+        redis_dic = self.create_redis_dict()
+        redis_dic._batch_size = 10
+        dic = dict()
+
+        for i in range(150):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        # Expected
+        expected = sorted(key for key in dic)
+
+        # Run
+        result = sorted(key for key in redis_dic)
+
+        # Assert
+        self.assertEqual(result, expected)
+
+    def test_iter_empty_dict(self):
+        # An empty namespace: SCAN returns cursor 0 with no keys on the first call, and the
+        # insertion-order zset of PythonRedisDict does not exist. Iteration must end at once.
+        # dict: iterating {} yields nothing, a nested loop yields nothing, next() raises StopIteration.
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        # Expected
+        expected_keys = list(dic)
+        expected_pairs = [(x, y) for x in dic for y in dic]
+        with self.assertRaises(StopIteration):
+            next(iter(dic))
+
+        # Run
+        result_keys = list(redis_dic)
+        result_pairs = [(x, y) for x in redis_dic for y in redis_dic]
+
+        # Assert
+        self.assertEqual(result_keys, expected_keys)
+        self.assertEqual(result_pairs, expected_pairs)
+        with self.assertRaises(StopIteration):
+            next(iter(redis_dic))
+
+    def test_next_on_instance_after_iter_still_works(self):
+        # Not dict behaviour: a dict is not an iterator, next(dic) raises TypeError. RedisDict has
+        # its own public __next__/next(). #10 made iter() return a new iterator and keeps
+        # self._iter, so the existing `iter(d); next(d)` usage still yields every key once.
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        redis_dic.update({"a": 1, "b": 2, "c": 3})
+        dic.update({"a": 1, "b": 2, "c": 3})
+
+        # Expected
+        expected = sorted(dic)
+
+        # Run
+        iter(redis_dic)
+        result = sorted(next(redis_dic) for _ in range(len(dic)))
+
+        # Assert
+        self.assertEqual(result, expected)
+        with self.assertRaises(StopIteration):
+            next(redis_dic)
+
     def test_dict_method_update(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -244,6 +429,153 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(redis_dic), 5)
         self.assertEqual(len(dic), 5)
         self.assertEqual(len(input_items), 5)
+
+    def test_dict_method_update_from_iterable_of_pairs(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        pairs = [("int", 1), ("str", "im a string"), ("int", 2)]
+        dic.update(pairs)
+        redis_dic.update(pairs)
+
+        self.assertEqual(dict(redis_dic), dic)
+
+        # Single-pass generator of (key, value) tuples and 2-char string pairs
+        dic.update((k, v) for k, v in [("gen_a", 10), ("gen_b", 20)])
+        redis_dic.update((k, v) for k, v in [("gen_a", 10), ("gen_b", 20)])
+        dic.update(["ab", "cd"])
+        redis_dic.update(["ab", "cd"])
+
+        self.assertEqual(dict(redis_dic), dic)
+
+    def test_dict_method_update_from_kwargs(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        # Include parameter-name collisions ('self', 'other', 'dic', 'args', 'kwargs')
+        dic.update(alpha=1, self="s", other="o", dic="d", args="a", kwargs="k")
+        redis_dic.update(alpha=1, self="s", other="o", dic="d", args="a", kwargs="k")
+
+        self.assertEqual(dict(redis_dic), dic)
+
+    def test_dict_method_update_mapping_or_iterable_with_kwargs(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        dic.update({"a": 1, "b": 2}, b=20, c=30)
+        redis_dic.update({"a": 1, "b": 2}, b=20, c=30)
+        self.assertEqual(dict(redis_dic), dic)
+
+        dic.update([("x", 1), ("y", 2), ("y", 3)], y=22, z=33)
+        redis_dic.update([("x", 1), ("y", 2), ("y", 3)], y=22, z=33)
+        self.assertEqual(dict(redis_dic), dic)
+
+    def test_dict_method_update_no_arguments_and_empty_boundaries(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        dic.update()
+        redis_dic.update()
+        self.assertEqual(dict(redis_dic), dic)
+
+        dic["kept"] = 42
+        redis_dic["kept"] = 42
+        for empty in ({}, [], (), set()):
+            with self.subTest(empty=empty):
+                dic.update(empty)
+                redis_dic.update(empty)
+                self.assertEqual(dict(redis_dic), dic)
+
+        dic.update(iter([]))
+        redis_dic.update(iter([]))
+        dic.update(**{})
+        redis_dic.update(**{})
+        self.assertEqual(dict(redis_dic), dic)
+
+    def test_dict_method_update_with_redis_dict_self_and_custom_mapping(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_update_other")
+        dic = dict()
+
+        other_redis_dic["from_redis"] = "val"
+        dic.update({"from_redis": "val"})
+        redis_dic.update(other_redis_dic)
+        self.assertEqual(dict(redis_dic), dic)
+
+        # Self-update boundary (with and without extra keyword arguments)
+        dic.update(dic)
+        redis_dic.update(redis_dic)
+        self.assertEqual(dict(redis_dic), dic)
+
+        dic.update(dic, self_extra=99)
+        redis_dic.update(redis_dic, self_extra=99)
+        self.assertEqual(dict(redis_dic), dic)
+
+        class MinimalMapping:
+            def keys(self):
+                return ["m1", "m2"]
+
+            def __getitem__(self, key):
+                return {"m1": 100, "m2": 200}[key]
+
+        dic.update(MinimalMapping())
+        redis_dic.update(MinimalMapping())
+        self.assertEqual(dict(redis_dic), dic)
+
+    def test_dict_method_update_invalid_arguments(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+        dic["kept"] = "initial"
+        redis_dic["kept"] = "initial"
+
+        # More than one positional argument: args[1], args[2], and extra positional + kwargs
+        for extra_positional in (
+            ({"a": 1}, {"b": 2}),
+            ({"a": 1}, {"b": 2}, {"c": 3}),
+            ([("a", 1)], [("b", 2)]),
+        ):
+            with self.subTest(extra_positional=extra_positional):
+                with self.assertRaises(TypeError):
+                    dic.update(*extra_positional)
+                with self.assertRaises(TypeError):
+                    redis_dic.update(*extra_positional)
+                self.assertEqual(dict(redis_dic), dic)
+
+        with self.assertRaises(TypeError):
+            dic.update({"a": 1}, {"b": 2}, c=3)
+        with self.assertRaises(TypeError):
+            redis_dic.update({"a": 1}, {"b": 2}, c=3)
+        self.assertEqual(dict(redis_dic), dic)
+
+        for non_iterable in (None, 42, 3.14, True):
+            with self.subTest(non_iterable=non_iterable):
+                with self.assertRaises(TypeError):
+                    dic.update(non_iterable)
+                with self.assertRaises(TypeError):
+                    redis_dic.update(non_iterable)
+                self.assertEqual(dict(redis_dic), dic)
+
+        for bad_seq in ([()], [("only_one",)], [("a", 1, 2)], "abc"):
+            with self.subTest(bad_seq=bad_seq):
+                with self.assertRaises(ValueError):
+                    dic.update(bad_seq)
+                with self.assertRaises(ValueError):
+                    redis_dic.update(bad_seq)
+                self.assertEqual(dict(redis_dic), dic)
+
+        with self.assertRaises(TypeError):
+            dic.update([123])
+        with self.assertRaises(TypeError):
+            redis_dic.update([123])
+        self.assertEqual(dict(redis_dic), dic)
+
+        # Streaming parity with dict: valid items yielded before a malformed element are applied,
+        # proving no intermediate dict is materialized upfront.
+        with self.assertRaises(ValueError):
+            dic.update([("streamed_before_err", 1), ("only_one",)])
+        with self.assertRaises(ValueError):
+            redis_dic.update([("streamed_before_err", 1), ("only_one",)])
+        self.assertEqual(dict(redis_dic), dic)
 
     def test_dict_method_pop(self):
         redis_dic = self.create_redis_dict()
@@ -271,9 +603,9 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(len(dic), len(input_items) - i)
             self.assertEqual(len(redis_dic), len(input_items) - i)
 
-        with self.assertRaises(KeyError):
+        with self.assertRaisesRegex(KeyError, "^'item'$"):
             dic.pop("item")
-        with self.assertRaises(KeyError):
+        with self.assertRaisesRegex(KeyError, "^'item'$"):
             redis_dic.pop("item")
 
     def test_dict_method_pop_default(self):
@@ -345,7 +677,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
     def test_dict_method_popitem_dict_compliant(self):
         redis_dic = self.create_redis_dict()
 
-        if self._is_python_redis_dict(redis_dic):
+        if not self._is_python_redis_dict(redis_dic):
             return
 
         dic = dict()
@@ -384,6 +716,71 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             dic.popitem()
         with self.assertRaises(KeyError):
             redis_dic.popitem()
+
+    def test_dict_method_popitem_with_other_namespace_in_same_db(self):
+        # Edge case: one SCAN step only visits a few slots of the whole database, here filled with dict_one's keys.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_two = self.create_redis_dict(namespace="dict_two")
+
+        with dict_one.pipeline():
+            for i in range(3000):
+                dict_one[f"k{i}"] = i
+        dict_two["only"] = 1
+
+        self.assertEqual(dict_two.popitem(), ("only", 1))
+        self.assertEqual(len(dict_two), 0)
+        self.assertEqual(len(dict_one), 3000)
+
+    def test_dict_method_key_with_other_namespace_in_same_db(self):
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_two = self.create_redis_dict(namespace="dict_two")
+
+        with dict_one.pipeline():
+            for i in range(3000):
+                dict_one[f"k{i}"] = i
+        dict_two["only"] = 1
+
+        self.assertEqual(dict_two.key(), "only")
+        self.assertEqual(dict_two.key("on"), "only")
+        self.assertIsNone(dict_two.key("zzz"))
+
+    def test_dict_method_popitem_drains_with_other_namespace_in_same_db(self):
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_two = self.create_redis_dict(namespace="dict_two")
+
+        with dict_one.pipeline():
+            for i in range(3000):
+                dict_one[f"k{i}"] = i
+        expected = {f"k{i}": i for i in range(5)}
+        dict_two.update(expected)
+
+        popped = dict(dict_two.popitem() for _ in range(len(expected)))
+        self.assertEqual(popped, expected)
+        with self.assertRaisesRegex(KeyError, r"^'popitem\(\): dictionary is empty'$"):
+            dict_two.popitem()
+        self.assertEqual(len(dict_one), 3000)
+
+    def test_dict_method_eq_with_non_mapping(self):
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        input_items = {
+            "int": 1,
+            "str": "im a string",
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+
+        for other in (None, 1, 1.5, "a", b"a", [1], (1,), {1}, list(input_items.items())):
+            with self.subTest(other=other):
+                self.assertIs(dic.__eq__(other), NotImplemented)
+                self.assertIs(redis_dic.__eq__(other), NotImplemented)
+                self.assertIs(dic.__ne__(other), NotImplemented)
+                self.assertIs(redis_dic.__ne__(other), NotImplemented)
+
+                self.assertEqual(dic == other, redis_dic == other)
+                self.assertEqual(dic != other, redis_dic != other)
 
     @skip_before_python39
     def test_dict_method_or(self):
@@ -508,6 +905,109 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(TypeError):
             redis_dic |= [1, 2]
 
+    @skip_before_python39
+    def test_dict_method_or_with_redis_dict(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        dic = dict()
+        other_dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+            "new_bool": False,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+        other_redis_dic.update(additional_items)
+        other_dic.update(additional_items)
+
+        self.assertEqual(len(redis_dic), 5)
+        self.assertEqual(len(other_redis_dic), 3)
+
+        redis_result = redis_dic | other_redis_dic
+        dict_result = dic | other_dic
+
+        self.assertEqual(len(redis_result), len(dict_result))
+        self.assertEqual(dict(redis_result), dict_result)
+
+        # Verify neither operand was modified
+        self.assertEqual(dict(redis_dic), dic)
+        self.assertEqual(dict(other_redis_dic), other_dic)
+
+    @skip_before_python39
+    def test_dict_method_or_with_redis_dict_reversed_operands(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        dic = dict()
+        other_dic = dict()
+
+        input_items = {
+            "int": 1,
+            "str": "im a string",
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+        other_redis_dic.update(additional_items)
+        other_dic.update(additional_items)
+
+        # Overlapping key "str": right-hand operand wins, as with dict
+        redis_result = other_redis_dic | redis_dic
+        dict_result = other_dic | dic
+
+        self.assertEqual(dict(redis_result), dict_result)
+        self.assertEqual(redis_result["str"], "im a string")
+
+    @skip_before_python39
+    def test_dict_method_ior_with_redis_dict(self):
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        dic = dict()
+        other_dic = dict()
+
+        input_items = {
+            "int": 1,
+            "float": 0.9,
+            "str": "im a string",
+            "bool": True,
+            "None": None,
+        }
+
+        additional_items = {
+            "str": "new string",
+            "new_int": 42,
+            "new_bool": False,
+        }
+
+        redis_dic.update(input_items)
+        dic.update(input_items)
+        other_redis_dic.update(additional_items)
+        other_dic.update(additional_items)
+
+        redis_dic |= other_redis_dic
+        dic |= other_dic
+
+        self.assertEqual(len(redis_dic), len(dic))
+        self.assertEqual(dict(redis_dic), dic)
+
+        # Verify right-hand operand was not modified
+        self.assertEqual(dict(other_redis_dic), other_dic)
+
     def test_dict_method_reversed_(self):
         """
         RedisDict without the flag dict_compliant insertion order doens't make use of insert_order.
@@ -525,7 +1025,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         redis_dic.update(input_items)
         dic.update(input_items)
 
-        if not self._is_python_redis_dict(redis_dic):
+        if self._is_python_redis_dict(redis_dic):
             self.assertEqual(list(dic), list(redis_dic))
             self.assertEqual(list(reversed(dic)), list(reversed(redis_dic)))
 
@@ -627,7 +1127,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             )
             self.assertEqual(other_expected_value, redis_dic[key])
         time.sleep(1.5)
-        with self.assertRaisesRegex(KeyError, key):
+        with self.assertRaisesRegex(KeyError, f"^'{key}'$"):
             redis_dic[key]
 
     def test_setdefault_with_preserve_ttl(self):
@@ -655,7 +1155,7 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         time.sleep(sleep_time)
 
         # TTL should be expired, thus key and value should be missing, and thus we will set the default value.
-        with self.assertRaisesRegex(KeyError, key):
+        with self.assertRaisesRegex(KeyError, f"^'{key}'$"):
             redis_dic[key]
 
         expected_value_two = "expected_value_two"
@@ -741,6 +1241,73 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(len(redis_dic), 0)
         self.assertEqual(len(dic), 0)
 
+    def test_dict_method_clear_keeps_other_namespace(self):
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_two = self.create_redis_dict(namespace="dict_two")
+
+        dict_one["key"] = "value one"
+        dict_two["key"] = "value two"
+
+        dict_one.clear()
+
+        self.assertEqual(len(dict_one), 0)
+        self.assertEqual(dict_two["key"], "value two")
+        self.assertEqual(len(dict_two), 1)
+
+    def test_dict_method_clear_keeps_namespace_that_starts_with_same_name(self):
+        # Edge case: namespace "dict_one" scans "dict_one:*", so a namespace "dict_one:two" would fall inside it.
+        # A namespace may not contain the namespace delimiter ":", so it can't be created.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        dict_one["key"] = "value one"
+
+        for namespace in ("dict_one:two", "dict_one:", ":dict_one"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+                    self.create_redis_dict(namespace=namespace)
+
+        dict_one.clear()
+        self.assertEqual(len(dict_one), 0)
+
+    def test_chain_set_keeps_namespace_that_starts_with_same_name(self):
+        # Edge case: chain_set joins with ":", so dict_one.chain_set(["two", "key"]) is stored as "dict_one:two:key",
+        # the key that dict_two["key"] would get with namespace "dict_one:two". That namespace can't be created.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+
+        dict_one.chain_set(["two", "key"], "value one")
+
+        with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+            self.create_redis_dict(namespace="dict_one:two")
+
+        self.assertEqual(dict_one.chain_get(["two", "key"]), "value one")
+        self.assertEqual(len(dict_one), 1)
+
+    def test_len_and_keys_ignore_namespace_that_starts_with_same_name(self):
+        # Edge case: dict_one is empty; namespace "dict_one:two" can't be created, so nothing lands inside dict_one.
+        dict_one = self.create_redis_dict(namespace="dict_one")
+
+        with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+            self.create_redis_dict(namespace="dict_one:two")
+
+        self.assertEqual(len(dict_one), 0)
+        self.assertEqual(list(dict_one.keys()), [])
+
+    def test_namespace_with_glob_characters_is_rejected(self):
+        for namespace in ("dict[one]", "dict_*", "dict_?", "dict\\one"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+                    self.create_redis_dict(namespace=namespace)
+
+    def test_namespace_with_glob_character_at_start_or_end_is_rejected(self):
+        for namespace in ("*", "?", "[", "]", "*dict_one", "dict_one*", ":", "dict_one:two"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaisesRegex(ValueError, r"^Namespace '.*' contains a special character"):
+                    self.create_redis_dict(namespace=namespace)
+
+    def test_plain_namespaces_are_accepted(self):
+        for namespace in ("dict_one", "dict_two", "dict-one", "dict.one", "main"):
+            with self.subTest(namespace=namespace):
+                self.assertTrue(self.create_redis_dict(namespace=namespace).namespace.startswith(namespace))
+
     def test_dict_method_clear_1(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -781,10 +1348,15 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         redis_dic = self.create_redis_dict()
         dic = dict()
 
-        with self.assertRaisesRegex(KeyError, "appel"):
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
             dic['appel']
-        with self.assertRaisesRegex(KeyError, "appel"):
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
             redis_dic['appel']
+
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
+            dic.pop('appel')
+        with self.assertRaisesRegex(KeyError, "^'appel'$"):
+            redis_dic.pop('appel')
 
         with self.assertRaisesRegex(KeyError, r"popitem\(\): dictionary is empty"):
             dic.popitem()
@@ -985,6 +1557,54 @@ class TestPythonRedisDictBehaviorDict(TestRedisDictBehaviorDict):
         config = redis_config.copy()
         config.update(kwargs)
         return PythonRedisDict(namespace=namespace+"_PythonRedisDict", **config)
+
+    def test_iter_interleaved_iterators_keep_insertion_order(self):
+        # PythonRedisDict promises insertion order, like dict: every open iterator yields the keys
+        # in dict's order. Above 128 keys the order breaks; see the skipped test below (#7).
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        for i in range(100):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        # Expected
+        expected = list(dic)
+
+        # Run
+        first, second = iter(redis_dic), iter(redis_dic)
+        seen_first, seen_second = [], []
+        for _ in range(len(dic)):
+            seen_first.append(next(first))
+            seen_second.append(next(second))
+
+        # Assert
+        self.assertEqual(seen_first, expected)
+        self.assertEqual(seen_second, expected)
+
+    @unittest.skip("#7: PythonRedisDict loses insertion order above 128 keys")
+    def test_iter_interleaved_iterators_keep_insertion_order_past_128_keys(self):
+        # Same as above with 200 keys. Fails today: same keys as dict, not in dict's order.
+        redis_dic = self.create_redis_dict()
+        dic = dict()
+
+        for i in range(200):
+            redis_dic["k{}".format(i)] = i
+            dic["k{}".format(i)] = i
+
+        # Expected
+        expected = list(dic)
+
+        # Run
+        first, second = iter(redis_dic), iter(redis_dic)
+        seen_first, seen_second = [], []
+        for _ in range(len(dic)):
+            seen_first.append(next(first))
+            seen_second.append(next(second))
+
+        # Assert
+        self.assertEqual(seen_first, expected)
+        self.assertEqual(seen_second, expected)
 
     def test_dict_method_update_reversed(self):
         """
@@ -1305,6 +1925,31 @@ class TestRedisDict(unittest.TestCase):
         self.r['foobar'] = 'barbar'
         self.assertTrue('foobar' in self.r)
 
+    def test_contains_uses_exists_without_fetching_or_decoding_value(self):
+        """__contains__ must check key existence via EXISTS without GET or value decoding."""
+        self.r['payload'] = {'nested': [1, 2, 3]}
+
+        stats_before = self.r.get_redis.info('commandstats')
+        gets_before = stats_before.get('cmdstat_get', {}).get('calls', 0)
+        exists_before = stats_before.get('cmdstat_exists', {}).get('calls', 0)
+
+        self.assertTrue('payload' in self.r)
+        self.assertFalse('missing' in self.r)
+
+        stats_after = self.r.get_redis.info('commandstats')
+        self.assertEqual(stats_after.get('cmdstat_get', {}).get('calls', 0), gets_before)
+        self.assertEqual(stats_after.get('cmdstat_exists', {}).get('calls', 0), exists_before + 2)
+
+        # Even if a stored value cannot be JSON-decoded, membership check only tests key existence
+        self.redisdb.set(self.r._format_key('raw_unparseable'), 'dict:{not valid json')
+        self.assertTrue('raw_unparseable' in self.r)
+
+        with self.r.pipeline():
+            self.r['buffered_contains'] = 'v'
+            self.assertTrue('payload' in self.r)
+            self.assertFalse('buffered_contains' in self.r)
+        self.assertTrue('buffered_contains' in self.r)
+
     def test_repr_empty(self):
         """Tests the __repr__ function with no keys set."""
         expected_repr = str({})
@@ -1338,6 +1983,29 @@ class TestRedisDict(unittest.TestCase):
         self.r['foobar1'] = 'barbar1'
         self.r['foobar2'] = 'barbar2'
         self.assertEqual(len(self.r), 2)
+
+    def test_full_scan_uses_batch_size_for_len_and_clear(self):
+        """_scan_keys(full_scan=True) in len() and clear() must scan in _batch_size batches, not COUNT 10."""
+        with self.r.pipeline():
+            for idx in range(400):
+                self.r['batch_key_{}'.format(idx)] = idx
+
+        scans_before_len = self.r.get_redis.info('commandstats').get('cmdstat_scan', {}).get('calls', 0)
+        self.assertEqual(len(self.r), 400)
+        scans_after_len = self.r.get_redis.info('commandstats').get('cmdstat_scan', {}).get('calls', 0)
+
+        if not isinstance(self.r, PythonRedisDict):
+            # With _batch_size=200 over 400 keys, SCAN takes ~2-3 calls (vs ~40 calls when count=None/10)
+            self.assertLessEqual(scans_after_len - scans_before_len, 6)
+
+        scans_before_clear = self.r.get_redis.info('commandstats').get('cmdstat_scan', {}).get('calls', 0)
+        self.r.clear()
+        scans_after_clear = self.r.get_redis.info('commandstats').get('cmdstat_scan', {}).get('calls', 0)
+
+        if not isinstance(self.r, PythonRedisDict):
+            self.assertLessEqual(scans_after_clear - scans_before_clear, 6)
+
+        self.assertEqual(len(self.r), 0)
 
     def test_to_dict_empty(self):
         """Tests the to_dict function with no keys set."""
@@ -1505,6 +2173,59 @@ class TestRedisDict(unittest.TestCase):
         self.assertEqual(self.r['key8'], 'value8')
         self.assertEqual(self.r['key9'], 'value9')
 
+    def test_pipeline_get_ttl(self):
+        """get_ttl() must read committed TTL via get_redis inside pipeline()."""
+        self.r['permanent'] = 'v1'
+        with self.r.expire_at(3600):
+            self.r['expiring'] = 'v2'
+
+        with self.r.pipeline():
+            self.r['buffered'] = 'v3'
+            self.assertIsNone(self.r.get_ttl('permanent'))
+            self.assertAlmostEqual(3600, self.r.get_ttl('expiring'), delta=2)
+            self.assertIsNone(self.r.get_ttl('buffered'))
+
+        self.assertEqual(self.r['buffered'], 'v3')
+
+    def test_pipeline_get_redis_info(self):
+        """get_redis_info() must read server info via get_redis inside pipeline() without hanging."""
+        import threading
+
+        r = self.create_redis_dict()
+        outcome = {}
+
+        def call_info():
+            try:
+                with r.pipeline():
+                    r['buffered_info'] = 'v1'
+                    outcome['info'] = r.get_redis_info()
+            except BaseException as exc:  # pragma: no cover
+                outcome['exc'] = exc
+
+        worker = threading.Thread(target=call_info, daemon=True)
+        worker.start()
+        worker.join(timeout=1.0)
+        self.assertFalse(worker.is_alive(), "get_redis_info() hung in an infinite loop inside pipeline()")
+        if 'exc' in outcome:
+            raise outcome['exc']
+
+        self.assertIsInstance(outcome['info'], dict)
+        self.assertIn('redis_version', outcome['info'])
+        self.assertEqual(r['buffered_info'], 'v1')
+
+    def test_pipeline_popitem(self):
+        """popitem() must read committed keys via get_redis inside pipeline() without crashing."""
+        self.r['k1'] = 'v1'
+        self.r['k2'] = 'v2'
+
+        with self.r.pipeline():
+            self.r['k3'] = 'v3'
+            popped = self.r.popitem()
+
+        self.assertIn(popped, [('k1', 'v1'), ('k2', 'v2')])
+        self.assertEqual(len(self.r), 2)
+        self.assertEqual(self.r['k3'], 'v3')
+
     def test_expire_at(self):
         self.r['key10'] = 'value10'
         with self.r.expire_at(1):
@@ -1537,6 +2258,37 @@ class TestRedisDict(unittest.TestCase):
         expected = None
         result = self.r.get_ttl(key)
         self.assertEqual(result, expected)
+
+    def test_expire_at_restores_none_after_exception(self):
+        """An exception inside expire_at() must restore expire=None so later keys do not expire."""
+        r = self.create_redis_dict()
+        r['before'] = 'kept'
+        self.assertIsNone(r.get_ttl('before'))
+
+        with self.assertRaisesRegex(KeyError, "^'missing'$"):
+            with r.expire_at(1):
+                r['inside'] = 'temporary'
+                self.assertAlmostEqual(1, r.get_ttl('inside'), delta=1)
+                _ = r['missing']
+
+        r['after'] = 'kept'
+        self.assertIsNone(r.expire)
+        self.assertIsNone(r.get_ttl('after'))
+
+    def test_expire_at_restores_previous_expire_after_exception(self):
+        """An exception inside nested expire_at() must restore the enclosing and default expire."""
+        r = self.create_redis_dict(expire=3600)
+
+        with r.expire_at(600):
+            with self.assertRaisesRegex(KeyError, "^'missing'$"):
+                with r.expire_at(1):
+                    _ = r['missing']
+
+            r['outer_key'] = 'outer_val'
+            self.assertAlmostEqual(600, r.get_ttl('outer_key'), delta=2)
+
+        r['default_key'] = 'default_val'
+        self.assertAlmostEqual(3600, r.get_ttl('default_key'), delta=2)
 
     def test_set_get_empty_tuple(self):
         key = "empty_tuple"
@@ -1591,26 +2343,62 @@ class TestRedisDict(unittest.TestCase):
 
         self.assertEqual(result, expected)
 
-    @unittest.skip
     def test_set_get_mixed_type_set(self):
         key = "mixed_type_set"
         value = {1, "foobar", 3.14, (1, 2, 3)}
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-    @unittest.skip  # this highlights that sets, and tuples not fully supported
     def test_set_get_nested_tuple(self):
         key = "nested_tuple"
         value = (1, (2, 3), (4, 5))
         self.r[key] = value
         self.assertEqual(self.r[key], value)
 
-    @unittest.skip  # this highlights that sets, and tuples not fully supported
     def test_set_get_nested_tuple_triple(self):
         key = "nested_tuple"
         value = (1, (2, 3), (4, (5, 6)))
         self.r[key] = value
         self.assertEqual(self.r[key], value)
+
+    def _assert_round_trip(self, key, value):
+        self.r[key] = value
+        result = self.r[key]
+        self.assertEqual(result, value)
+        self.assertIs(type(result), type(value))
+
+    def test_set_and_frozenset_of_tuples_round_trip(self):
+        self._assert_round_trip("set_of_tuples", {(1, 2), (3, 4)})
+        self._assert_round_trip("frozenset_of_tuples", frozenset({(1, 2), (3, 4)}))
+        self.assertEqual(
+            dict(self.r.items()),
+            {"set_of_tuples": {(1, 2), (3, 4)}, "frozenset_of_tuples": frozenset({(1, 2), (3, 4)})},
+        )
+
+    def test_tuples_nested_in_list_dict_and_tuple_round_trip(self):
+        self._assert_round_trip("tuple_in_tuple", ((1, 2), (3, 4)))
+        self._assert_round_trip("tuple_in_list", [(1, 2), (3, 4)])
+        self._assert_round_trip("tuple_in_dict", {"a": (1, 2)})
+        self.assertIsInstance(self.r["tuple_in_list"][0], tuple)
+        self.assertIsInstance(self.r["tuple_in_dict"]["a"], tuple)
+
+    def test_dict_with_int_keys_round_trips(self):
+        self._assert_round_trip("int_keys", {1: "a", 2: "b"})
+        self._assert_round_trip("mixed_keys", {1: "a", "1": "b"})
+        self.assertEqual(self.r["int_keys"][1], "a")
+
+    def test_dict_with_type_marker_keys_round_trips(self):
+        # A user dict with "__type__" and "value" keys must not be decoded as another type (#6).
+        cases = [
+            ("int_marker", {"__type__": "int", "value": "5"}),
+            ("extra_keys", {"__type__": "int", "value": "5", "other": 1}),
+            ("tuple_marker", {"__type__": "tuple", "value": [1, 2]}),
+            ("nested", {"outer": {"__type__": "int", "value": "5"}}),
+            ("in_list", [1, {"__type__": "bytes", "value": "aGk="}, "x"]),
+        ]
+        for key, value in cases:
+            with self.subTest(key=key):
+                self._assert_round_trip(key, value)
 
     def test_init_redis_dict_with_redis_instance(self):
         test_key = "test_key"
@@ -1678,6 +2466,12 @@ class TestRedisDictSecurity(unittest.TestCase):
     def _is_python_redis_dict(self, redis_dic):
         return getattr(redis_dic, '_insertion_order_key', None) is not None
 
+    def test_is_python_redis_dict_security(self):
+        self.assertEqual(
+            self._is_python_redis_dict(self.r),
+            isinstance(self.r, PythonRedisDict),
+        )
+
     def test_unicode_key(self):
         # Test handling of Unicode keys
         unicode_key = '你好'
@@ -1711,6 +2505,42 @@ class TestRedisDictSecurity(unittest.TestCase):
         large_value = 'v' * (512 * 1024 * 1024)
         with self.assertRaises(ValueError):
             self.r['key'] = large_value
+
+    # Intentional deviation from plain `dict`:
+    # In-memory `dict.setdefault` stores object pointers without copying, whereas Redis enforces a
+    # 512 MB string limit and closes the connection if exceeded, so `key` and `default_value` are
+    # validated upfront.
+    def test_large_key_setdefault(self):
+        large_key = 'k' * (512 * 1024 * 1024)
+        dic = {}
+        self.assertEqual(dic.setdefault(large_key, 'value'), 'value')
+
+        with self.assertRaises(ValueError):
+            self.r.setdefault(large_key, 'value')
+        self.assertEqual(len(self.r), 0)
+
+    def test_large_value_setdefault(self):
+        large_value = 'v' * (512 * 1024 * 1024)
+        dic = {}
+        self.assertEqual(dic.setdefault('key', large_value), large_value)
+
+        with self.assertRaises(ValueError):
+            self.r.setdefault('key', large_value)
+        self.assertEqual(len(self.r), 0)
+
+        self.r['existing'] = 'kept'
+        with self.assertRaises(ValueError):
+            self.r.setdefault('existing', large_value)
+        self.assertEqual(self.r['existing'], 'kept')
+
+        # Exact `_max_string_size` boundary: `< limit` succeeds, `== limit` raises ValueError.
+        bounded = self.create_redis_dict()
+        bounded._max_string_size = 16
+        self.assertEqual(bounded.setdefault('k' * 15, 'v' * 15), 'v' * 15)
+        with self.assertRaises(ValueError):
+            bounded.setdefault('k' * 16, 'ok')
+        with self.assertRaises(ValueError):
+            bounded.setdefault('ok', 'v' * 16)
 
     def test_injection_attack_get(self):
         injection_key = 'key; GET another_key'
@@ -2221,6 +3051,54 @@ class TestRedisDictMulti(unittest.TestCase):
         self.r['goobar'] = 'borbor'
         expected_dict = {u'foobar': u'barbar', u'foobaz': u'bazbaz'}
         self.assertEqual(self.r.multi_dict('foo'), expected_dict)
+
+    def test_multi_dict_preserves_key_alignment_when_mget_has_missing_entries(self):
+        """A None result in mget must be skipped together with its key, not shift later values."""
+        expected = {}
+        for idx in range(6):
+            key = 'foo_{}'.format(idx)
+            val = 'val_{}'.format(idx)
+            self.r[key] = val
+            expected[key] = val
+
+        first_raw_key = next(self.r._scan_keys('foo_'))
+        missing_short_key = first_raw_key[len(TEST_NAMESPACE_PREFIX) + 1:]
+        del expected[missing_short_key]
+
+        # Replace that Redis key with a non-string key so SCAN yields it while MGET returns None
+        self.redisdb.delete(first_raw_key)
+        self.redisdb.hset(first_raw_key, 'field', 'non_string')
+
+        self.assertEqual(self.r.multi_dict('foo_'), expected)
+
+        only_missing_raw = '{}:only_hash_1'.format(TEST_NAMESPACE_PREFIX)
+        self.redisdb.hset(only_missing_raw, 'field', 'non_string')
+        self.assertEqual(self.r.multi_dict('only_hash_'), {})
+
+    def test_multi_dict_chain_keys_and_varying_prefix_lengths(self):
+        """multi_dict must slice each key at its own delimiter rather than keys[0]'s index."""
+        self.r.chain_set(['keys', 'k1'], 'v1')
+        self.r.chain_set(['keys', 'k2'], 'v2')
+        self.assertEqual(self.r.multi_dict('keys'), {'k1': 'v1', 'k2': 'v2'})
+
+        self.r.chain_set(['foo', 's1', 'x'], 1)
+        self.r.chain_set(['foo', 'longer2', 'y'], 2)
+        self.assertEqual(self.r.multi_dict('foo'), {'x': 1, 'y': 2})
+
+    def test_multi_get_and_multi_dict_inside_pipeline(self):
+        """multi_get and multi_dict must read committed Redis state via get_redis inside pipeline()."""
+        self.r['foo1'] = 'v1'
+        self.r['foo2'] = 'v2'
+
+        with self.r.pipeline():
+            self.r['foo3'] = 'v3'
+            self.assertEqual(sorted(self.r.multi_get('foo')), ['v1', 'v2'])
+            self.assertEqual(self.r.multi_dict('foo'), {'foo1': 'v1', 'foo2': 'v2'})
+
+        self.assertEqual(
+            self.r.multi_dict('foo'),
+            {'foo1': 'v1', 'foo2': 'v2', 'foo3': 'v3'},
+        )
 
     def test_multi_del_empty(self):
         """Tests the multi_del function with no keys set."""

@@ -22,4 +22,4 @@ python3 scripts/generate_sphinx_config.py
 sphinx-apidoc -o docs/source src/redis_dict
 
 cd docs
-make html
+make html SPHINXOPTS="-W"

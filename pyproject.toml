@@ -142,7 +142,7 @@ recursive = true
 -in-place = true
 
 [project.urls]
-Homepage = "https://github.com/Attumm/redisdict"
+Homepage = "https://github.com/Attumm/redis-dict"
 Documentation = "https://attumm.github.io/redis-dict/"
-Repository = "https://github.com/Attumm/redisdict.git"
-Changelog = "https://github.com/Attumm/redisdict/releases"
+Repository = "https://github.com/Attumm/redis-dict.git"
+Changelog = "https://github.com/Attumm/redis-dict/releases"
