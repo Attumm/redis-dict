@@ -11,12 +11,13 @@ from datetime import datetime, timedelta
 
 import redis
 
-from redis_dict import RedisDict, PythonRedisDict
+from redis_dict import RedisDict, PythonRedisDict, EncryptedRedisDict, RedisDictDecryptionError
 from redis_dict import RedisDictJSONEncoder, RedisDictJSONDecoder
 
 
 # !! Make sure you don't have keys within redis named like this, they will be deleted.
 TEST_NAMESPACE_PREFIX = '__test_prefix_key_meta_8128__'
+TEST_ENCRYPTION_KEY = b'0123456789abcdef0123456789abcdef'
 
 redis_config = {
     'host': 'localhost',
@@ -3062,7 +3063,7 @@ class TestRedisDictMulti(unittest.TestCase):
             expected[key] = val
 
         first_raw_key = next(self.r._scan_keys('foo_'))
-        missing_short_key = first_raw_key[len(TEST_NAMESPACE_PREFIX) + 1:]
+        missing_short_key = first_raw_key[len(self.r.namespace) + 1:]
         del expected[missing_short_key]
 
         # Replace that Redis key with a non-string key so SCAN yields it while MGET returns None
@@ -3071,7 +3072,7 @@ class TestRedisDictMulti(unittest.TestCase):
 
         self.assertEqual(self.r.multi_dict('foo_'), expected)
 
-        only_missing_raw = '{}:only_hash_1'.format(TEST_NAMESPACE_PREFIX)
+        only_missing_raw = '{}:only_hash_1'.format(self.r.namespace)
         self.redisdb.hset(only_missing_raw, 'field', 'non_string')
         self.assertEqual(self.r.multi_dict('only_hash_'), {})
 
@@ -3182,6 +3183,149 @@ class TestRedisDictMulti(unittest.TestCase):
 
         expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
         self.assertEqual(self.redisdb.get(expected_key), b'str:melons')
+
+
+class TestEncryptedRedisDictBehaviorDict(TestRedisDictBehaviorDict):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        config.setdefault("key", TEST_ENCRYPTION_KEY)
+        return EncryptedRedisDict(namespace=namespace + "_EncryptedRedisDict", **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        cls.redisdb.flushdb()
+        for key in cls.redisdb.scan_iter('{}_EncryptedRedisDict:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
+
+
+class TestEncryptedRedisDict(TestRedisDict):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        config.setdefault("key", TEST_ENCRYPTION_KEY)
+        return EncryptedRedisDict(namespace=namespace + "_EncryptedRedisDict", **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        cls.redisdb.flushdb()
+        for key in cls.redisdb.scan_iter('{}_EncryptedRedisDict:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
+
+    def test_delete(self):
+        """Test deleting an encrypted key and verifying key-bound AAD transform."""
+        key = 'foobar_gone'
+        expected = 'bar_gone'
+        formatted_key = self.r._format_key(key)
+
+        self.r[key] = expected
+
+        raw_value = self.redisdb.get(formatted_key).decode('utf-8')
+        result = self.r._transform(raw_value, formatted_key)
+        self.assertEqual(result, expected)
+        with self.assertRaises(RedisDictDecryptionError):
+            self.r._transform(raw_value)
+
+        del self.r[key]
+        self.assertIsNone(self.redisdb.get(formatted_key))
+
+
+class TestEncryptedRedisDictSecurity(TestRedisDictSecurity):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        config.setdefault("key", TEST_ENCRYPTION_KEY)
+        return EncryptedRedisDict(namespace=namespace + "_EncryptedRedisDict", **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        cls.redisdb.flushdb()
+        for key in cls.redisdb.scan_iter('{}_EncryptedRedisDict:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
+
+
+class TestEncryptedRedisDictComparison(TestRedisDictComparison):
+    def setUp(self):
+        self.r1 = EncryptedRedisDict(namespace="test1", key=TEST_ENCRYPTION_KEY)
+        self.r2 = EncryptedRedisDict(namespace="test2", key=TEST_ENCRYPTION_KEY)
+        self.r3 = EncryptedRedisDict(namespace="test3", key=TEST_ENCRYPTION_KEY)
+        self.r4 = EncryptedRedisDict(namespace="test4", key=TEST_ENCRYPTION_KEY)
+
+        self.r1.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r2.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r3.update({"a": 1, "b": 3, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r4.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 7]}})
+
+        self.d1 = {"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
+        self.d2 = {"a": 1, "b": 3, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
+
+
+class TestEncryptedRedisDictPreserveExpire(TestRedisDictPreserveExpire):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        config.setdefault("key", TEST_ENCRYPTION_KEY)
+        return EncryptedRedisDict(namespace=namespace + "_EncryptedRedisDict", **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        cls.redisdb.flushdb()
+        for key in cls.redisdb.scan_iter('{}_EncryptedRedisDict:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
+
+
+class TestEncryptedRedisDictMulti(TestRedisDictMulti):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        config.setdefault("key", TEST_ENCRYPTION_KEY)
+        return EncryptedRedisDict(namespace=namespace + "_EncryptedRedisDict", **config)
+
+    @classmethod
+    def clear_test_namespace(cls):
+        cls.redisdb.flushdb()
+        for key in cls.redisdb.scan_iter('{}_EncryptedRedisDict:*'.format(TEST_NAMESPACE_PREFIX)):
+            cls.redisdb.delete(key)
+
+    def test_chain_set_1(self):
+        """Test setting a chain with 1 element stores ciphertext rather than plaintext."""
+        self.r.chain_set(['foo'], 'melons')
+
+        expected_key = '{}_EncryptedRedisDict:foo'.format(TEST_NAMESPACE_PREFIX)
+        raw = self.redisdb.get(expected_key)
+        self.assertIsNotNone(raw)
+        self.assertTrue(raw.startswith(b'__enc__:v1$'))
+        self.assertNotIn(b'melons', raw)
+        self.assertEqual(self.r.chain_get(['foo']), 'melons')
+
+    def test_chain_set_2(self):
+        """Test setting a chain with 2 elements stores ciphertext rather than plaintext."""
+        self.r.chain_set(['foo', 'bar'], 'melons')
+
+        expected_key = '{}_EncryptedRedisDict:foo:bar'.format(TEST_NAMESPACE_PREFIX)
+        raw = self.redisdb.get(expected_key)
+        self.assertIsNotNone(raw)
+        self.assertTrue(raw.startswith(b'__enc__:v1$'))
+        self.assertNotIn(b'melons', raw)
+        self.assertEqual(self.r.chain_get(['foo', 'bar']), 'melons')
+
+    def test_chain_set_overwrite(self):
+        """Test setting and overwriting a chain stores fresh ciphertext."""
+        self.r.chain_set(['foo'], 'melons')
+        self.r.chain_set(['foo'], 'bananas')
+
+        expected_key = '{}_EncryptedRedisDict:foo'.format(TEST_NAMESPACE_PREFIX)
+        raw = self.redisdb.get(expected_key)
+        self.assertIsNotNone(raw)
+        self.assertTrue(raw.startswith(b'__enc__:v1$'))
+        self.assertNotIn(b'bananas', raw)
+        self.assertEqual(self.r.chain_get(['foo']), 'bananas')
+
 
 class TestNotImplementedMethods(unittest.TestCase):
     def setUp(self):

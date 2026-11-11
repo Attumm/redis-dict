@@ -1,513 +1,354 @@
-import os
-
 import base64
+import json
+import os
+import subprocess
+import sys
 import unittest
+import warnings
+from collections import OrderedDict, defaultdict
+from datetime import date, datetime, time as dt_time, timedelta
+from decimal import Decimal
+from unittest.mock import patch
+from uuid import UUID
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
+from redis_dict import (
+    AESGCMCipher,
+    EncryptedRedisDict,
+    RedisDict,
+    RedisDictDecryptionError,
+    RedisDictEncrypted,
+    generate_key,
+)
 
-from redis_dict import RedisDict
+TEST_NAMESPACE = "__test_encrypted_redis_dict_v360__"
 
 
-class EncryptedStringClassBased(str):
-    """A class that behaves like a string but enables encrypted storage in Redis dictionaries.
-
-    This class inherits from the built-in `str` class, providing all standard string
-    functionality. However, when stored in a RedisDict, it is automatically
-    encrypted. This allows for transparent encryption of sensitive data in Redis
-    without changing how the string is used in your Python code.
-
-    The class uses AES encryption with Galois/Counter Mode (GCM) for secure
-    encryption and decryption.
-
-    Attributes:
-        iv (bytes): The initialization vector, retrieved from an environment variable.
-        key (bytes): The encryption key, retrieved from an environment variable.
-    """
-
-    def __init__(self, value: str):
-        """Initializes an EncryptedStringClassBased object.
-
-        Retrieves the initialization vector (IV) and encryption key from
-        environment variables 'ENCRYPTION_IV' and 'ENCRYPTION_KEY' respectively,
-        decoding them from Base64.
-
-        Args:
-            value (str): The string value to be encapsulated and potentially encrypted.
-        """
-        self.value = value
-        self.iv = base64.b64decode(os.environ['ENCRYPTION_IV'])
-        self.key = base64.b64decode(os.environ['ENCRYPTION_KEY'])
-
-    def __str__(self):
-        """Returns the decrypted string value.
-
-        This method is called when the object is used in a string context,
-        returning the original string value.
-
-        Returns:
-            str: The original string value.
-        """
-        return self.value
-
-    def __repr__(self):
-        """Returns a string representation of the EncryptedStringClassBased object.
-
-        This method provides a string that, when evaluated, would recreate the object.
-
-        Returns:
-            str: A string representation of the object, in the format
-                 "EncryptedStringClassBased('value')".
-        """
-        return f"EncryptedStringClassBased('{self.value}')"
+class _Person:
+    def __init__(self, name: str, age: int) -> None:
+        self.name = name
+        self.age = age
 
     def encode(self) -> str:
-        """Encrypts the string value using AES-GCM.
-
-        Retrieves the encryption key and initialization vector (IV) from instance attributes
-        (which are loaded from environment variables during initialization).
-        Generates a random nonce for each encryption operation.
-        Uses AES in GCM mode to encrypt the string value.
-        Combines the nonce, IV, GCM tag, and ciphertext, then Base64 encodes the result.
-
-        Returns:
-            str: Base64 encoded string containing the nonce, IV, GCM tag, and ciphertext.
-                 This encoded string represents the encrypted value.
-        """
-        key = self.key or base64.b64decode(os.environ['ENCRYPTION_KEY'])
-        iv = self.iv or base64.b64decode(os.environ['ENCRYPTION_IV'])
-
-        nonce = os.urandom(16)
-
-        cipher = Cipher(algorithms.AES(key), modes.GCM(nonce), backend=default_backend())
-        encryptor = cipher.encryptor()
-
-        encrypted_data = encryptor.update(self.value.encode('utf-8', errors='surrogatepass')) + encryptor.finalize()
-
-        combined_data = nonce + iv + encryptor.tag + encrypted_data
-        return str(base64.b64encode(combined_data).decode('utf-8'))
+        return json.dumps({"name": self.name, "age": self.age})
 
     @classmethod
-    def decode(cls, encrypted_value: str) -> 'EncryptedStringClassBased':
-        """Decrypts an encrypted string value.
+    def decode(cls, encoded: str) -> "_Person":
+        data = json.loads(encoded)
+        return cls(name=data["name"], age=data["age"])
 
-        Decodes the Base64 encoded encrypted string.
-        Extracts the nonce, IV, GCM tag, and ciphertext from the decoded bytes.
-        Retrieves the encryption key and initialization vector (IV) from environment variables.
-        Uses AES in GCM mode with the extracted nonce and tag to decrypt the ciphertext.
-
-        Args:
-            encrypted_value (str): Base64 encoded string representing the encrypted value.
-
-        Returns:
-            EncryptedStringClassBased: A new `EncryptedStringClassBased` object containing
-                                     the decrypted string value.
-        """
-        key = base64.b64decode(os.environ['ENCRYPTION_KEY'])
-        iv = base64.b64decode(os.environ['ENCRYPTION_IV'])
-
-        encrypted_data_bytes = base64.b64decode(encrypted_value)
-
-        nonce_from_storage = encrypted_data_bytes[:16]
-        iv_from_storage = encrypted_data_bytes[16:16 + len(iv)]
-        tag = encrypted_data_bytes[16 + len(iv):16 + len(iv) + 16]
-        ciphertext = encrypted_data_bytes[16 + len(iv) + 16:]
-
-        cipher = Cipher(algorithms.AES(key), modes.GCM(nonce_from_storage, tag),
-                        backend=default_backend())
-        decryptor = cipher.decryptor()
-
-        decrypted_data = decryptor.update(ciphertext) + decryptor.finalize()
-        return cls(decrypted_data.decode('utf-8', errors='surrogatepass'))
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _Person) and self.name == other.name and self.age == other.age
 
 
-class TestRedisDictEncryptionClassBased(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        iv = b"0123456789abcdef"  # 16 bytes
-        key = b"0123456789abcdef0123456789abcdef"  # 32 bytes (256-bit key)
+class TestEncryptedRedisDict(unittest.TestCase):
+    """Comprehensive security, customization, and round-trip tests for EncryptedRedisDict."""
 
-        # Set test environment variables
-        os.environ['ENCRYPTION_IV'] = base64.b64encode(iv).decode('utf-8')
-        os.environ['ENCRYPTION_KEY'] = base64.b64encode(key).decode('utf-8')
-
-        cls.original_env = {
-            'ENCRYPTION_IV':  os.environ['ENCRYPTION_IV'],
-            'ENCRYPTION_KEY': os.environ['ENCRYPTION_KEY'],
+    def setUp(self) -> None:
+        self._saved_env = {
+            k: os.environ.get(k)
+            for k in ("REDIS_DICT_AES_KEY", "REDIS_DICT_AES_KEYS")
         }
+        os.environ.pop("REDIS_DICT_AES_KEY", None)
+        os.environ.pop("REDIS_DICT_AES_KEYS", None)
+        self._clean_namespaces()
 
-    def setUp(self):
+    def tearDown(self) -> None:
+        self._clean_namespaces()
+        for k, val in self._saved_env.items():
+            if val is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = val
 
-        self.redis_dict = RedisDict()
-        self.redis_dict.extends_type(EncryptedStringClassBased)
+    @staticmethod
+    def _clean_namespaces() -> None:
+        for ns in (TEST_NAMESPACE, f"{TEST_NAMESPACE}_other", f"{TEST_NAMESPACE}_plain"):
+            RedisDict(namespace=ns).clear()
 
-    def tearDown(self):
-        self.redis_dict.clear()
+    def test_alias_points_to_encrypted_redis_dict(self) -> None:
+        self.assertIs(RedisDictEncrypted, EncryptedRedisDict)
 
-    def helper_get_redis_internal_value(self, key):
-        sep = ":"
-        redis_dict = self.redis_dict
+    def test_tier1_zero_config_works_out_of_the_box_with_warning(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            d1 = EncryptedRedisDict(namespace=TEST_NAMESPACE)
+            d2 = EncryptedRedisDict(namespace=TEST_NAMESPACE)
 
-        stored_in_redis_as = redis_dict.redis.get(redis_dict._format_key(key))
-        internal_result_type, internal_result_value = stored_in_redis_as.split(sep, 1)
-        return internal_result_type, internal_result_value
-
-    def test_encrypted_string_encoding_and_decoding(self):
-        """Test adding new type and test if encoding and decoding works."""
-        redis_dict = self.redis_dict
-
-        iv = base64.b64decode(os.environ['ENCRYPTION_IV'])
-        key = base64.b64decode(os.environ['ENCRYPTION_KEY'])
-
-        #encode_encrypted_function = encode_encrypted_string(iv, key, EncryptedStringClassBased.nonce)
-
-        redis_dict.extends_type(EncryptedStringClassBased)
-        key = "foo"
-        expected_type = EncryptedStringClassBased.__name__
-        expected = "foobar"
-        #encoded_expected = encode_encrypted_function(expected)
-
-        redis_dict[key] = EncryptedStringClassBased(expected)
-
-        # Should be stored encrypted
-        internal_result_type, internal_result_value = self.helper_get_redis_internal_value(key)
-        self.assertNotEqual(internal_result_value, expected)
-
-        self.assertEqual(internal_result_type, expected_type)
-        #self.assertEqual(internal_result_value, encoded_expected)
-
-        result = redis_dict[key]
-
-        #self.assertNotEqual(encoded_expected, expected)
-        self.assertIsInstance(result, EncryptedStringClassBased)
-        self.assertEqual(result, expected)
-
-    def test_encoding_decoding_should_remain_equal(self):
-        """Test adding new type and test if encoding and decoding results in the same value"""
-        redis_dict = self.redis_dict
-
-        key = "foo"
-        key2 = "bar"
-        expected = "foobar"
-
-        redis_dict[key] = EncryptedStringClassBased(expected)
-
-        redis_dict[key2] = redis_dict[key]
-
-        result_one = redis_dict[key]
-        result_two = redis_dict[key2]
-
-        self.assertEqual(result_one, EncryptedStringClassBased(expected))
-        self.assertEqual(result_one, result_two)
-
-        self.assertEqual(result_one, expected)
-
-    def test_values(self):
-        """Test different values"""
-        redis_dict = self.redis_dict
-        expected_internal_type = EncryptedStringClassBased.__name__
-        test_cases = {
-            "Empty string": "",
-            "Single space": " ",
-            "Multiple spaces": "   ",
-            "Various whitespace characters": "\t\n\r",
-            "Single character": "a",
-            "Two characters": "ab",
-            "Three characters": "abc",
-            "Normal string with punctuation": "Hello, World!",
-            "Numeric string": "1234567890",
-            "Special characters": "!@#$%^&*()_+-=[]{}|;:,.<>?",
-            "Non-ASCII characters": "äöüßÄÖÜ",
-            "Emoji": "😀🙈🚀",
-            "Long string (1000 'a' characters)": "a" * 1000,
-            "Very long text (Lorem ipsum)": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. " * 100,
-            "JSON-like string": '{"key": "value"}',
-            "HTML-like string": "<html><body>Test</body></html>",
-            "SQL-like string": "SELECT * FROM users;",
-            "URL-like string": "https://www.example.com/path?query=value",
-            "String with null byte": "prefix\0suffix",
-            "String with low ASCII characters": "\u0000\u0001\u0002\u0003",
-            "String with high Unicode character (U+FFFF)": "\uFFFF",
-            "Surrogate pair (Unicode smiley face)": "\uD83D\uDE00",
-            "Mathematical script letters": "𝔘𝔫𝔦𝔠𝔬𝔡𝔢",
-            "Chinese characters": "中文字符测试",
-            "Japanese Hiragana": "こんにちは",
-            "Korean Hangul": "한글 테스트",
-            "String with right-to-left override character": "\u202Eexample",
-            "String with escaped newlines and tabs": "\\n\\t\\r",
-            "String with double quotes": "\"quoted\"",
-            "String with single quotes": "'single quotes'",
-            "String with backslash": "back\\slash",
-            "Windows file path": "C:\\Program Files\\",
-            "Unix file path": "/usr/local/bin/",
-            "Decimal number string": "3.14159",
-            "Negative decimal number string": "-273.15",
-            "Scientific notation string": "1e10",
-            "Not-a-Number (NaN) string": "NaN",
-            "Infinity string": "Infinity",
-            "String with byte values (0x00 and 0xFF)": "\x00\xFF",
-            "Octal number string": "01234567",
-            "Hexadecimal string": "0xDEADBEEF",
-            "Null-like string": "null",
-            "Undefined-like string": "undefined",
-            "Boolean true string": "true",
-            "Boolean false string": "false",
-            "String with Python-like code": "import os\nos.system('echo Hello')",
-            "String with a print statement": "print('Hello')",
-            "Very long string (10,000 'a' characters)": "a" * 10000,
-        }
-
-        for test_num, (test_name, expected) in enumerate(test_cases.items()):
-            key = f"test_{test_num+1}"
-            redis_dict[key] = EncryptedStringClassBased(expected)
-            result = redis_dict[key]
-            # Assert result is same as the expected input value
-            self.assertEqual(result, expected, f"testcase {test_num+1} failed {test_name}")
-
-            # Assert that the value internally stored in Redis is encoded, and the type is correct.
-            internal_result_type, internal_result_value = self.helper_get_redis_internal_value(key)
-
-            self.assertNotEqual(internal_result_value, expected, f"testcase {test_num+1} failed")
-            self.assertNotEqual(internal_result_value, expected, f"testcase {test_num+1} failed")
-            self.assertEqual(internal_result_type, expected_internal_type, f"testcase {test_num+1} failed")
-
-
-class EncryptedString(str):
-    """
-    A class that behaves exactly like a string but has a distinct type for redis-dict encoding and decoding.
-
-    This class inherits from the built-in str class, automatically providing all
-    string functionality. The only difference is its class name, which allows for
-    type checking of "encrypted" strings. Used to encode and decode for storage.
-
-    Usage:
-    >>> normal_string = "Hello, World!"
-    >>> encrypted_string = EncryptedString("Hello, World!")
-    >>> assert normal_string == encrypted_string
-    >>> assert type(encrypted_string) == EncryptedString
-    >>> assert isinstance(encrypted_string, str)
-    """
-    pass
-
-def encode(value: str, iv: bytes, key: bytes, nonce: bytes) -> str:
-    cipher = Cipher(algorithms.AES(key), modes.GCM(nonce), backend=default_backend())
-    encryptor = cipher.encryptor()
-
-    encrypted_data = encryptor.update(value.encode('utf-8', errors='surrogatepass')) + encryptor.finalize()
-    return base64.b64encode(iv + nonce + encryptor.tag + encrypted_data).decode('utf-8')
-
-
-def decode(encrypted_value: str, iv: bytes, key: bytes, nonce: bytes) -> str:
-    encrypted_data = base64.b64decode(encrypted_value)
-    tag = encrypted_data[len(iv) + len(nonce):len(iv) + len(nonce) + 16]
-    ciphertext = encrypted_data[len(iv) + len(nonce) + 16:]
-
-    cipher = Cipher(algorithms.AES(key), modes.GCM(nonce, tag), backend=default_backend())
-    decryptor = cipher.decryptor()
-
-    decrypted_data = decryptor.update(ciphertext) + decryptor.finalize()
-    return decrypted_data.decode('utf-8', errors='surrogatepass')
-
-
-def encode_encrypted_string(iv, key, nonce):
-    def encode_value(value):
-        return encode(value, iv, key, nonce)
-    return encode_value
-
-
-def decode_encrypted_string(iv, key, nonce):
-    def decode_value(value):
-        return EncryptedString(decode(value, iv, key, nonce))
-    return decode_value
-
-
-class TestRedisDictEncryption(unittest.TestCase):
-    def setUp(self):
-        self.redis_dict = RedisDict()
-
-        iv = b"0123456789abcdef"  # 16 bytes
-        key = b"0123456789abcdef0123456789abcdef"  # 32 bytes (256-bit key)
-        nonce = b"0123456789abcdef"  # 16 bytes
-
-        encode_encrypted = encode_encrypted_string(iv, key, nonce)
-        decode_encrypted = decode_encrypted_string(iv, key, nonce)
-
-        self.redis_dict.extends_type(
-            EncryptedString,
-            encode_encrypted,
-            decode_encrypted,
+        warning_messages = [str(w.message) for w in caught if issubclass(w.category, UserWarning)]
+        self.assertTrue(
+            any("REDIS_DICT_AES_KEY" in msg for msg in warning_messages),
+            f"Expected UserWarning mentioning REDIS_DICT_AES_KEY, got: {warning_messages}",
         )
 
-    def tearDown(self):
-        self.redis_dict.clear()
+        d1["secret"] = "top-secret-value"
+        self.assertEqual(d2["secret"], "top-secret-value")
 
-    def helper_get_redis_internal_value(self, key):
-        sep = ":"
-        redis_dict = self.redis_dict
+        raw = d1.get_redis.get(d1._format_key("secret"))
+        self.assertIsNotNone(raw)
+        assert raw is not None
+        self.assertTrue(raw.startswith("__enc__:v1$"))
+        self.assertNotIn("top-secret-value", raw)
+        self.assertNotIn("str:", raw)
 
-        stored_in_redis_as = redis_dict.redis.get(redis_dict._format_key(key))
-        internal_result_type, internal_result_value = stored_in_redis_as.split(sep, 1)
-        return internal_result_type, internal_result_value
+    def test_tier2_passphrase_env_var_uses_scrypt_kdf_safely(self) -> None:
+        os.environ["REDIS_DICT_AES_KEY"] = "my-human-readable-team-passphrase"
 
-    def test_encrypted_string_encoding_and_decoding(self):
-        """Test adding new type and test if encoding and decoding works."""
-        redis_dict = self.redis_dict
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            writer = EncryptedRedisDict(namespace=TEST_NAMESPACE)
+            reader = EncryptedRedisDict(namespace=TEST_NAMESPACE)
 
-        iv = b"0123456789abcdef"  # 16 bytes
-        key = b"0123456789abcdef0123456789abcdef"  # 32 bytes (256-bit key)
-        nonce = b"0123456789abcdef"  # 16 bytes
+        self.assertEqual([w for w in caught if issubclass(w.category, UserWarning)], [])
 
-        encode_encrypted = encode_encrypted_string(iv, key, nonce)
-        decode_encrypted = decode_encrypted_string(iv, key, nonce)
+        writer["config"] = {"token": "sk-live-999", "retries": 3}
+        self.assertEqual(reader["config"], {"token": "sk-live-999", "retries": 3})
 
-        redis_dict.extends_type(EncryptedString,
-                                encode_encrypted,
-                                decode_encrypted,
-                                )
-        key = "foo"
-        expected_type = EncryptedString.__name__
-        expected = "foobar"
-        encoded_expected = encode_encrypted(expected)
+        # Custom KDF salt isolates key derivation from default salt
+        custom_salt_reader = EncryptedRedisDict(
+            namespace=TEST_NAMESPACE,
+            salt=b"custom-application-domain-salt-v1",
+        )
+        with self.assertRaises(RedisDictDecryptionError):
+            _ = custom_salt_reader["config"]
 
-        redis_dict[key] = EncryptedString(expected)
+    def test_tier3_generated_key_env_and_cli_helper(self) -> None:
+        generated = generate_key()
+        self.assertEqual(len(base64.urlsafe_b64decode(generated.encode("ascii"))), 32)
 
-        # Should be stored encrypted
-        internal_result_type, internal_result_value = self.helper_get_redis_internal_value(key)
-        self.assertNotEqual(internal_result_value, expected)
+        cli_proc = subprocess.run(
+            [sys.executable, "-m", "redis_dict.crypto"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        cli_key = cli_proc.stdout.strip()
+        self.assertEqual(len(base64.urlsafe_b64decode(cli_key.encode("ascii"))), 32)
+        self.assertNotEqual(generated, cli_key)
 
-        self.assertEqual(internal_result_type, expected_type)
-        self.assertEqual(internal_result_value, encoded_expected)
+        os.environ["REDIS_DICT_AES_KEY"] = cli_key
+        dic = EncryptedRedisDict(namespace=TEST_NAMESPACE)
+        dic["hello"] = "world"
+        self.assertEqual(dic["hello"], "world")
 
-        result = redis_dict[key]
+        # 64-character hex-encoded 256-bit key is also supported directly
+        hex_key = os.urandom(32).hex()
+        hex_dic = EncryptedRedisDict(namespace=f"{TEST_NAMESPACE}_other", key=hex_key)
+        hex_dic["hex_item"] = 12345
+        self.assertEqual(hex_dic["hex_item"], 12345)
 
-        self.assertNotEqual(encoded_expected, expected)
-        self.assertIsInstance(result, EncryptedString)
-        self.assertEqual(result, expected)
+    def test_all_standard_nested_custom_and_edge_strings_round_trip(self) -> None:
+        key_bytes = os.urandom(32)
+        dic = EncryptedRedisDict(namespace=TEST_NAMESPACE, key=key_bytes)
+        dic.extends_type(_Person)
 
-    def test_encoding_decoding_should_remain_equal(self):
-        """Test adding new type and test if encoding and decoding results in the same value"""
-        redis_dict = self.redis_dict
-
-        key = "foo"
-        key2 = "bar"
-        expected = "foobar"
-
-        redis_dict[key] = EncryptedString(expected)
-
-        redis_dict[key2] = redis_dict[key]
-
-        result_one = redis_dict[key]
-        result_two = redis_dict[key2]
-
-        self.assertEqual(result_one, EncryptedString(expected))
-        self.assertEqual(result_one, result_two)
-
-        self.assertEqual(result_one, expected)
-
-    def test_values(self):
-        """Test different values"""
-        redis_dict = self.redis_dict
-        expected_internal_type = EncryptedString.__name__
-        test_cases = {
-            "Empty string": "",
-            "Single space": " ",
-            "Multiple spaces": "   ",
-            "Various whitespace characters": "\t\n\r",
-            "Single character": "a",
-            "Two characters": "ab",
-            "Three characters": "abc",
-            "Normal string with punctuation": "Hello, World!",
-            "Numeric string": "1234567890",
-            "Special characters": "!@#$%^&*()_+-=[]{}|;:,.<>?",
-            "Non-ASCII characters": "äöüßÄÖÜ",
-            "Emoji": "😀🙈🚀",
-            "Long string (1000 'a' characters)": "a" * 1000,
-            "Very long text (Lorem ipsum)": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. " * 100,
-            "JSON-like string": '{"key": "value"}',
-            "HTML-like string": "<html><body>Test</body></html>",
-            "SQL-like string": "SELECT * FROM users;",
-            "URL-like string": "https://www.example.com/path?query=value",
-            "String with null byte": "prefix\0suffix",
-            "String with low ASCII characters": "\u0000\u0001\u0002\u0003",
-            "String with high Unicode character (U+FFFF)": "\uFFFF",
-            "Surrogate pair (Unicode smiley face)": "\uD83D\uDE00",
-            "Mathematical script letters": "𝔘𝔫𝔦𝔠𝔬𝔡𝔢",
-            "Chinese characters": "中文字符测试",
-            "Japanese Hiragana": "こんにちは",
-            "Korean Hangul": "한글 테스트",
-            "String with right-to-left override character": "\u202Eexample",
-            "String with escaped newlines and tabs": "\\n\\t\\r",
-            "String with double quotes": "\"quoted\"",
-            "String with single quotes": "'single quotes'",
-            "String with backslash": "back\\slash",
-            "Windows file path": "C:\\Program Files\\",
-            "Unix file path": "/usr/local/bin/",
-            "Decimal number string": "3.14159",
-            "Negative decimal number string": "-273.15",
-            "Scientific notation string": "1e10",
-            "Not-a-Number (NaN) string": "NaN",
-            "Infinity string": "Infinity",
-            "String with byte values (0x00 and 0xFF)": "\x00\xFF",
-            "Octal number string": "01234567",
-            "Hexadecimal string": "0xDEADBEEF",
-            "Null-like string": "null",
-            "Undefined-like string": "undefined",
-            "Boolean true string": "true",
-            "Boolean false string": "false",
-            "String with Python-like code": "import os\nos.system('echo Hello')",
-            "String with a print statement": "print('Hello')",
-            "Very long string (10,000 'a' characters)": "a" * 10000,
+        samples = {
+            "str": "Hello World",
+            "empty_str": "",
+            "whitespace": " \t\n\r",
+            "unicode": "äöüßÄÖÜ 😀🙈🚀 中文字符测试 こんにちは 한글 테스트 𝔘𝔫𝔦𝔠𝔬𝔡𝔢",
+            "null_and_high_bytes": "prefix\x00suffix\x00\xff\uffff",
+            "surrogate_pair": "\ud83d\ude00",
+            "quotes_and_slashes": "\"quoted\" 'single' C:\\Program Files\\ \\n\\t",
+            "long_text": "Lorem ipsum dolor sit amet. " * 200,
+            "int": 42,
+            "float": 3.14159,
+            "bool_true": True,
+            "bool_false": False,
+            "none": None,
+            "list": [1, "two", 3.0, [4, 5], datetime(2026, 11, 11, 12, 0)],
+            "dict": {"a": 1, "nested": {"delta": timedelta(hours=5)}, "__type__": "literal", "value": 9},
+            "int_key_dict": {1: "one", 2: "two"},
+            "tuple": (1, (2, 3), "four"),
+            "set": {1, 2, (3, 4)},
+            "datetime": datetime(2024, 1, 1, 12, 30, 45),
+            "date": date(2024, 2, 29),
+            "time": dt_time(12, 30, 45),
+            "timedelta": timedelta(days=1, hours=2, microseconds=5),
+            "decimal": Decimal("3.14159265358979323846"),
+            "complex": complex(1.5, -2.5),
+            "bytes": b"\x00\x01\x02hello\xff",
+            "uuid": UUID("12345678-1234-5678-1234-567812345678"),
+            "ordered": OrderedDict([("first", 1), ("second", 2)]),
+            "default": defaultdict(type(None), {"x": 10}),
+            "frozen": frozenset(["a", "b", "c"]),
+            "person": _Person("Ada", 36),
         }
 
-        for test_num, (test_name, expected) in enumerate(test_cases.items()):
-            key = f"test_{test_num+1}"
-            redis_dict[key] = EncryptedString(expected)
-            result = redis_dict[key]
-            # Assert result is same as the expected input value
-            self.assertEqual(result, expected, f"testcase {test_num + 1} failed {test_name}")
+        with dic.pipeline():
+            for sample_key, sample_val in samples.items():
+                dic[sample_key] = sample_val
 
-            # Assert that the value internally stored in Redis is encoded, and the type is correct.
-            internal_result_type, internal_result_value = self.helper_get_redis_internal_value(key)
-            self.assertNotEqual(internal_result_value, expected, f"testcase {test_num+1} failed")
-            self.assertNotEqual(internal_result_value, expected, f"testcase {test_num+1} failed")
-            self.assertEqual(internal_result_type, expected_internal_type, f"testcase {test_num+1} failed")
+        for sample_key, expected_val in samples.items():
+            with self.subTest(sample_key=sample_key):
+                raw = dic.get_redis.get(dic._format_key(sample_key))
+                self.assertIsNotNone(raw)
+                assert raw is not None
+                self.assertTrue(raw.startswith("__enc__:v1$default$"))
+                # Stored format hides Python type tags as well as values
+                for leaked_prefix in ("str:", "int:", "dict:", "bool:", "_Person:"):
+                    self.assertFalse(raw.startswith(leaked_prefix))
+                self.assertEqual(dic[sample_key], expected_val)
 
-    def test_multiple_instances_with_distinct_encryption_keys(self):
-        """Two RedisDict instances can encrypt EncryptedString with distinct AES keys without colliding."""
-        iv = b"0123456789abcdef"
-        nonce = b"fedcba9876543210"
-        key_a = b"A" * 32
-        key_b = b"B" * 32
+    def test_nonce_is_freshly_random_on_every_write(self) -> None:
+        dic = EncryptedRedisDict(namespace=TEST_NAMESPACE, key=os.urandom(32))
+        seen_raw_payloads = set()
 
-        dict_a = RedisDict(namespace="encrypt_tenant_a")
-        dict_b = RedisDict(namespace="encrypt_tenant_b")
-        self.addCleanup(dict_a.clear)
-        self.addCleanup(dict_b.clear)
+        for _ in range(50):
+            dic["repeated"] = "identical-plaintext"
+            raw = dic.get_redis.get(dic._format_key("repeated"))
+            self.assertIsNotNone(raw)
+            seen_raw_payloads.add(raw)
 
-        dict_a.extends_type(
-            EncryptedString,
-            encode_encrypted_string(iv, key_a, nonce),
-            decode_encrypted_string(iv, key_a, nonce),
-        )
-        dict_a["written_before_b"] = EncryptedString("before_b")
+        self.assertEqual(len(seen_raw_payloads), 50)
 
-        dict_b.extends_type(
-            EncryptedString,
-            encode_encrypted_string(iv, key_b, nonce),
-            decode_encrypted_string(iv, key_b, nonce),
-        )
+    def test_tampering_wrong_key_and_plaintext_injection_raise_decryption_error(self) -> None:
+        key_a = os.urandom(32)
+        key_b = os.urandom(32)
+        dic_a = EncryptedRedisDict(namespace=TEST_NAMESPACE, key=key_a)
+        dic_b = EncryptedRedisDict(namespace=TEST_NAMESPACE, key=key_b)
 
-        dict_a["secret"] = EncryptedString("same_plaintext")
-        dict_b["secret"] = EncryptedString("same_plaintext")
+        dic_a["item"] = {"admin": False}
+        formatted_key = dic_a._format_key("item")
+        original_raw = dic_a.get_redis.get(formatted_key)
+        assert original_raw is not None
 
-        raw_a = dict_a.redis.get(dict_a._format_key("secret"))
-        raw_b = dict_b.redis.get(dict_b._format_key("secret"))
-        self.assertNotEqual(raw_a, raw_b)
+        # Wrong key fails closed
+        with self.assertRaises(RedisDictDecryptionError):
+            _ = dic_b["item"]
 
-        self.assertEqual(dict_a["written_before_b"], "before_b")
-        self.assertEqual(dict_a["secret"], "same_plaintext")
-        self.assertEqual(dict_b["secret"], "same_plaintext")
+        # Bit-flip in nonce, ciphertext, or tag fails GCM authentication
+        prefix, b64_blob = original_raw.rsplit("$", 1)
+        padded = b64_blob + "=" * (-len(b64_blob) % 4)
+        raw_bytes = bytearray(base64.urlsafe_b64decode(padded.encode("ascii")))
+        for byte_idx in (0, len(raw_bytes) // 2, len(raw_bytes) - 1):
+            mutated = bytearray(raw_bytes)
+            mutated[byte_idx] ^= 0x01
+            mutated_b64 = base64.urlsafe_b64encode(bytes(mutated)).decode("ascii").rstrip("=")
+            dic_a.get_redis.set(formatted_key, f"{prefix}${mutated_b64}")
+            with self.assertRaises(RedisDictDecryptionError):
+                _ = dic_a["item"]
+
+        # Tampered version or key_id fails closed
+        dic_a.get_redis.set(formatted_key, f"__enc__:v2$default${b64_blob}")
+        with self.assertRaises(RedisDictDecryptionError):
+            _ = dic_a["item"]
+
+        dic_a.get_redis.set(formatted_key, f"__enc__:v1$other${b64_blob}")
+        with self.assertRaises(RedisDictDecryptionError):
+            _ = dic_a["item"]
+
+        # Unencrypted plaintext injected directly into Redis is strictly rejected
+        dic_a.get_redis.set(formatted_key, "str:injected-plaintext")
+        with self.assertRaises(RedisDictDecryptionError):
+            _ = dic_a["item"]
+        with self.assertRaises(RedisDictDecryptionError):
+            dic_a.setdefault("item", "fallback")
+        # Restore valid payload, then test pop() on injected plaintext too
+        dic_a.get_redis.set(dic_a._format_key("injected_pop"), "int:999")
+        with self.assertRaises(RedisDictDecryptionError):
+            dic_a.pop("injected_pop")
+
+    def test_aad_blocks_cross_key_and_cross_namespace_ciphertext_swaps(self) -> None:
+        shared_key = os.urandom(32)
+        ns1 = EncryptedRedisDict(namespace=TEST_NAMESPACE, key=shared_key)
+        ns2 = EncryptedRedisDict(namespace=f"{TEST_NAMESPACE}_other", key=shared_key)
+
+        ns1["alice_is_admin"] = True
+        ns1["bob_is_admin"] = False
+
+        alice_ciphertext = ns1.get_redis.get(ns1._format_key("alice_is_admin"))
+        assert alice_ciphertext is not None
+
+        # Copying Alice's valid ciphertext onto Bob's key in the same namespace must fail AAD check
+        ns1.get_redis.set(ns1._format_key("bob_is_admin"), alice_ciphertext)
+        with self.assertRaises(RedisDictDecryptionError):
+            _ = ns1["bob_is_admin"]
+
+        # Copying Alice's valid ciphertext onto the same key name in another namespace must fail AAD check
+        ns2.get_redis.set(ns2._format_key("alice_is_admin"), alice_ciphertext)
+        with self.assertRaises(RedisDictDecryptionError):
+            _ = ns2["alice_is_admin"]
+
+    def test_multi_key_rotation_and_ttl_preservation(self) -> None:
+        old_key = generate_key()
+        new_key = generate_key()
+
+        # Phase 1: Write data under old_key ("k1"), including a key with TTL
+        os.environ["REDIS_DICT_AES_KEYS"] = f"k1:{old_key}"
+        d_old = EncryptedRedisDict(namespace=TEST_NAMESPACE)
+        d_old["permanent"] = {"v": 1}
+        with d_old.expire_at(120):
+            d_old["expiring"] = "ephemeral-secret"
+
+        raw_before = d_old.get_redis.get(d_old._format_key("permanent"))
+        assert raw_before is not None
+        self.assertTrue(raw_before.startswith("__enc__:v1$k1$"))
+
+        # Phase 2: Add new_key ("k2") as primary while retaining "k1" for reads
+        os.environ["REDIS_DICT_AES_KEYS"] = f"k2:{new_key},k1:{old_key}"
+        d_rotating = EncryptedRedisDict(namespace=TEST_NAMESPACE)
+        self.assertEqual(d_rotating["permanent"], {"v": 1})
+        self.assertEqual(d_rotating["expiring"], "ephemeral-secret")
+        d_rotating["fresh"] = "written-with-k2"
+
+        rotated_count = d_rotating.rotate_keys()
+        self.assertEqual(rotated_count, 2)
+        # Running rotate_keys() again is a no-op because all keys now use "k2"
+        self.assertEqual(d_rotating.rotate_keys(), 0)
+
+        ttl_remaining = d_rotating.get_ttl("expiring")
+        self.assertIsNotNone(ttl_remaining)
+        assert ttl_remaining is not None
+        self.assertGreater(ttl_remaining, 60)
+        self.assertIsNone(d_rotating.get_ttl("permanent"))
+
+        # Phase 3: Retire old_key completely; all keys remain readable under new_key alone
+        os.environ.pop("REDIS_DICT_AES_KEYS", None)
+        d_new_only = EncryptedRedisDict(namespace=TEST_NAMESPACE, keys={"k2": new_key}, primary_key_id="k2")
+        self.assertEqual(d_new_only["permanent"], {"v": 1})
+        self.assertEqual(d_new_only["expiring"], "ephemeral-secret")
+        self.assertEqual(d_new_only["fresh"], "written-with-k2")
+
+    def test_key_validation_and_secret_redaction(self) -> None:
+        with self.assertRaises(ValueError):
+            AESGCMCipher(key="")
+        with self.assertRaises(ValueError):
+            AESGCMCipher(key=b"")
+        with self.assertRaises(ValueError):
+            AESGCMCipher(keys={"invalid$id": os.urandom(32)})
+        with self.assertRaises(ValueError):
+            AESGCMCipher(keys={"k1": os.urandom(32)}, primary_key_id="missing")
+
+        secret_b64 = generate_key()
+        cipher = AESGCMCipher(key=secret_b64)
+        self.assertNotIn(secret_b64, repr(cipher))
+        self.assertNotIn(secret_b64, str(cipher))
+        self.assertIn("default", repr(cipher))
+
+    def test_missing_cryptography_raises_helpful_import_error_only_on_crypto_use(self) -> None:
+        with patch.dict(
+            sys.modules,
+            {
+                "cryptography": None,
+                "cryptography.exceptions": None,
+                "cryptography.hazmat": None,
+                "cryptography.hazmat.primitives": None,
+                "cryptography.hazmat.primitives.ciphers": None,
+                "cryptography.hazmat.primitives.ciphers.aead": None,
+                "cryptography.hazmat.primitives.kdf": None,
+                "cryptography.hazmat.primitives.kdf.scrypt": None,
+            },
+        ):
+            # Plain RedisDict continues working without cryptography installed
+            plain = RedisDict(namespace=f"{TEST_NAMESPACE}_plain")
+            plain["ok"] = 123
+            self.assertEqual(plain["ok"], 123)
+
+            with self.assertRaisesRegex(ImportError, r"redis-dict\[crypto\]"):
+                AESGCMCipher(key=os.urandom(32))
+            with self.assertRaisesRegex(ImportError, r"redis-dict\[crypto\]"):
+                EncryptedRedisDict(namespace=TEST_NAMESPACE, key=os.urandom(32))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
