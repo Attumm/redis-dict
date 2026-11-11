@@ -89,7 +89,6 @@ class RedisDict:
         self._iter: Iterator[str] = iter([])
         self._max_string_size: int = 500 * 1024 * 1024  # 500mb
         self._temp_redis: Optional[StrictRedis[Any]] = None
-        self._insertion_order_key = f"redis-dict-insertion-order-{namespace}"
         self._batch_size: int = 200
 
     def _format_key(self, key: str) -> str:
