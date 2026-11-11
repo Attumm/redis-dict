@@ -127,25 +127,11 @@ class PythonRedisDict(RedisDict):
 
         Returns:
             Any: The value associated with the key or the default value.
-
-        Raises:
-            ValueError: If the default_value or key fail validation.
         """
-        if not self._valid_input(default_value) or not self._valid_input(key):
-            raise ValueError("Invalid input value or key size exceeded the maximum limit.")
-
-        formatted_key = self._format_key(key)
-        formatted_value = self._format_value(default_value)
-
         # Todo bind both commands
-        args, options = self._create_set_get_command(formatted_key, formatted_value)
-        result = self.get_redis.execute_command(*args, **options)
-        self._insertion_order_add(formatted_key)
-
-        if result is None:
-            return default_value
-
-        return self._transform(result)
+        result = super().setdefault(key, default_value)
+        self._insertion_order_add(self._format_key(key))
+        return result
 
     def __len__(self) -> int:
         """
