@@ -384,6 +384,14 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             redis_dic.update([123])
         self.assertEqual(dict(redis_dic), dic)
 
+        # Streaming parity with dict: valid items yielded before a malformed element are applied,
+        # proving no intermediate dict is materialized upfront.
+        with self.assertRaises(ValueError):
+            dic.update([("streamed_before_err", 1), ("only_one",)])
+        with self.assertRaises(ValueError):
+            redis_dic.update([("streamed_before_err", 1), ("only_one",)])
+        self.assertEqual(dict(redis_dic), dic)
+
     def test_dict_method_pop(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
