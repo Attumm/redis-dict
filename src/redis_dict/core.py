@@ -87,24 +87,26 @@ class RedisDict:
         self.encoding_registry = enc_reg.copy()
         self.decoding_registry = dec_reg.copy()
 
-        self._iter: Iterator[str] = iter([])
+        self._iter: Iterator[Any] = iter([])
         self._max_string_size: int = 500 * 1024 * 1024  # 500mb
         self._temp_redis: Optional[StrictRedis[Any]] = None
         self._batch_size: int = 200
 
-    def _format_key(self, key: str) -> str:
+    def _format_key(self, key: Any) -> str:
         """
-        Format a key with the namespace prefix.
+        Format a hashable key with the namespace prefix and encoded type.
 
         Args:
-            key (str): The key to be formatted.
+            key (Any): The key to be formatted.
 
         Returns:
-            str: The formatted key with the namespace prefix.
+            str: The formatted key with the namespace prefix and type.
         """
-        return f'{self.namespace}{self.namespace_delimiter}{key}'
+        hash(key)
+        formatted_key = RedisDict._format_value(self, key)
+        return f'{self.namespace}{self.namespace_delimiter}{formatted_key}'
 
-    def _parse_key(self, key: str) -> str:
+    def _parse_key(self, key: str) -> Any:
         """
         Parse a formatted key with the namespace prefix and type.
 
@@ -112,9 +114,10 @@ class RedisDict:
             key (str): The key to be parsed to type.
 
         Returns:
-            str: The parsed key
+            Any: The parsed key.
         """
-        return key[len(self.namespace) + len(self.namespace_delimiter):]
+        raw_key = key[len(self.namespace) + len(self.namespace_delimiter):]
+        return RedisDict._transform(self, raw_key)
 
     def _valid_input(self, value: Any) -> bool:
         """
@@ -154,12 +157,12 @@ class RedisDict:
         else:
             self.redis.set(formatted_key, formatted_value, ex=self.expire)
 
-    def _store(self, key: str, value: Any) -> None:
+    def _store(self, key: Any, value: Any) -> None:
         """
         Store a value in Redis with the given key.
 
         Args:
-            key (str): The key to store the value.
+            key (Any): The key to store the value.
             value (Any): The value to be stored.
 
         Raises:
@@ -181,12 +184,12 @@ class RedisDict:
 
         self._store_set(formatted_key, formatted_value)
 
-    def _load(self, key: str) -> Tuple[bool, Any]:
+    def _load(self, key: Any) -> Tuple[bool, Any]:
         """
         Load a value from Redis with the given key.
 
         Args:
-            key (str): The key to retrieve the value.
+            key (Any): The key to retrieve the value.
 
         Returns:
             tuple: A tuple containing a boolean indicating whether the value was found and the value itself.
@@ -364,12 +367,12 @@ class RedisDict:
         """
         return not self.__eq__(other) if self._is_ducktype_dict(other) else NotImplemented
 
-    def __getitem__(self, item: str) -> Any:
+    def __getitem__(self, item: Any) -> Any:
         """
         Get the value associated with the given key, analogous to a dictionary.
 
         Args:
-            item (str): The key to retrieve the value.
+            item (Any): The key to retrieve the value.
 
         Returns:
             Any: The value associated with the key.
@@ -382,17 +385,17 @@ class RedisDict:
             raise KeyError(item)
         return value
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: Any, value: Any) -> None:
         """
         Set the value associated with the given key, analogous to a dictionary.
 
         Args:
-            key (str): The key to store the value.
+            key (Any): The key to store the value.
             value (Any): The value to be stored.
         """
         self._store(key, value)
 
-    def __delitem__(self, key: str) -> None:
+    def __delitem__(self, key: Any) -> None:
         """
         Delete the value associated with the given key, analogous to a dictionary.
 
@@ -406,7 +409,7 @@ class RedisDict:
             that are hard to debug when multiple systems interact with the same keys.
 
         Args:
-            key (str): The key to delete
+            key (Any): The key to delete
 
         Raises:
             KeyError: Only if dict_compliant=True and key doesn't exist
@@ -416,12 +419,12 @@ class RedisDict:
         if self.raise_key_error_delete and not result:
             raise KeyError(key)
 
-    def __contains__(self, key: str) -> bool:
+    def __contains__(self, key: Any) -> bool:
         """
         Check if the given key exists in the RedisDict, analogous to a dictionary.
 
         Args:
-            key (str): The key to check for existence.
+            key (Any): The key to check for existence.
 
         Returns:
             bool: True if the key exists, False otherwise.
@@ -437,12 +440,12 @@ class RedisDict:
         """
         return sum(1 for _ in self._scan_keys(full_scan=True))
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> Iterator[Any]:
         """
         Return an iterator over the keys of the RedisDict, analogous to a dictionary.
 
         Returns:
-            Iterator[str]: An iterator over the keys of the RedisDict.
+            Iterator[Any]: An iterator over the keys of the RedisDict.
         """
         self._iter = iter(self.keys())
         return self._iter
@@ -465,7 +468,7 @@ class RedisDict:
         """
         return str(self.to_dict())
 
-    def __or__(self, other: Dict[str, Any]) -> Dict[str, Any]:
+    def __or__(self, other: Dict[Any, Any]) -> Dict[Any, Any]:
         """Implement the | operator (dict union).
 
         Returns a new dictionary with items from both dictionaries.
@@ -474,14 +477,14 @@ class RedisDict:
         so Python raises TypeError for unsupported types, as dict does.
 
         Args:
-            other (Dict[str, Any]): The dictionary to merge with.
+            other (Dict[Any, Any]): The dictionary to merge with.
 
         Returns:
-            Dict[str, Any]: A new dictionary containing items from both dictionaries.
+            Dict[Any, Any]: A new dictionary containing items from both dictionaries.
         """
         return {**self.to_dict(), **other} if self._is_ducktype_dict(other) else NotImplemented
 
-    def __ror__(self, other: Dict[str, Any]) -> Dict[str, Any]:
+    def __ror__(self, other: Dict[Any, Any]) -> Dict[Any, Any]:
         """
         Implement the reverse | operator.
 
@@ -491,14 +494,14 @@ class RedisDict:
         so Python raises TypeError for unsupported types, as dict does.
 
         Args:
-            other (Dict[str, Any]): The dictionary to merge with.
+            other (Dict[Any, Any]): The dictionary to merge with.
 
         Returns:
-            Dict[str, Any]: A new dictionary containing items from both dictionaries.
+            Dict[Any, Any]: A new dictionary containing items from both dictionaries.
         """
         return {**other, **self.to_dict()} if self._is_ducktype_dict(other) else NotImplemented
 
-    def __ior__(self, other: Dict[str, Any]) -> 'RedisDict':
+    def __ior__(self, other: Dict[Any, Any]) -> 'RedisDict':
         """
         Implement the |= operator (in-place union).
 
@@ -508,7 +511,7 @@ class RedisDict:
         so Python raises TypeError for unsupported types, as dict does.
 
         Args:
-            other (Dict[str, Any]): The dictionary to merge with.
+            other (Dict[Any, Any]): The dictionary to merge with.
 
         Returns:
             RedisDict: The modified RedisDict instance.
@@ -532,7 +535,7 @@ class RedisDict:
         """
         return cls
 
-    def __reversed__(self) -> Iterator[str]:
+    def __reversed__(self) -> Iterator[Any]:
         """
         Implement reversed() built-in.
 
@@ -542,25 +545,25 @@ class RedisDict:
             RedisDict Currently does not support 'insertion order' as property thus also not reversed.
 
         Returns:
-            Iterator[str]: An iterator yielding the dictionary keys in reverse order.
+            Iterator[Any]: An iterator yielding the dictionary keys in reverse order.
         """
-        return reversed(list(self.keys()))
+        return iter(list(self.keys())[::-1])
 
-    def __next__(self) -> str:
+    def __next__(self) -> Any:
         """
         Get the next item in the iterator.
 
         Returns:
-            str: The next item in the iterator.
+            Any: The next item in the iterator.
         """
         return next(self._iter)
 
-    def next(self) -> str:
+    def next(self) -> Any:
         """
         Get the next item in the iterator (alias for __next__).
 
         Returns:
-            str: The next item in the iterator.
+            Any: The next item in the iterator.
 
         """
         return next(self)
@@ -583,9 +586,11 @@ class RedisDict:
             >>> d = RedisDict(namespace='foo')
             >>> query = self._create_iter_query('bar')
             >>> print(query)
-            'foo:bar*'
+            'foo:str:bar*'
         """
-        return f'{self.namespace}{self.namespace_delimiter}{search_term}*'
+        if search_term == '':
+            return f'{self.namespace}{self.namespace_delimiter}*'
+        return f'{self._format_key(search_term)}*'
 
     # pylint: disable=unused-argument
     def _scan_keys(self, search_term: str = '', full_scan: bool = False) -> Iterator[str]:
@@ -601,13 +606,13 @@ class RedisDict:
         search_query = self._create_iter_query(search_term)
         return self.get_redis.scan_iter(match=search_query, count=self._batch_size)
 
-    def get(self, key: str, default: Optional[Any] = None) -> Any:
+    def get(self, key: Any, default: Optional[Any] = None) -> Any:
         """Return the value for the given key if it exists, otherwise return the default value.
 
         Analogous to a dictionary's get method.
 
         Args:
-            key (str): The key to retrieve the value.
+            key (Any): The key to retrieve the value.
             default (Optional[Any], optional): The value to return if the key is not found.
 
         Returns:
@@ -618,30 +623,28 @@ class RedisDict:
             return default
         return item
 
-    def keys(self) -> Iterator[str]:
+    def keys(self) -> Iterator[Any]:
         """Return an Iterator of keys in the RedisDict, analogous to a dictionary's keys method.
 
         Returns:
-            Iterator[str]: A list of keys in the RedisDict.
+            Iterator[Any]: A list of keys in the RedisDict.
         """
-        to_rm = len(self.namespace) + len(self.namespace_delimiter)
-        return (str(item[to_rm:]) for item in self._scan_keys())
+        return (self._parse_key(item) for item in self._scan_keys())
 
-    def key(self, search_term: str = '') -> Optional[str]:
+    def key(self, search_term: str = '') -> Optional[Any]:
         """Return the first value for search_term if it exists, otherwise return None.
 
         Args:
             search_term (str): A search term to filter keys. Defaults to ''.
 
         Returns:
-            str: The first key associated with the given search term.
+            Optional[Any]: The first key associated with the given search term.
         """
-        to_rm = len(self.namespace) + len(self.namespace_delimiter)
         for item in self._scan_keys(search_term):
-            return str(item[to_rm:])
+            return self._parse_key(item)
         return None
 
-    def _items(self, search_term: str = '') -> Iterator[Tuple[str, Any]]:
+    def _items(self, search_term: str = '') -> Iterator[Tuple[Any, Any]]:
         for raw_key in self._scan_keys(search_term):
             key = self._parse_key(raw_key)
             try:
@@ -649,11 +652,11 @@ class RedisDict:
             except (KeyError, ResponseError):
                 pass
 
-    def items(self) -> Iterator[Tuple[str, Any]]:
+    def items(self) -> Iterator[Tuple[Any, Any]]:
         """Return a list of key-value pairs (tuples) in the RedisDict, analogous to a dictionary's items method.
 
         Yields:
-            Iterator[Tuple[str, Any]]: A list of key-value pairs in the RedisDict.
+            Iterator[Tuple[Any, Any]]: A list of key-value pairs in the RedisDict.
         """
         yield from self._items()
 
@@ -668,11 +671,11 @@ class RedisDict:
         for _, value in self._items():
             yield value
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[Any, Any]:
         """Convert the RedisDict to a Python dictionary.
 
         Returns:
-            Dict[str, Any]: A dictionary with the same key-value pairs as the RedisDict.
+            Dict[Any, Any]: A dictionary with the same key-value pairs as the RedisDict.
         """
         return dict(self.items())
 
@@ -702,14 +705,14 @@ class RedisDict:
         """
         return self.get_redis.execute_command("GETDEL", formatted_key)
 
-    def pop(self, key: str, default: Union[Any, object] = SENTINEL) -> Any:
+    def pop(self, key: Any, default: Union[Any, object] = SENTINEL) -> Any:
         """Analogous to a dictionary's pop method.
 
         Remove the value associated with the given key and return it, or return the default value
         if the key is not found.
 
         Args:
-            key (str): The key to remove the value.
+            key (Any): The key to remove the value.
             default (Optional[Any], optional): The value to return if the key is not found.
 
         Returns:
@@ -726,7 +729,7 @@ class RedisDict:
             raise KeyError(key)
         return self._transform(value)
 
-    def popitem(self) -> Tuple[str, Any]:
+    def popitem(self) -> Tuple[Any, Any]:
         """Remove and return a random (key, value) pair from the RedisDict as a tuple.
 
         This method is analogous to the `popitem` method of a standard Python dictionary.
@@ -740,9 +743,10 @@ class RedisDict:
             KeyError: If RedisDict is empty.
         """
         while True:
-            key = self.key()
-            if key is None:
+            raw_key = next(self._scan_keys(), None)
+            if raw_key is None:
                 raise KeyError("popitem(): dictionary is empty")
+            key = self._parse_key(raw_key)
             try:
                 return key, self.pop(key)
             except KeyError:
@@ -769,14 +773,14 @@ class RedisDict:
             args.extend(["EX", expire_str])
         return args, options
 
-    def setdefault(self, key: str, default_value: Optional[Any] = None) -> Any:
+    def setdefault(self, key: Any, default_value: Optional[Any] = None) -> Any:
         """Get value under key, and if not present set default value.
 
         Return the value associated with the given key if it exists, otherwise set the value to the
         default value and return it. Analogous to a dictionary's setdefault method.
 
         Args:
-            key (str): The key to retrieve the value.
+            key (Any): The key to retrieve the value.
             default_value (Optional[Any], optional): The value to set if the key is not found.
 
         Returns:
@@ -803,7 +807,7 @@ class RedisDict:
 
         return self._transform(result)
 
-    def copy(self) -> Dict[str, Any]:
+    def copy(self) -> Dict[Any, Any]:
         """Create a shallow copy of the RedisDict and return it as a standard Python dictionary.
 
         This method is analogous to the `copy` method of a standard Python dictionary
@@ -818,25 +822,25 @@ class RedisDict:
 
     def update(
         self,
-        other: Union[Mapping[str, object], 'RedisDict', Iterable[Tuple[str, object]]] = (),
+        other: Union[Mapping[Any, object], 'RedisDict', Iterable[Tuple[Any, object]]] = (),
         /,
         **kwargs: object,
     ) -> None:
         """Update the RedisDict with key-value pairs from a mapping, iterable, and/or keyword arguments.
 
         Args:
-            other (Union[Mapping[str, object], RedisDict, Iterable[Tuple[str, object]]]): Optional mapping,
+            other (Union[Mapping[Any, object], RedisDict, Iterable[Tuple[Any, object]]]): Optional mapping,
                 RedisDict, or iterable of (key, value) pairs.
             **kwargs (object): Additional key-value pairs to update the RedisDict.
         """
-        pairs: Iterable[Tuple[str, object]] = (
+        pairs: Iterable[Tuple[Any, object]] = (
             ((k, other[k]) for k in other.keys()) if self._is_ducktype_dict(other) else other  # type: ignore
         )
         with self.pipeline():
             for key, value in chain(pairs, kwargs.items()):
                 self[key] = value
 
-    def fromkeys(self, iterable: List[str], value: Optional[Any] = None) -> 'RedisDict':
+    def fromkeys(self, iterable: Iterable[Any], value: Optional[Any] = None) -> 'RedisDict':
         """Create a new RedisDict from an iterable of key-value pairs.
 
         Create a new RedisDict with keys from the provided iterable and values set to the given value.
@@ -846,7 +850,7 @@ class RedisDict:
 
 
         Args:
-            iterable (List[str]): An iterable containing the keys to be added to the RedisDict.
+            iterable (Iterable[Any]): An iterable containing the keys to be added to the RedisDict.
             value (Optional[Any], optional): The value to be assigned to each key in the RedisDict. Defaults to None.
 
         Returns:
@@ -969,7 +973,7 @@ class RedisDict:
         Returns:
             Dict[str, Any]: A dictionary of key-value pairs associated with the key prefix.
         """
-        return {k.rsplit(self.key_delimiter, 1)[-1]: v for k, v in self._items(key)}
+        return {str(k).rsplit(self.key_delimiter, 1)[-1]: v for k, v in self._items(key)}
 
     def multi_del(self, key: str) -> int:
         """
@@ -995,14 +999,14 @@ class RedisDict:
         """
         return dict(self.get_redis.info())
 
-    def get_ttl(self, key: str) -> Optional[int]:
+    def get_ttl(self, key: Any) -> Optional[int]:
         """Get the Time To Live from Redis.
 
         Get the Time To Live (TTL) in seconds for a given key. If the key does not exist or does not have an
         associated `expire`, return None.
 
         Args:
-            key (str): The key for which to get the TTL.
+            key (Any): The key for which to get the TTL.
 
         Returns:
             Optional[int]: The TTL in seconds if the key exists and has an expiry set; otherwise, None.
