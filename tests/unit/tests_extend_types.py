@@ -709,6 +709,104 @@ class TestRedisDictExtendTypesInstanceIsolation(BaseRedisDictTest):
         self.assertEqual(dict_json["p"], alice)
         self.assertEqual(dict_pipe["p"], bob)
 
+    def test_nested_containers_round_trip_with_instance_extended_types(self):
+        """Custom types registered via extends_type must round-trip inside nested containers per instance."""
+        from collections import OrderedDict, defaultdict
+        from redis_dict import PythonRedisDict
+
+        class HashableTag:
+            def __init__(self, label):
+                self.label = label
+
+            def encode(self) -> str:
+                return self.label
+
+            @classmethod
+            def decode(cls, raw: str) -> 'HashableTag':
+                return cls(raw)
+
+            def __eq__(self, other):
+                return isinstance(other, HashableTag) and self.label == other.label
+
+            def __hash__(self):
+                return hash(self.label)
+
+        dict_one = RedisDict(namespace="ext_nested_one")
+        dict_two = RedisDict(namespace="ext_nested_two")
+        py_dict = PythonRedisDict(namespace="ext_nested_py")
+        self.addCleanup(dict_one.clear)
+        self.addCleanup(dict_two.clear)
+        self.addCleanup(py_dict.clear)
+
+        dict_one.extends_type(Person, person_encode, person_decode)
+        dict_one.extends_type(HashableTag)
+        py_dict.extends_type(Person, person_encode, person_decode)
+        py_dict.extends_type(HashableTag)
+
+        alice = Person("Alice", 30, "Wonderland")
+        bob = Person("Bob", 40, "Builder")
+        vip = HashableTag("vip")
+        core_tag = HashableTag("core")
+
+        nested_cases = {
+            "list": [alice, bob],
+            "dict": {"leader": alice, "members": [bob], "tags": (vip,)},
+            "tuple": (alice, 42, [bob]),
+            "set": {vip, core_tag},
+            "frozenset": frozenset({vip, core_tag}),
+            "ordered_dict": OrderedDict([("first", alice), ("second", bob)]),
+            "default_dict": defaultdict(type(None), {"lead": alice}),
+        }
+
+        for target in (dict_one, py_dict):
+            for key, expected in nested_cases.items():
+                target[key] = expected
+                loaded = target[key]
+                self.assertEqual(loaded, expected)
+                self.assertIs(type(loaded), type(expected))
+
+        # Unregistered instance must still reject nested custom types and global registries stay clean
+        with self.assertRaises(TypeError):
+            dict_two["list"] = [alice]
+        with self.assertRaises(TypeError):
+            dict_two["dict"] = {"leader": alice}
+        unregistered_reader = RedisDict(namespace="ext_nested_one")
+        self.assertEqual(
+            unregistered_reader["list"][0],
+            {"__type__": "Person", "value": person_encode(alice)},
+        )
+        self.assertNotIn("Person", RedisDict.encoding_registry)
+        self.assertNotIn("HashableTag", RedisDict.decoding_registry)
+
+    def test_nested_containers_support_distinct_instance_encoders(self):
+        """Two instances with different encoders for the same custom class stay isolated inside nested JSON."""
+        dict_json = RedisDict(namespace="ext_nested_enc_json")
+        dict_pipe = RedisDict(namespace="ext_nested_enc_pipe")
+        self.addCleanup(dict_json.clear)
+        self.addCleanup(dict_pipe.clear)
+
+        def pipe_encode(obj):
+            return "{}|{}|{}".format(obj.name, obj.age, obj.address)
+
+        def pipe_decode(raw):
+            name, age, address = raw.split("|", 2)
+            return Person(name, int(age), address)
+
+        dict_json.extends_type(Person, person_encode, person_decode)
+        dict_pipe.extends_type(Person, pipe_encode, pipe_decode)
+
+        alice = Person("Alice", 30, "Wonderland")
+        bob = Person("Bob", 40, "Builder")
+        payload = {"team": [alice, (bob,)]}
+
+        dict_json["roster"] = payload
+        dict_pipe["roster"] = payload
+
+        raw_pipe = dict_pipe.redis.get(dict_pipe._format_key("roster"))
+        self.assertIn("Alice|30|Wonderland", raw_pipe)
+        self.assertEqual(dict_json["roster"], payload)
+        self.assertEqual(dict_pipe["roster"], payload)
+
 
 if __name__ == '__main__':
     unittest.main()
