@@ -13,6 +13,12 @@ __all__ = [
     'RedisDictJSONEncoder',
     'RedisDictJSONDecoder',
 ]
+
+try:
+    from .encrypted_dict import EncryptedRedisDict
+    __all__ += ['EncryptedRedisDict']
+except ImportError:
+    pass
 try:
     __version__ = version("redis-dict")
 except PackageNotFoundError:
