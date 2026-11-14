@@ -245,7 +245,7 @@ class RedisDict:
             decode: Optional[DecodeFuncType] = None,
             encoding_method_name: Optional[str] = None,
             decoding_method_name: Optional[str] = None,
-    ) -> None: # noqa: D202 pydocstyle clashes with Sphinx
+    ) -> None:  # noqa: D202 pydocstyle clashes with Sphinx
         """
         Extend RedisDict to support a custom type in the encode/decode mapping.
 
