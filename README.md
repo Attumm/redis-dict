@@ -106,6 +106,19 @@ dic["default"] = defaultdict(int, {'a': 1, 'b': 2})
 dic["frozen"] = frozenset([1, 2, 3])
 ```
 
+### Typed keys
+Any type supported by `RedisDict` (including custom types registered with `extends_type`) can also be used as a dictionary key, preserving its exact Python type on retrieval:
+```python
+from datetime import date
+from redis_dict import RedisDict
+
+dic = RedisDict()
+dic[42] = "answer"
+dic[None] = "nothing"
+dic[date(2024, 1, 1)] = "new year"
+dic[(1, 2)] = "coordinates"
+```
+
 ### Namespaces
 Acting as an identifier for your dictionary across different systems, RedisDict employs namespaces for organized data management. When a namespace isn't specified, "main" becomes the default. Thus allowing for data organization across systems and projects with the same redis instance.
 This approach also minimizes the risk of key collisions between different applications, preventing hard-to-debug issues. By leveraging namespaces, RedisDict ensures a cleaner and more maintainable data management experience for developers working on multiple projects.

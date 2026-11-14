@@ -2,13 +2,15 @@ from typing import Any
 
 import enum
 import sys
+import threading
 import time
 import json
 import uuid
 
 import unittest
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, time as dt_time, timedelta, timezone
+from decimal import Decimal
 
 import redis
 
@@ -1618,6 +1620,290 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         for k, v in expected_dic.items():
             self.assertEqual(result_redis_dic[k], v)
 
+    def test_typed_keys_round_trip_and_dict_operations(self):
+        redis_dic = self.create_redis_dict()
+        expected = {
+            42: "int-value",
+            -7: "neg-int",
+            3.14: "float-value",
+            True: "bool-true",
+            False: "bool-false",
+            None: "none-value",
+            datetime(2024, 2, 29, 12, 30, 45, tzinfo=timezone.utc): "dt-value",
+            date(2024, 2, 29): "date-value",
+            dt_time(23, 59, 59): "time-value",
+            timedelta(days=1, seconds=30): "td-value",
+            Decimal("19.99"): "decimal-value",
+            complex(2, -3): "complex-value",
+            b"\x00hello:world": "bytes-value",
+            uuid.UUID("12345678-1234-5678-1234-567812345678"): "uuid-value",
+            (1, "two:three", (None, date(2024, 1, 1))): "tuple-value",
+            frozenset([42]): "frozenset-value",
+            "plain": "str-plain",
+            "": "str-empty",
+            "42": "str-digits",
+            "int:42": "str-prefixed-like-type",
+            "\x1f": "str-unit-sep",
+            "\x1fint:42": "str-unit-sep-prefixed",
+            "\x1f\x1e\x1d": "str-sentinel-only",
+            "\x1f\x1e\x1dint:42": "str-sentinel-prefixed-like-type",
+        }
+
+        for k, v in expected.items():
+            redis_dic[k] = v
+
+        self.assertEqual(len(redis_dic), len(expected))
+        self.assertEqual(redis_dic.to_dict(), expected)
+        self.assertEqual(redis_dic.copy(), expected)
+        self.assertEqual(redis_dic, expected)
+
+        for k, v in expected.items():
+            self.assertIn(k, redis_dic)
+            self.assertEqual(redis_dic[k], v)
+            self.assertEqual(redis_dic.get(k), v)
+
+        parsed_keys = list(redis_dic.keys())
+        self.assertEqual(len(parsed_keys), len(expected))
+        for k in parsed_keys:
+            self.assertIn(k, expected)
+
+        self.assertEqual(dict(redis_dic.items()), expected)
+        self.assertEqual(sorted(redis_dic.values()), sorted(expected.values()))
+        self.assertEqual(set(iter(redis_dic)), set(expected.keys()))
+
+        # setdefault on existing and missing typed keys
+        self.assertEqual(redis_dic.setdefault(None, "other"), "none-value")
+        new_tuple_key = ("fresh", 99)
+        self.assertEqual(redis_dic.setdefault(new_tuple_key, "created"), "created")
+        self.assertEqual(redis_dic[new_tuple_key], "created")
+
+        # pop and del on typed keys
+        self.assertEqual(redis_dic.pop(new_tuple_key), "created")
+        self.assertNotIn(new_tuple_key, redis_dic)
+        del redis_dic[42]
+        self.assertNotIn(42, redis_dic)
+        self.assertEqual(redis_dic["42"], "str-digits")
+        self.assertEqual(redis_dic["int:42"], "str-prefixed-like-type")
+        self.assertEqual(redis_dic["\x1f"], "str-unit-sep")
+        self.assertEqual(redis_dic["\x1fint:42"], "str-unit-sep-prefixed")
+        self.assertEqual(redis_dic["\x1f\x1e\x1d"], "str-sentinel-only")
+        self.assertEqual(redis_dic["\x1f\x1e\x1dint:42"], "str-sentinel-prefixed-like-type")
+
+        # Plain str keys (including \x1f control prefixes) retain v3.x '{ns}:{key}' wire layout in Redis
+        self.assertEqual(
+            self.redisdb.get(f"{redis_dic.namespace}:plain"),
+            b"str:str-plain",
+        )
+        self.assertEqual(
+            self.redisdb.get(f"{redis_dic.namespace}:int:42"),
+            b"str:str-prefixed-like-type",
+        )
+        self.assertEqual(
+            self.redisdb.get(f"{redis_dic.namespace}:\x1f"),
+            b"str:str-unit-sep",
+        )
+        # Defensive _parse_key fallback if a raw Redis key carries sentinel prefix without valid registered type
+        self.assertEqual(
+            redis_dic._parse_key(f"{redis_dic.namespace}:\x1f\x1e\x1d"),
+            "\x1f\x1e\x1d",
+        )
+        self.assertEqual(
+            redis_dic._parse_key(f"{redis_dic.namespace}:\x1f\x1e\x1dunregistered:99"),
+            "\x1f\x1e\x1dunregistered:99",
+        )
+
+        # update and fromkeys with typed keys
+        other = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_typed_other")
+        try:
+            other.fromkeys([100, None, date(2025, 1, 1)], "init")
+            self.assertEqual(other.to_dict(), {100: "init", None: "init", date(2025, 1, 1): "init"})
+            other.update({(9, 8): "pair"}, extra="kw")
+            self.assertEqual(other[(9, 8)], "pair")
+            self.assertEqual(other["extra"], "kw")
+
+            with other.expire_at(10):
+                other[777] = "expiring"
+            ttl = other.get_ttl(777)
+            self.assertIsNotNone(ttl)
+            self.assertGreater(ttl, 0)
+        finally:
+            other.clear()
+
+    def test_falsy_typed_keys_preserve_exact_type(self):
+        redis_dic = self.create_redis_dict()
+        falsy_keys = [0, 0.0, False, None, "", (), b"", frozenset()]
+        for idx, key in enumerate(falsy_keys):
+            redis_dic.clear()
+            redis_dic[key] = idx
+            self.assertIn(key, redis_dic)
+            self.assertEqual(redis_dic[key], idx)
+            stored_keys = list(redis_dic.keys())
+            self.assertEqual(len(stored_keys), 1)
+            self.assertIs(type(stored_keys[0]), type(key))
+            self.assertEqual(stored_keys[0], key)
+
+    def test_popitem_with_none_key(self):
+        redis_dic = self.create_redis_dict()
+        redis_dic[None] = "sentinel"
+        popped_key, popped_val = redis_dic.popitem()
+        self.assertIsNone(popped_key)
+        self.assertEqual(popped_val, "sentinel")
+        self.assertEqual(len(redis_dic), 0)
+        with self.assertRaises(KeyError):
+            redis_dic.popitem()
+
+    def test_container_keys_round_trip(self):
+        from collections import OrderedDict, defaultdict
+
+        redis_dic = self.create_redis_dict()
+        container_cases = [
+            ([1, 2], "list-val"),
+            ({"a": 1}, "dict-val"),
+            ({1, 2}, "set-val"),
+            (([1], 2), "nested-tuple-val"),
+            (OrderedDict([("b", 1), ("a", 2)]), "ordered-dict-val"),
+        ]
+        for container_key, val in container_cases:
+            with self.subTest(container_key=repr(container_key)):
+                redis_dic[container_key] = val
+                self.assertIn(container_key, redis_dic)
+                self.assertEqual(redis_dic[container_key], val)
+                self.assertEqual(redis_dic.get(container_key), val)
+                self.assertEqual(redis_dic.setdefault(container_key, "other"), val)
+                self.assertIn(container_key, list(redis_dic.keys()))
+                self.assertIn((container_key, val), list(redis_dic.items()))
+                with self.assertRaises(TypeError):
+                    redis_dic.to_dict()
+                self.assertEqual(redis_dic.pop(container_key), val)
+                self.assertNotIn(container_key, redis_dic)
+                redis_dic[container_key] = val
+                del redis_dic[container_key]
+                self.assertNotIn(container_key, redis_dic)
+
+        # Equal unordered dict/defaultdict keys in different insertion orders map to the same key
+        redis_dic[{"b": 2, "a": 1}] = "str-dict"
+        self.assertEqual(redis_dic[{"a": 1, "b": 2}], "str-dict")
+        redis_dic[{2: "b", 1: "a"}] = "int-dict"
+        self.assertEqual(redis_dic[{1: "a", 2: "b"}], "int-dict")
+        redis_dic[defaultdict(type(None), {"b": 2, "a": 1})] = "default-dict"
+        self.assertEqual(redis_dic[defaultdict(type(None), {"a": 1, "b": 2})], "default-dict")
+
+        # OrderedDict keys with different orders stay distinct
+        redis_dic[OrderedDict([("b", 1), ("a", 2)])] = "order-ba"
+        redis_dic[OrderedDict([("a", 2), ("b", 1)])] = "order-ab"
+        self.assertEqual(redis_dic[OrderedDict([("b", 1), ("a", 2)])], "order-ba")
+        self.assertEqual(redis_dic[OrderedDict([("a", 2), ("b", 1)])], "order-ab")
+
+        # Nested unordered sets/dicts inside keys are sorted, while stored values do NOT sort keys
+        redis_dic[(frozenset([7, -9]), {2: "b", 1: "a"})] = {"z": 1, "a": 2}
+        stored_val = redis_dic[(frozenset([-9, 7]), {1: "a", 2: "b"})]
+        self.assertEqual(list(stored_val.keys()), ["z", "a"])
+
+    def test_typed_key_edge_cases_zero_sign_eq_glob_and_size_bounds(self):
+        redis_dic = self.create_redis_dict()
+
+        # -0.0 and 0.0 (top-level, complex, and nested) canonicalize to the same key
+        redis_dic[0.0] = "pos-zero"
+        redis_dic[-0.0] = "neg-zero"
+        self.assertEqual(len(redis_dic), 1)
+        self.assertEqual(redis_dic[0.0], "neg-zero")
+        self.assertEqual(redis_dic[-0.0], "neg-zero")
+
+        redis_dic.clear()
+        redis_dic[complex(0.0, -0.0)] = "c1"
+        redis_dic[complex(-0.0, 0.0)] = "c2"
+        self.assertEqual(len(redis_dic), 1)
+        self.assertEqual(redis_dic[complex(0.0, 0.0)], "c2")
+
+        redis_dic.clear()
+        redis_dic[(0.0, complex(0.0, -0.0))] = "t1"
+        redis_dic[(-0.0, complex(-0.0, 0.0))] = "t2"
+        self.assertEqual(len(redis_dic), 1)
+        self.assertEqual(redis_dic[(0.0, complex(0.0, 0.0))], "t2")
+
+        # __eq__ with unhashable container key or bool/int aliasing against a plain dict returns False cleanly
+        redis_dic.clear()
+        redis_dic[[1, 2]] = "list-entry"
+        self.assertFalse(redis_dic == {"other": "list-entry"})
+        redis_dic.clear()
+        redis_dic[1] = "same"
+        redis_dic[True] = "same"
+        self.assertFalse(redis_dic == {1: "same", "extra": "same"})
+
+        # Glob metacharacters in search_term / multi_del / multi_get are treated literally
+        redis_dic.clear()
+        redis_dic["*"] = "star"
+        redis_dic["user[1]:name"] = "alice"
+        redis_dic["user1:name"] = "bob"
+        self.assertEqual(redis_dic.key("user[1]"), "user[1]:name")
+        if not isinstance(redis_dic, PythonRedisDict):
+            self.assertEqual(redis_dic.multi_get("user[1]"), ["alice"])
+            redis_dic[99] = "typed-entry"
+            multi_res = redis_dic.multi_dict("")
+            self.assertEqual(multi_res[99], "typed-entry")
+            self.assertEqual(multi_res["*"], "star")
+            del redis_dic[99]
+            self.assertEqual(redis_dic.multi_del("*"), 1)
+            self.assertIn("user[1]:name", redis_dic)
+            self.assertIn("user1:name", redis_dic)
+
+            # Live-Redis mid-iteration eviction in items() and WRONGTYPE + concurrent race in popitem()
+            items_iter = redis_dic.items()
+            first_k, _ = next(items_iter)
+            other_k = "user1:name" if first_k == "user[1]:name" else "user[1]:name"
+            self.redisdb.delete(redis_dic._format_key(other_k))
+            self.assertEqual(list(items_iter), [])
+
+            foreign_hash_key = f"{redis_dic.namespace}:foreign_hash"
+            self.redisdb.hset(foreign_hash_key, "field", "value")
+            try:
+                self.assertEqual(redis_dic.popitem(), (first_k, "alice" if first_k == "user[1]:name" else "bob"))
+                with self.assertRaises(KeyError):
+                    redis_dic.popitem()
+            finally:
+                self.redisdb.delete(foreign_hash_key)
+
+            # Concurrent popitem() across two live RedisDict clients sharing a namespace
+            race_ns = TEST_NAMESPACE_PREFIX + "_popitem_race"
+            client_a = RedisDict(namespace=race_ns, **redis_config)
+            client_b = RedisDict(namespace=race_ns, **redis_config)
+            try:
+                with client_a.pipeline():
+                    for idx in range(80):
+                        client_a[idx] = idx
+                popped_a, popped_b, errors = [], [], []
+                barrier = threading.Barrier(2)
+
+                def _drain(client, out):
+                    try:
+                        barrier.wait()
+                        for _ in range(40):
+                            out.append(client.popitem())
+                    except BaseException as exc:  # pragma: no cover
+                        errors.append(exc)
+
+                t1 = threading.Thread(target=_drain, args=(client_a, popped_a))
+                t2 = threading.Thread(target=_drain, args=(client_b, popped_b))
+                t1.start()
+                t2.start()
+                t1.join(timeout=5.0)
+                t2.join(timeout=5.0)
+                self.assertEqual(errors, [])
+                self.assertEqual(dict(popped_a + popped_b), {idx: idx for idx in range(80)})
+            finally:
+                client_a.clear()
+
+        # Non-str key/value exceeding _max_string_size raises ValueError
+        bounded = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_typed_bounded")
+        bounded._max_string_size = 16
+        try:
+            with self.assertRaises(ValueError):
+                bounded[b"x" * 16] = "ok"
+            with self.assertRaises(ValueError):
+                bounded["ok"] = b"x" * 16
+        finally:
+            bounded.clear()
+
 
 class TestPythonRedisDictBehaviorDict(TestRedisDictBehaviorDict):
     @classmethod
@@ -1673,6 +1959,33 @@ class TestPythonRedisDictBehaviorDict(TestRedisDictBehaviorDict):
         # Assert
         self.assertEqual(seen_first, expected)
         self.assertEqual(seen_second, expected)
+
+    def test_typed_keys_preserve_insertion_order(self):
+        # Use default long namespace (>64-byte ZSET members) and small _batch_size to test batched ZRANGE pagination
+        redis_dic = self.create_redis_dict()
+        redis_dic._batch_size = 2
+        self.addCleanup(redis_dic.clear)
+        ordered_entries = [
+            (42, "first"),
+            (None, "second"),
+            ("alpha", "third"),
+            ((1, "two", ("nested", 99)), "fourth"),
+            (datetime(2024, 5, 6, 7, 8, 9), "fifth"),
+        ]
+        for k, v in ordered_entries:
+            redis_dic[k] = v
+
+        expected_keys = [k for k, _ in ordered_entries]
+        self.assertEqual(list(redis_dic), expected_keys)
+        self.assertEqual(list(redis_dic.keys()), expected_keys)
+        self.assertEqual(list(reversed(redis_dic)), list(reversed(expected_keys)))
+        self.assertEqual(list(redis_dic.items()), ordered_entries)
+
+        # Simulate expired TTL key still present in ZSET; popitem() skips stale ZSET member cleanly
+        stale_formatted = redis_dic._format_key("expired_ghost")
+        redis_dic.redis.zadd(redis_dic._insertion_order_key, {stale_formatted: 9999999999.0})
+        self.assertEqual(redis_dic.popitem(), ordered_entries[-1])
+        self.assertEqual(redis_dic.popitem(), ordered_entries[-2])
 
     def test_dict_method_update_reversed(self):
         """

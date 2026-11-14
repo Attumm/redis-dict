@@ -60,7 +60,7 @@ class PythonRedisDict(RedisDict):
         )
         self._insertion_order_key = f"redis-dict-insertion-order-{namespace}"
 
-    def __delitem__(self, key: str) -> None:
+    def __delitem__(self, key: Any) -> None:
         """
         Delete the value associated with the given key, analogous to a dictionary.
 
@@ -74,7 +74,7 @@ class PythonRedisDict(RedisDict):
             that are hard to debug when multiple systems interact with the same keys.
 
         Args:
-            key (str): The key to delete
+            key (Any): The key to delete
 
         Raises:
             KeyError: Only if dict_compliant=True and key doesn't exist
@@ -86,12 +86,12 @@ class PythonRedisDict(RedisDict):
         if not result:
             raise KeyError(key)
 
-    def _store(self, key: str, value: Any) -> None:
+    def _store(self, key: Any, value: Any) -> None:
         """
         Store a value in Redis with the given key.
 
         Args:
-            key (str): The key to store the value.
+            key (Any): The key to store the value.
             value (Any): The value to be stored.
 
         Raises:
@@ -115,14 +115,14 @@ class PythonRedisDict(RedisDict):
             self._insertion_order_add(formatted_key)
             self._store_set(formatted_key, formatted_value)
 
-    def setdefault(self, key: str, default_value: Optional[Any] = None) -> Any:
+    def setdefault(self, key: Any, default_value: Optional[Any] = None) -> Any:
         """Get value under key, and if not present set default value.
 
         Return the value associated with the given key if it exists, otherwise set the value to the
         default value and return it. Analogous to a dictionary's setdefault method.
 
         Args:
-            key (str): The key to retrieve the value.
+            key (Any): The key to retrieve the value.
             default_value (Optional[Any], optional): The value to set if the key is not found.
 
         Returns:
@@ -147,6 +147,8 @@ class PythonRedisDict(RedisDict):
         return self._insertion_order_len()
 
     def _scan_keys(self, search_term: str = '', full_scan: bool = False) -> Iterator[str]:
+        if search_term == '':
+            return self._insertion_order_iter()
         prefix = self._format_key(search_term)
         return (key for key in self._insertion_order_iter() if key.startswith(prefix))
 
@@ -163,23 +165,22 @@ class PythonRedisDict(RedisDict):
             for key in self._scan_keys(full_scan=True):
                 self.redis.delete(key)
 
-    def popitem(self) -> Tuple[str, Any]:
-        """Remove and return a random (key, value) pair from the RedisDict as a tuple.
-
-        This method is analogous to the `popitem` method of a standard Python dictionary.
-
-        if dict_compliant set true stays true to In Python 3.7+, removes the last inserted item (LIFO order)
+    def popitem(self) -> Tuple[Any, Any]:
+        """Remove and return the last inserted (key, value) pair from the RedisDict as a tuple.
 
         Returns:
-            tuple: A tuple containing a randomly chosen (key, value) pair.
+            Tuple[Any, Any]: The most recently inserted (key, value) pair.
 
         Raises:
             KeyError: If RedisDict is empty.
         """
-        key = self._insertion_order_latest()
-        if key is None:
-            raise KeyError("popitem(): dictionary is empty")
-        return self._parse_key(key), self._transform(self._pop(key))
+        while True:
+            key = self._insertion_order_latest()
+            if key is None:
+                raise KeyError("popitem(): dictionary is empty")
+            raw_value = self._pop(key)
+            if raw_value is not None:
+                return self._parse_key(key), self._transform(raw_value)
 
     def _pop(self, formatted_key: str) -> Any:
         """
@@ -221,7 +222,7 @@ class PythonRedisDict(RedisDict):
         """
         raise NotImplementedError("Not part of PythonRedisDict")
 
-    def multi_dict(self, _key: str) -> Dict[str, Any]:
+    def multi_dict(self, _key: str) -> Dict[Any, Any]:
         """
         Not part of Python Redis Dict.
 
@@ -282,19 +283,16 @@ class PythonRedisDict(RedisDict):
         Yields:
             str: Keys in their insertion order.
         """
-        # TODO add full_scan boolean and search terms.
-        first = True
-        cursor = -1
-        while cursor != 0:
-            if first:
-                cursor = 0
-                first = False
-            cursor, data = self.get_redis.zscan(
-                name=self._insertion_order_key,
-                cursor=cursor,
-                count=1
-            )
-            yield from (item[0] for item in data)
+        start = 0
+        step = self._batch_size
+        while True:
+            batch = self.get_redis.zrange(self._insertion_order_key, start, start + step - 1)
+            if not batch:
+                break
+            yield from batch
+            if len(batch) < step:
+                break
+            start += step
 
     def _insertion_order_clear(self) -> bool:
         """Clear all insertion order information.

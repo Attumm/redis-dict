@@ -6,7 +6,7 @@ import unittest
 
 from datetime import datetime
 
-from redis_dict import RedisDict
+from redis_dict import RedisDict, PythonRedisDict
 
 
 class Customer:
@@ -709,6 +709,129 @@ class TestRedisDictExtendTypesInstanceIsolation(BaseRedisDictTest):
 
         self.assertEqual(dict_json["p"], alice)
         self.assertEqual(dict_pipe["p"], bob)
+
+    def test_custom_hashable_type_as_key(self):
+        class UserId:
+            def __init__(self, code: int):
+                self.code = code
+
+            def encode(self) -> str:
+                return str(self.code)
+
+            @classmethod
+            def decode(cls, raw: str) -> "UserId":
+                return cls(int(raw))
+
+            def __hash__(self) -> int:
+                return hash((UserId, self.code))
+
+            def __eq__(self, other: object) -> bool:
+                return isinstance(other, UserId) and self.code == other.code
+
+        redis_dict = RedisDict(namespace="custom_key_type")
+        self.addCleanup(redis_dict.clear)
+        redis_dict.extends_type(UserId)
+
+        uid_alice = UserId(7)
+        uid_bob = UserId(42)
+        redis_dict[uid_alice] = "Alice"
+        redis_dict[uid_bob] = "Bob"
+
+        self.assertIn(uid_alice, redis_dict)
+        self.assertEqual(redis_dict[uid_alice], "Alice")
+        self.assertEqual(redis_dict.to_dict(), {uid_alice: "Alice", uid_bob: "Bob"})
+        self.assertEqual(set(redis_dict.keys()), {uid_alice, uid_bob})
+
+        # Per-instance extends_type also works inside nested container keys (tuple, frozenset, dict)
+        redis_dict[(uid_alice, "role")] = "admin"
+        self.assertEqual(redis_dict[(UserId(7), "role")], "admin")
+        redis_dict[frozenset([uid_bob, uid_alice])] = "pair"
+        self.assertEqual(redis_dict[frozenset([UserId(7), UserId(42)])], "pair")
+        redis_dict[{uid_alice: "owner", uid_bob: "viewer"}] = "acl"
+        self.assertEqual(redis_dict[{UserId(42): "viewer", UserId(7): "owner"}], "acl")
+        redis_dict[{"b": uid_bob, "a": uid_alice}] = "mapped"
+        self.assertEqual(redis_dict[{"a": UserId(7), "b": UserId(42)}], "mapped")
+        redis_dict["nested_val"] = [uid_alice]
+
+        # Unregistered reader safely reads keys()/items()/to_dict() (and fallback value dict) without crashing
+        unregistered_reader = RedisDict(namespace="custom_key_type")
+        self.assertEqual(len(unregistered_reader), 7)
+        self.assertEqual(unregistered_reader["nested_val"], [{"__type__": "UserId", "value": "7"}])
+        self.assertEqual(len(list(unregistered_reader.keys())), 7)
+        unreg_items = list(unregistered_reader.items())
+        self.assertEqual(len(unreg_items), 7)
+        del redis_dict[{"a": uid_alice, "b": uid_bob}]
+        self.assertEqual(len(unregistered_reader.to_dict()), 6)
+
+        del redis_dict["nested_val"]
+        del redis_dict[(uid_alice, "role")]
+        del redis_dict[frozenset([uid_bob, uid_alice])]
+        del redis_dict[{uid_alice: "owner", uid_bob: "viewer"}]
+        self.assertEqual(redis_dict.pop(uid_alice), "Alice")
+        self.assertNotIn(uid_alice, redis_dict)
+
+    def test_custom_unhashable_type_as_key(self):
+        redis_dict = RedisDict(namespace="custom_unhashable_key_type")
+        self.addCleanup(redis_dict.clear)
+        redis_dict.extends_type(Person, person_encode, person_decode)
+
+        alice = Person("Alice", 30, "Wonderland")
+        bob = Person("Bob", 40, "Builder")
+        with self.assertRaises(TypeError):
+            hash(alice)
+
+        redis_dict[alice] = "lead"
+        redis_dict[bob] = "member"
+
+        self.assertIn(alice, redis_dict)
+        self.assertEqual(redis_dict[alice], "lead")
+        self.assertCountEqual(list(redis_dict.keys()), [alice, bob])
+        self.assertCountEqual(list(redis_dict.items()), [(alice, "lead"), (bob, "member")])
+        self.assertEqual(redis_dict.pop(alice), "lead")
+        self.assertNotIn(alice, redis_dict)
+
+    def test_custom_str_subclass_key_uses_extends_type_not_plain_str(self):
+        redis_dict = RedisDict(namespace="custom_str_sub_key")
+        self.addCleanup(redis_dict.clear)
+        redis_dict.extends_type(
+            EncryptedRot13String,
+            rot13,
+            lambda raw: EncryptedRot13String(rot13(raw)),
+        )
+
+        secret_key = EncryptedRot13String("topsecret")
+        redis_dict[secret_key] = "classified"
+        redis_dict["topsecret"] = "public"
+
+        # Plaintext 'topsecret' is stored at 'ns:topsecret', whereas EncryptedRot13String uses typed sentinel + rot13
+        self.assertEqual(redis_dict.redis.get("custom_str_sub_key:topsecret"), "str:public")
+        raw_keys = list(redis_dict._scan_keys())
+        typed_raw = [rk for rk in raw_keys if rk != "custom_str_sub_key:topsecret"]
+        self.assertEqual(len(typed_raw), 1)
+        self.assertNotIn("topsecret", typed_raw[0])
+
+        self.assertEqual(redis_dict[secret_key], "classified")
+        self.assertEqual(redis_dict["topsecret"], "public")
+        parsed_by_type = {type(k): (k, v) for k, v in redis_dict.items()}
+        self.assertIs(type(parsed_by_type[EncryptedRot13String][0]), EncryptedRot13String)
+        self.assertEqual(parsed_by_type[EncryptedRot13String][1], "classified")
+        self.assertIs(type(parsed_by_type[str][0]), str)
+
+        # Unregistered str subclass raises ValueError instead of leaking raw str into Redis keys
+        class UnregisteredSecretStr(str):
+            pass
+
+        with self.assertRaises(ValueError):
+            redis_dict[UnregisteredSecretStr("raw-secret")] = "blocked"
+
+        # PythonRedisDict with extended str + typed keys preserves insertion order across all key types
+        py_dict = PythonRedisDict(namespace="custom_str_ext_py")
+        self.addCleanup(py_dict.clear)
+        py_dict.extends_type(str, rot13, rot13)
+        py_dict["hello"] = 1
+        py_dict[42] = 2
+        py_dict[("tuple", "key")] = 3
+        self.assertEqual(list(py_dict.items()), [("hello", 1), (42, 2), (("tuple", "key"), 3)])
 
 
 if __name__ == '__main__':
