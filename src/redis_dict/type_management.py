@@ -5,7 +5,7 @@ import base64
 from collections import OrderedDict, defaultdict
 from datetime import datetime, date, time, timedelta
 
-from typing import Callable, Any, Dict, Iterator, List, Tuple, Set
+from typing import Callable, Any, Dict, Iterator, List, Optional, Tuple
 
 from uuid import UUID
 from decimal import Decimal
@@ -31,81 +31,12 @@ def _create_default_decode(cls: type, custom_decode_method: str) -> DecodeFuncTy
     return default_decode
 
 
-def _decode_tuple(val: str) -> Tuple[Any, ...]:
-    """
-    Deserialize a JSON-formatted string to a tuple.
-
-    This function takes a JSON-formatted string, deserializes it to a list, and
-    then converts the list to a tuple.
-
-    Args:
-        val (str): A JSON-formatted string representing a list.
-
-    Returns:
-        Tuple[Any, ...]: A tuple with the deserialized values from the input string.
-    """
-    return tuple(decode_json(val))
-
-
-def _encode_tuple(val: Tuple[Any, ...]) -> str:
-    """
-    Serialize a tuple to a JSON-formatted string.
-
-    This function takes a tuple, converts it to a list, and then serializes
-    the list to a JSON-formatted string.
-
-    Args:
-        val (Tuple[Any, ...]): A tuple with values to be serialized.
-
-    Returns:
-        str: A JSON-formatted string representing the input tuple.
-    """
-    return encode_json(list(val))
-
-
-def _decode_set(val: str) -> Set[Any]:
-    """
-    Deserialize a JSON-formatted string to a set.
-
-    This function takes a JSON-formatted string, deserializes it to a list, and
-    then converts the list to a set.
-
-    Args:
-        val (str): A JSON-formatted string representing a list.
-
-    Returns:
-        set[Any]: A set with the deserialized values from the input string.
-    """
-    return set(decode_json(val))
-
-
-def _encode_set(val: Set[Any]) -> str:
-    """
-    Serialize a set to a JSON-formatted string.
-
-    This function takes a set, converts it to a list, and then serializes the
-    list to a JSON-formatted string.
-
-    Args:
-        val (set[Any]): A set with values to be serialized.
-
-    Returns:
-        str: A JSON-formatted string representing the input set.
-    """
-    return encode_json(list(val))
-
-
 decoding_registry: DecodeType = {
     type('').__name__: str,
     type(1).__name__: int,
     type(0.1).__name__: float,
     type(True).__name__: lambda x: x == "True",
     type(None).__name__: lambda x: None,
-
-    "list": json.loads,
-    "dict": json.loads,
-    "tuple": _decode_tuple,
-    type(set()).__name__: _decode_set,
 
     datetime.__name__: datetime.fromisoformat,
     date.__name__: date.fromisoformat,
@@ -117,18 +48,10 @@ decoding_registry: DecodeType = {
     bytes.__name__: base64.b64decode,
 
     UUID.__name__: UUID,
-    OrderedDict.__name__: lambda x: OrderedDict(json.loads(x)),
-    defaultdict.__name__: lambda x: defaultdict(type(None), json.loads(x)),
-    frozenset.__name__: lambda x: frozenset(decode_json(x)),
 }
 
 
 encoding_registry: EncodeType = {
-    "list": json.dumps,
-    "dict": json.dumps,
-    "tuple": _encode_tuple,
-    type(set()).__name__: _encode_set,
-
     datetime.__name__: datetime.isoformat,
     date.__name__: date.isoformat,
     time.__name__: time.isoformat,
@@ -136,9 +59,6 @@ encoding_registry: EncodeType = {
 
     complex.__name__: lambda x: f"{x.real},{x.imag}",
     bytes.__name__: lambda x: base64.b64encode(x).decode('ascii'),
-    OrderedDict.__name__: lambda x: json.dumps(list(x.items())),
-    defaultdict.__name__: lambda x: json.dumps(dict(x)),
-    frozenset.__name__: lambda x: encode_json(list(x)),
 }
 
 
@@ -196,6 +116,25 @@ class RedisDictJSONEncoder(json.JSONEncoder):
         in encoding_registry.
     """
 
+    def __init__(
+        self,
+        *args: Any,
+        encoding_reg: Optional[EncodeType] = None,
+        decoding_reg: Optional[DecodeType] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize the JSON encoder with optional per-instance type registries.
+
+        Args:
+            *args (Any): Positional arguments forwarded to json.JSONEncoder.
+            encoding_reg (Optional[EncodeType]): Encoding registry override.
+            decoding_reg (Optional[DecodeType]): Decoding registry override.
+            **kwargs (Any): Keyword arguments forwarded to json.JSONEncoder.
+        """
+        super().__init__(*args, **kwargs)
+        self._encoding_reg = encoding_reg if encoding_reg is not None else encoding_registry
+        self._decoding_reg = decoding_reg if decoding_reg is not None else decoding_registry
+
     def default(self, o: Any) -> Any:
         """Overwrite default from json encoder.
 
@@ -209,10 +148,10 @@ class RedisDictJSONEncoder(json.JSONEncoder):
             Any: Serialized value.
         """
         type_name = type(o).__name__
-        if type_name in decoding_registry:
+        if type_name in self._decoding_reg:
             return {
                 "__type__": type_name,
-                "value": encoding_registry.get(type_name, _default_encoder)(o)
+                "value": self._encoding_reg.get(type_name, _default_encoder)(o)
             }
         try:
             return json.JSONEncoder.default(self, o)
@@ -242,51 +181,111 @@ class RedisDictJSONDecoder(json.JSONDecoder):
     Still needs work but allows for more types than without.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *args: Any,
+        decoding_reg: Optional[DecodeType] = None,
+        **kwargs: Any,
+    ) -> None:
         """
         Overwrite the __init__ method from JSON decoder.
 
         Args:
             *args (Any): Positional arguments for initialization.
+            decoding_reg (Optional[DecodeType]): Decoding registry override.
             **kwargs (Any): Keyword arguments for initialization.
 
         """
+        active_decoding_reg = decoding_reg if decoding_reg is not None else decoding_registry
+
         def _object_hook(obj: Dict[Any, Any]) -> Any:
             if "__type__" in obj and "value" in obj:
                 type_name, value = obj["__type__"], obj["value"]
                 if isinstance(value, list) and type_name in _json_container_decoders:
                     return _json_container_decoders[type_name](value)
-                if type_name in decoding_registry:
-                    return decoding_registry[type_name](value)
+                if type_name in active_decoding_reg:
+                    return active_decoding_reg[type_name](value)
             return obj
 
         super().__init__(object_hook=_object_hook, *args, **kwargs)
 
 
-def encode_json(obj: Any) -> str:
+def encode_json(
+    obj: Any,
+    encoding_reg: Optional[EncodeType] = None,
+    decoding_reg: Optional[DecodeType] = None,
+) -> str:
     """
     Encode a Python object to a JSON string using the existing encoding registry.
 
     Args:
         obj (Any): The Python object to be encoded.
+        encoding_reg (Optional[EncodeType]): Optional per-instance encoding registry.
+        decoding_reg (Optional[DecodeType]): Optional per-instance decoding registry.
 
     Returns:
         str: The JSON-encoded string representation of the object.
     """
-    return json.dumps(obj, cls=RedisDictJSONEncoder)
+    return json.dumps(
+        obj,
+        cls=RedisDictJSONEncoder,
+        encoding_reg=encoding_reg,
+        decoding_reg=decoding_reg,
+    )
 
 
-def decode_json(s: str) -> Any:
+def decode_json(s: str, decoding_reg: Optional[DecodeType] = None) -> Any:
     """
     Decode a JSON string to a Python object using the existing decoding registry.
 
     Args:
         s (str): The JSON string to be decoded.
+        decoding_reg (Optional[DecodeType]): Optional per-instance decoding registry.
 
     Returns:
         Any: The decoded Python object.
     """
-    return json.loads(s, cls=RedisDictJSONDecoder)
+    return json.loads(s, cls=RedisDictJSONDecoder, decoding_reg=decoding_reg)
+
+
+def _bind_json_containers(
+    enc: EncodeType,
+    dec: DecodeType,
+    enc_json: EncodeFuncType,
+    dec_json: DecodeFuncType,
+) -> None:
+    enc["dict"] = enc_json
+    enc["list"] = enc_json
+    enc["tuple"] = lambda x: enc_json(list(x))
+    enc["set"] = lambda x: enc_json(list(x))
+    enc["frozenset"] = lambda x: enc_json(list(x))
+    enc["OrderedDict"] = lambda x: enc_json(list(x.items()))
+    enc["defaultdict"] = lambda x: enc_json(dict(x))
+
+    dec["dict"] = dec_json
+    dec["list"] = dec_json
+    dec["tuple"] = lambda x: tuple(dec_json(x))
+    dec["set"] = lambda x: set(dec_json(x))
+    dec["frozenset"] = lambda x: frozenset(dec_json(x))
+    dec["OrderedDict"] = lambda x: OrderedDict(dec_json(x))
+    dec["defaultdict"] = lambda x: defaultdict(type(None), dec_json(x))
+
+
+def _create_instance_registries() -> Tuple[EncodeType, DecodeType]:
+    """Create isolated per-instance encode/decode registries wired to each other for nested JSON.
+
+    Returns:
+        Tuple[EncodeType, DecodeType]: Isolated encoding and decoding registry copies.
+    """
+    enc = encoding_registry.copy()
+    dec = decoding_registry.copy()
+    _bind_json_containers(
+        enc,
+        dec,
+        lambda obj: encode_json(obj, encoding_reg=enc, decoding_reg=dec),
+        lambda raw: decode_json(raw, decoding_reg=dec),
+    )
+    return enc, dec
 
 
 def _default_decoder(x: str) -> str:
@@ -315,9 +314,4 @@ def _default_encoder(x: Any) -> str:
     return str(x)
 
 
-encoding_registry["dict"] = encode_json
-decoding_registry["dict"] = decode_json
-
-
-encoding_registry["list"] = encode_json
-decoding_registry["list"] = decode_json
+_bind_json_containers(encoding_registry, decoding_registry, encode_json, decode_json)

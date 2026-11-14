@@ -10,6 +10,7 @@ from redis.exceptions import ResponseError
 
 from .type_management import SENTINEL, EncodeFuncType, DecodeFuncType, EncodeType, DecodeType
 from .type_management import _create_default_encode, _create_default_decode, _default_decoder
+from .type_management import _create_instance_registries
 from .type_management import encoding_registry as enc_reg
 from .type_management import decoding_registry as dec_reg
 
@@ -84,8 +85,7 @@ class RedisDict:
 
         self.custom_encode_method = "encode"
         self.custom_decode_method = "decode"
-        self.encoding_registry = enc_reg.copy()
-        self.decoding_registry = dec_reg.copy()
+        self.encoding_registry, self.decoding_registry = _create_instance_registries()
 
         self._iter: Iterator[str] = iter([])
         self._max_string_size: int = 500 * 1024 * 1024  # 500mb
