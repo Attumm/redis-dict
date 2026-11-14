@@ -1569,6 +1569,57 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
         self.assertEqual(len(redis_dic), 0)
 
+    def test_dict_method_pipeline_failed_execute_restores_redis_client(self):
+        redis_dic = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(lambda: self.create_redis_dict(namespace="dict_one").clear())
+        original_redis = redis_dic.redis
+        self.assertIsNone(redis_dic._temp_redis)
+
+        with self.assertRaises(redis.exceptions.ResponseError):
+            with redis_dic.pipeline():
+                with redis_dic.expire_at(-1):
+                    redis_dic['bad'] = 1
+
+        self.assertIs(redis_dic.redis, original_redis)
+        self.assertIsNone(redis_dic._temp_redis)
+        self.assertNotIn('bad', redis_dic)
+
+    def test_dict_method_pipeline_write_and_delete_after_failed_execute_are_stored(self):
+        redis_dic = self.create_redis_dict(namespace="dict_one")
+        reader = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(reader.clear)
+        redis_dic['existing'] = 'before'
+
+        with self.assertRaises(redis.exceptions.ResponseError):
+            with redis_dic.pipeline():
+                with redis_dic.expire_at(-1):
+                    redis_dic['bad'] = 1
+
+        redis_dic['after'] = 42
+        del redis_dic['existing']
+
+        self.assertEqual(reader['after'], 42)
+        self.assertNotIn('existing', reader)
+        self.assertEqual(redis_dic['after'], 42)
+
+    def test_dict_method_pipeline_new_and_nested_pipeline_after_failed_execute_commits(self):
+        redis_dic = self.create_redis_dict(namespace="dict_one")
+        reader = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(reader.clear)
+
+        with self.assertRaises(redis.exceptions.ResponseError):
+            with redis_dic.pipeline():
+                with redis_dic.pipeline():
+                    with redis_dic.expire_at(-1):
+                        redis_dic['bad'] = 1
+
+        with redis_dic.pipeline():
+            redis_dic['next1'] = 1
+            redis_dic['next2'] = 2
+
+        self.assertEqual(reader['next1'], 1)
+        self.assertEqual(reader['next2'], 2)
+
     def test_dict_method_fromkeys(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
