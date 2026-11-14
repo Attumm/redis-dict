@@ -7,7 +7,8 @@ import uuid
 
 import unittest
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, time as dt_time, timedelta, timezone
+from decimal import Decimal
 
 import redis
 
@@ -1603,6 +1604,127 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         for k, v in expected_dic.items():
             self.assertEqual(result_redis_dic[k], v)
 
+    def test_typed_keys_round_trip_and_dict_operations(self):
+        redis_dic = self.create_redis_dict()
+        expected = {
+            42: "int-value",
+            -7: "neg-int",
+            3.14: "float-value",
+            True: "bool-true",
+            False: "bool-false",
+            None: "none-value",
+            datetime(2024, 2, 29, 12, 30, 45, tzinfo=timezone.utc): "dt-value",
+            date(2024, 2, 29): "date-value",
+            dt_time(23, 59, 59): "time-value",
+            timedelta(days=1, seconds=30): "td-value",
+            Decimal("19.99"): "decimal-value",
+            complex(2, -3): "complex-value",
+            b"\x00hello:world": "bytes-value",
+            uuid.UUID("12345678-1234-5678-1234-567812345678"): "uuid-value",
+            (1, "two:three", (None, date(2024, 1, 1))): "tuple-value",
+            frozenset([42]): "frozenset-value",
+            "plain": "str-plain",
+            "": "str-empty",
+            "42": "str-digits",
+            "int:42": "str-prefixed-like-type",
+        }
+
+        for k, v in expected.items():
+            redis_dic[k] = v
+
+        self.assertEqual(len(redis_dic), len(expected))
+        self.assertEqual(redis_dic.to_dict(), expected)
+        self.assertEqual(redis_dic.copy(), expected)
+        self.assertEqual(redis_dic, expected)
+
+        for k, v in expected.items():
+            self.assertIn(k, redis_dic)
+            self.assertEqual(redis_dic[k], v)
+            self.assertEqual(redis_dic.get(k), v)
+
+        parsed_keys = list(redis_dic.keys())
+        self.assertEqual(len(parsed_keys), len(expected))
+        for k in parsed_keys:
+            self.assertIn(k, expected)
+
+        self.assertEqual(dict(redis_dic.items()), expected)
+        self.assertEqual(sorted(redis_dic.values()), sorted(expected.values()))
+        self.assertEqual(set(iter(redis_dic)), set(expected.keys()))
+
+        # setdefault on existing and missing typed keys
+        self.assertEqual(redis_dic.setdefault(None, "other"), "none-value")
+        new_tuple_key = ("fresh", 99)
+        self.assertEqual(redis_dic.setdefault(new_tuple_key, "created"), "created")
+        self.assertEqual(redis_dic[new_tuple_key], "created")
+
+        # pop and del on typed keys
+        self.assertEqual(redis_dic.pop(new_tuple_key), "created")
+        self.assertNotIn(new_tuple_key, redis_dic)
+        del redis_dic[42]
+        self.assertNotIn(42, redis_dic)
+        self.assertEqual(redis_dic["42"], "str-digits")
+        self.assertEqual(redis_dic["int:42"], "str-prefixed-like-type")
+
+        # update and fromkeys with typed keys
+        other = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_typed_other")
+        try:
+            other.fromkeys([100, None, date(2025, 1, 1)], "init")
+            self.assertEqual(other.to_dict(), {100: "init", None: "init", date(2025, 1, 1): "init"})
+            other.update({(9, 8): "pair"}, extra="kw")
+            self.assertEqual(other[(9, 8)], "pair")
+            self.assertEqual(other["extra"], "kw")
+
+            with other.expire_at(10):
+                other[777] = "expiring"
+            ttl = other.get_ttl(777)
+            self.assertIsNotNone(ttl)
+            self.assertGreater(ttl, 0)
+        finally:
+            other.clear()
+
+    def test_falsy_typed_keys_preserve_exact_type(self):
+        redis_dic = self.create_redis_dict()
+        falsy_keys = [0, 0.0, False, None, "", (), b"", frozenset()]
+        for idx, key in enumerate(falsy_keys):
+            redis_dic.clear()
+            redis_dic[key] = idx
+            self.assertIn(key, redis_dic)
+            self.assertEqual(redis_dic[key], idx)
+            stored_keys = list(redis_dic.keys())
+            self.assertEqual(len(stored_keys), 1)
+            self.assertIs(type(stored_keys[0]), type(key))
+            self.assertEqual(stored_keys[0], key)
+
+    def test_popitem_with_none_key(self):
+        redis_dic = self.create_redis_dict()
+        redis_dic[None] = "sentinel"
+        popped_key, popped_val = redis_dic.popitem()
+        self.assertIsNone(popped_key)
+        self.assertEqual(popped_val, "sentinel")
+        self.assertEqual(len(redis_dic), 0)
+        with self.assertRaises(KeyError):
+            redis_dic.popitem()
+
+    def test_unhashable_keys_raise_type_error(self):
+        redis_dic = self.create_redis_dict()
+        unhashable_keys = [[1, 2], {"a": 1}, {1, 2}, ([1], 2)]
+        for bad_key in unhashable_keys:
+            with self.subTest(bad_key=repr(bad_key)):
+                with self.assertRaises(TypeError):
+                    redis_dic[bad_key] = "val"
+                with self.assertRaises(TypeError):
+                    _ = redis_dic[bad_key]
+                with self.assertRaises(TypeError):
+                    _ = bad_key in redis_dic
+                with self.assertRaises(TypeError):
+                    del redis_dic[bad_key]
+                with self.assertRaises(TypeError):
+                    redis_dic.get(bad_key)
+                with self.assertRaises(TypeError):
+                    redis_dic.pop(bad_key, None)
+                with self.assertRaises(TypeError):
+                    redis_dic.setdefault(bad_key, "val")
+
 
 class TestPythonRedisDictBehaviorDict(TestRedisDictBehaviorDict):
     @classmethod
@@ -1658,6 +1780,27 @@ class TestPythonRedisDictBehaviorDict(TestRedisDictBehaviorDict):
         # Assert
         self.assertEqual(seen_first, expected)
         self.assertEqual(seen_second, expected)
+
+    def test_typed_keys_preserve_insertion_order(self):
+        redis_dic = self.create_redis_dict(namespace="typed_order")
+        self.addCleanup(redis_dic.clear)
+        ordered_entries = [
+            (42, "first"),
+            (None, "second"),
+            ("alpha", "third"),
+            ((1, "two"), "fourth"),
+            (datetime(2024, 5, 6, 7, 8, 9), "fifth"),
+        ]
+        for k, v in ordered_entries:
+            redis_dic[k] = v
+
+        expected_keys = [k for k, _ in ordered_entries]
+        self.assertEqual(list(redis_dic), expected_keys)
+        self.assertEqual(list(redis_dic.keys()), expected_keys)
+        self.assertEqual(list(reversed(redis_dic)), list(reversed(expected_keys)))
+        self.assertEqual(list(redis_dic.items()), ordered_entries)
+        self.assertEqual(redis_dic.popitem(), ordered_entries[-1])
+        self.assertEqual(redis_dic.popitem(), ordered_entries[-2])
 
     def test_dict_method_update_reversed(self):
         """
@@ -2078,7 +2221,7 @@ class TestRedisDict(unittest.TestCase):
         with self.r.expire_at(3600):
             self.r['foobar'] = 'barbar'
 
-        actual_ttl = self.redisdb.ttl('{}:foobar'.format(self.r.namespace))
+        actual_ttl = self.redisdb.ttl(self.r._format_key('foobar'))
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
 
     def test_expire_context_timedelta(self):
@@ -2093,9 +2236,9 @@ class TestRedisDict(unittest.TestCase):
         with self.r.expire_at(timedelta_one_minute):
             self.r['one_minute'] = 'one_minute'
 
-        actual_ttl = self.redisdb.ttl('{}:one_hour'.format(self.r.namespace))
+        actual_ttl = self.redisdb.ttl(self.r._format_key('one_hour'))
         self.assertAlmostEqual(hour_in_seconds, actual_ttl, delta=2)
-        actual_ttl = self.redisdb.ttl('{}:one_minute'.format(self.r.namespace))
+        actual_ttl = self.redisdb.ttl(self.r._format_key('one_minute'))
         self.assertAlmostEqual(minute_in_seconds, actual_ttl, delta=2)
 
     def test_expire_keyword(self):
@@ -2103,7 +2246,7 @@ class TestRedisDict(unittest.TestCase):
         r = self.create_redis_dict(expire=3600)
 
         r['foobar'] = 'barbar'
-        actual_ttl = self.redisdb.ttl('{}:foobar'.format(self.r.namespace))
+        actual_ttl = self.redisdb.ttl(self.r._format_key('foobar'))
         self.assertAlmostEqual(3600, actual_ttl, delta=2)
 
     def test_expire_keyword_timedelta(self):
@@ -2119,9 +2262,9 @@ class TestRedisDict(unittest.TestCase):
         r_hour['one_hour'] = 'one_hour'
         r_minute['one_minute'] = 'one_minute'
 
-        actual_ttl = self.redisdb.ttl('{}:one_hour'.format(self.r.namespace))
+        actual_ttl = self.redisdb.ttl(self.r._format_key('one_hour'))
         self.assertAlmostEqual(hour_in_seconds, actual_ttl, delta=4)
-        actual_ttl = self.redisdb.ttl('{}:one_minute'.format(self.r.namespace))
+        actual_ttl = self.redisdb.ttl(self.r._format_key('one_minute'))
         self.assertAlmostEqual(minute_in_seconds, actual_ttl, delta=4)
 
     def test_iter(self):
@@ -3115,7 +3258,7 @@ class TestRedisDictMulti(unittest.TestCase):
             expected[key] = val
 
         first_raw_key = next(self.r._scan_keys('foo_'))
-        missing_short_key = first_raw_key[len(TEST_NAMESPACE_PREFIX) + 1:]
+        missing_short_key = self.r._parse_key(first_raw_key)
         del expected[missing_short_key]
 
         # Replace that Redis key with a non-string key so SCAN yields it while MGET returns None
@@ -3124,7 +3267,7 @@ class TestRedisDictMulti(unittest.TestCase):
 
         self.assertEqual(self.r.multi_dict('foo_'), expected)
 
-        only_missing_raw = '{}:only_hash_1'.format(TEST_NAMESPACE_PREFIX)
+        only_missing_raw = self.r._format_key('only_hash_1')
         self.redisdb.hset(only_missing_raw, 'field', 'non_string')
         self.assertEqual(self.r.multi_dict('only_hash_'), {})
 
@@ -3185,7 +3328,7 @@ class TestRedisDictMulti(unittest.TestCase):
         """Test setting a chain with 2 elements."""
         self.r.chain_set(['foo', 'bar'], 'melons')
 
-        expected_key = '{}:foo:bar'.format(TEST_NAMESPACE_PREFIX)
+        expected_key = '{}:str:foo:bar'.format(TEST_NAMESPACE_PREFIX)
         self.assertEqual(self.redisdb.get(expected_key), b'str:melons')
 
     def test_chain_set_overwrite(self):
@@ -3193,7 +3336,7 @@ class TestRedisDictMulti(unittest.TestCase):
         self.r.chain_set(['foo'], 'melons')
         self.r.chain_set(['foo'], 'bananas')
 
-        expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
+        expected_key = '{}:str:foo'.format(TEST_NAMESPACE_PREFIX)
         self.assertEqual(self.redisdb.get(expected_key), b'str:bananas')
 
     def test_chain_get_1(self):
@@ -3233,7 +3376,7 @@ class TestRedisDictMulti(unittest.TestCase):
         """Test setting a chain with 1 element."""
         self.r.chain_set(['foo'], 'melons')
 
-        expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
+        expected_key = '{}:str:foo'.format(TEST_NAMESPACE_PREFIX)
         self.assertEqual(self.redisdb.get(expected_key), b'str:melons')
 
 class TestNotImplementedMethods(unittest.TestCase):

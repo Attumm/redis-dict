@@ -60,7 +60,7 @@ class PythonRedisDict(RedisDict):
         )
         self._insertion_order_key = f"redis-dict-insertion-order-{namespace}"
 
-    def __delitem__(self, key: str) -> None:
+    def __delitem__(self, key: Any) -> None:
         """
         Delete the value associated with the given key, analogous to a dictionary.
 
@@ -74,7 +74,7 @@ class PythonRedisDict(RedisDict):
             that are hard to debug when multiple systems interact with the same keys.
 
         Args:
-            key (str): The key to delete
+            key (Any): The key to delete
 
         Raises:
             KeyError: Only if dict_compliant=True and key doesn't exist
@@ -86,12 +86,12 @@ class PythonRedisDict(RedisDict):
         if not result:
             raise KeyError(key)
 
-    def _store(self, key: str, value: Any) -> None:
+    def _store(self, key: Any, value: Any) -> None:
         """
         Store a value in Redis with the given key.
 
         Args:
-            key (str): The key to store the value.
+            key (Any): The key to store the value.
             value (Any): The value to be stored.
 
         Raises:
@@ -115,14 +115,14 @@ class PythonRedisDict(RedisDict):
             self._insertion_order_add(formatted_key)
             self._store_set(formatted_key, formatted_value)
 
-    def setdefault(self, key: str, default_value: Optional[Any] = None) -> Any:
+    def setdefault(self, key: Any, default_value: Optional[Any] = None) -> Any:
         """Get value under key, and if not present set default value.
 
         Return the value associated with the given key if it exists, otherwise set the value to the
         default value and return it. Analogous to a dictionary's setdefault method.
 
         Args:
-            key (str): The key to retrieve the value.
+            key (Any): The key to retrieve the value.
             default_value (Optional[Any], optional): The value to set if the key is not found.
 
         Returns:
@@ -147,7 +147,11 @@ class PythonRedisDict(RedisDict):
         return self._insertion_order_len()
 
     def _scan_keys(self, search_term: str = '', full_scan: bool = False) -> Iterator[str]:
-        prefix = self._format_key(search_term)
+        prefix = (
+            f"{self.namespace}{self.namespace_delimiter}"
+            if search_term == ""
+            else self._format_key(search_term)
+        )
         return (key for key in self._insertion_order_iter() if key.startswith(prefix))
 
     def clear(self) -> None:
@@ -163,7 +167,7 @@ class PythonRedisDict(RedisDict):
             for key in self._scan_keys(full_scan=True):
                 self.redis.delete(key)
 
-    def popitem(self) -> Tuple[str, Any]:
+    def popitem(self) -> Tuple[Any, Any]:
         """Remove and return a random (key, value) pair from the RedisDict as a tuple.
 
         This method is analogous to the `popitem` method of a standard Python dictionary.

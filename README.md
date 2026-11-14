@@ -51,13 +51,14 @@ True
 In Redis our example looks like this.
 ```
 127.0.0.1:6379> KEYS "*"
-1) "main:foo"
-2) "main:baz"
-127.0.0.1:6379> GET "main:foo"
+1) "main:str:foo"
+2) "main:str:baz"
+3) "main:str:datetime"
+127.0.0.1:6379> GET "main:str:foo"
 "int:42"
-127.0.0.1:6379> GET "main:baz"
+127.0.0.1:6379> GET "main:str:baz"
 "str:hello world"
-127.0.0.1:6379> GET "main:datetime"
+127.0.0.1:6379> GET "main:str:datetime"
 "datetime:2025-02-20T19:37:54.214274"
 ```
 
@@ -104,6 +105,19 @@ dic["uuid"] = UUID('12345678-1234-5678-1234-567812345678')
 dic["ordered"] = OrderedDict([('a', 1), ('b', 2)])
 dic["default"] = defaultdict(int, {'a': 1, 'b': 2})
 dic["frozen"] = frozenset([1, 2, 3])
+```
+
+### Typed keys
+Any hashable type supported by `RedisDict` (including custom types registered with `extends_type`) can also be used as a dictionary key, preserving its exact Python type on retrieval:
+```python
+from datetime import date
+from redis_dict import RedisDict
+
+dic = RedisDict()
+dic[42] = "answer"
+dic[None] = "nothing"
+dic[date(2024, 1, 1)] = "new year"
+dic[(1, 2)] = "coordinates"
 ```
 
 ### Namespaces

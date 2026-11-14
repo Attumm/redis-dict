@@ -85,6 +85,13 @@ class TestReadmeExamples(unittest.TestCase):
             self.assertIsNotNone(key)
             _ = dic[key]
 
+    def test_typed_keys_example(self) -> None:
+        ns = self._run_section_block("Typed keys")
+        dic = ns["dic"]
+        self.assertEqual(dic[42], "answer")
+        self.assertEqual(dic[None], "nothing")
+        self.assertIn((1, 2), dic)
+
     def test_distributed_computing_example(self) -> None:
         ns = self._run_section_block("Distributed computing")
         self.assertEqual(ns["dic"]["foo"], "bar")
