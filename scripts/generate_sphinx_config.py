@@ -116,6 +116,7 @@ html_theme = 'sphinx_rtd_theme'
    :maxdepth: 2
 
    redis_dict/core
+   redis_dict/async_dict
    redis_dict/python_dict
    redis_dict/type_management
 """
@@ -152,6 +153,15 @@ html_theme = 'sphinx_rtd_theme'
 ==============================
 
 .. automodule:: redis_dict.python_dict
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :noindex:
+    """
+    async_redis_dict = """Async Redis Dict
+==============================
+
+.. automodule:: redis_dict.async_dict
    :members:
    :undoc-members:
    :show-inheritance:
@@ -194,6 +204,9 @@ help:
 
     with open(module_docs_path / 'python_dict.rst', 'w') as f:
         f.write(python_redis_dict)
+
+    with open(module_docs_path / 'async_dict.rst', 'w') as f:
+        f.write(async_redis_dict)
 
 if __name__ == '__main__':
     generate_configs()
