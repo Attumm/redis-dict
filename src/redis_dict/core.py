@@ -761,9 +761,7 @@ class RedisDict:
         # Setting {"get": True} enables parsing of the redis result as "GET", instead of "SET" command
         options = {"get": True}
         args = ["SET", formatted_key, formatted_value, "NX", "GET"]
-        if self.preserve_expiration:
-            args.append("KEEPTTL")
-        elif self.expire is not None:
+        if self.expire is not None:
             expire_val = int(self.expire.total_seconds()) if isinstance(self.expire, timedelta) else self.expire
             expire_str = str(1) if expire_val <= 1 else str(expire_val)
             args.extend(["EX", expire_str])
