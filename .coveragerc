@@ -1,7 +1,0 @@
-[run]
-omit =
-    */site-packages/*
-    *test*.py
-    tests/*
-    *tests.py
-    */tests/*

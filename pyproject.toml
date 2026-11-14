@@ -107,17 +107,17 @@ packages = ["redis_dict"]
 redis_dict = ["py.typed"]
 
 [tool.coverage.run]
-source = ["redis_dict"]
 branch = true
+include = [
+    "*/redis_dict/core.py",
+    "*/redis_dict/python_dict.py",
+    "*/redis_dict/async_dict.py",
+    "*/redis_dict/encrypted_dict.py",
+    "*/redis_dict/type_management.py",
+]
 
 [tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if __name__ == .__main__.:",
-    "raise NotImplementedError",
-    "if TYPE_CHECKING:",
-]
+exclude_lines = []
 show_missing = true
 
 [tool.mypy]
