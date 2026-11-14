@@ -648,7 +648,7 @@ class AsyncRedisDict(RedisDict):
         Returns:
             Dict[str, Any]: Mapping of leaf keys to decoded values.
         """
-        return {k.rsplit(self.key_delimiter, 1)[-1]: v async for k, v in self._items(key)}
+        return {str(k).rsplit(self.key_delimiter, 1)[-1]: v async for k, v in self._items(key)}
 
     async def multi_del(self, key: str) -> int:  # type: ignore[override]
         """Delete all keys matching prefix ``key``.

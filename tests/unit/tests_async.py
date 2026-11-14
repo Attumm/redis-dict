@@ -380,7 +380,7 @@ class TestAsyncRedisDict(unittest.IsolatedAsyncioTestCase):
         await self.tested_dic.set_item("valid_1", "one")
         await self.tested_dic.set_item("valid_2", "two")
         # Inject a non-string WRONGTYPE Redis key inside the same namespace
-        await self.raw_redis.rpush(f"{self.ns}:foreign_list", "elem")
+        await self.raw_redis.rpush(self.tested_dic._format_key("foreign_list"), "elem")
 
         items = {k: v async for k, v in self.tested_dic.items()}
         self.assertEqual(items, {"valid_1": "one", "valid_2": "two"})
@@ -518,7 +518,7 @@ class TestAsyncRedisDict(unittest.IsolatedAsyncioTestCase):
         keep_dic = self.create_async_dict("keep_ttl", expire=30, preserve_expiration=True)
         try:
             await keep_dic.set_item("k", "v1")
-            await self.raw_redis.expire(f"{keep_dic.namespace}:k", 12)
+            await self.raw_redis.expire(keep_dic._format_key("k"), 12)
             await keep_dic.set_item("k", "v2")
             kept_ttl = await keep_dic.get_ttl("k")
             self.assertEqual(await keep_dic.get_item("k"), "v2")
