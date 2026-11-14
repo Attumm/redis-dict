@@ -70,6 +70,7 @@ autodoc_default_options = {{
     'undoc-members': True,
     'show-inheritance': True,
     'special-members': '__init__',
+    'ignore-module-all': True,
 }}
 
 myst_update_mathjax = False
@@ -116,6 +117,7 @@ html_theme = 'sphinx_rtd_theme'
    :maxdepth: 2
 
    redis_dict/core
+   redis_dict/encrypted_dict
    redis_dict/python_dict
    redis_dict/type_management
 """
@@ -152,6 +154,15 @@ html_theme = 'sphinx_rtd_theme'
 ==============================
 
 .. automodule:: redis_dict.python_dict
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :noindex:
+    """
+    encrypted_redis_dict = """Encrypted Redis Dict
+==============================
+
+.. automodule:: redis_dict.encrypted_dict
    :members:
    :undoc-members:
    :show-inheritance:
@@ -194,6 +205,10 @@ help:
 
     with open(module_docs_path / 'python_dict.rst', 'w') as f:
         f.write(python_redis_dict)
+
+    with open(module_docs_path / 'encrypted_dict.rst', 'w') as f:
+        f.write(encrypted_redis_dict)
+
 
 if __name__ == '__main__':
     generate_configs()

@@ -364,12 +364,54 @@ For more information on [extending types](https://github.com/Attumm/redis-dict/b
 ## Security
 
 Security is an important aspect of production projects. Redis-dict was developed within a strict compliance environment.
-Best practice in Redis is to use passwords and network encryption through TLS. However, Redis-dict offers an additional feature by using extended types.
-It is possible to store the values of keys encrypted. The values are encrypted with AES GCM, which is currently considered best practice for security.
+Best practice in Redis is to use passwords and network encryption through TLS. In addition, `redis-dict` supports encrypting stored values at rest with AES-GCM via `EncryptedRedisDict`.
 
 ### Storage Encryption
-For storing data values encrypted can be achieved using encrypted values, more documentation on that later.
-For now code example within this test file. [encrypted test](https://github.com/Attumm/redis-dict/blob/main/tests/unit/tests_encrypt.py).
+Install the optional `crypto` extra to encrypt values at rest in Redis using [`cryptography`'s `AESGCM`](https://cryptography.io/en/latest/hazmat/primitives/aead/#cryptography.hazmat.primitives.ciphers.aead.AESGCM) while keeping `redis` as the sole default dependency:
+
+```sh
+pip install "redis-dict[crypto]"
+```
+
+`EncryptedRedisDict` is a drop-in subclass of `RedisDict` that encrypts all stored values, nested containers, and custom `extends_type` classes with AES-GCM before storing them in Redis. Generate a secret key following the official [`AESGCM` documentation](https://cryptography.io/en/latest/hazmat/primitives/aead/#cryptography.hazmat.primitives.ciphers.aead.AESGCM):
+
+```python
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from redis_dict import EncryptedRedisDict
+
+key = AESGCM.generate_key(bit_length=256)  # generate ONCE and persist in your secret manager across deploys
+vault = EncryptedRedisDict(namespace="vault", key=key)
+vault["secret"] = "a secret message"
+vault["limits"] = {"rpm": 1000, "active": True}
+
+assert vault["secret"] == "a secret message"
+assert vault["limits"] == {"rpm": 1000, "active": True}
+```
+
+To derive a 256-bit key from a passphrase across deployments without locking yourself out on restart, generate a 16-byte random salt **once** (`os.urandom(16).hex()`), persist both the salt and passphrase in your deployment config/secret manager, and derive the same key on every startup following the official [`Scrypt` documentation](https://cryptography.io/en/latest/hazmat/primitives/key-derivation-functions/#cryptography.hazmat.primitives.kdf.scrypt.Scrypt) (`r=8, p=1` per RFC 7914 and `n=2**17` per OWASP):
+
+```python
+import os
+from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+from redis_dict import EncryptedRedisDict
+
+salt = bytes.fromhex(os.environ["APP_SCRYPT_SALT_HEX"])  # generated once via os.urandom(16).hex() and persisted
+kdf = Scrypt(
+    salt=salt,
+    length=32,
+    n=2**17,
+    r=8,
+    p=1,
+)
+key = kdf.derive(os.environ["APP_SECRET_PASSPHRASE"].encode("utf-8"))
+
+vault = EncryptedRedisDict(namespace="vault", key=key)
+vault["secret"] = "derived-key-secret"
+assert vault["secret"] == "derived-key-secret"
+```
+
+* **Security notes**: Every write uses a fresh random 12-byte nonce (`os.urandom(12)`), binds `namespace` as AEAD associated data, and verifies a 128-bit GCM authentication tag; truncated, modified, cross-namespace, or wrong-key ciphertexts fail authentication with `cryptography.exceptions.InvalidTag` (rotate keys before `2**32` writes per key per NIST SP 800-38D). Redis keys and namespaces remain plaintext (`O(1)` `GET`/`SET`/`EXISTS`/`DEL`/`TTL` and native `SCAN`/`multi_*`), and keys within the same namespace share the same associated data.
+* For additional examples and production deployment / key-rotation setup with Docker, see [encrypted unit tests](https://github.com/Attumm/redis-dict/blob/main/tests/unit/tests_encrypt.py), [deployment tests](https://github.com/Attumm/redis-dict/blob/main/tests/deployment/tests_encrypted_deployment.py), and the [Docker deployment guide](https://github.com/Attumm/redis-dict/blob/main/docs/tutorials/encrypted_storage_deployment.md).
 
 ### Encryption Network
 Setup guide for configuring and utilizing encrypted Redis TLS for redis-dict.
@@ -400,7 +442,7 @@ pip install redis-dict
 
 ### Note
 * Please be aware that this project is currently being utilized by various organizations in their production environments. If you have any questions or concerns, feel free to raise issues
-* This project only uses redis as dependency
+* This project only uses redis as default dependency (with optional cryptography for `redis-dict[crypto]`)
 
 ## Contributing
 Contributions are welcome. See [CONTRIBUTING.md](https://github.com/Attumm/redis-dict/blob/main/CONTRIBUTING.md) for the development setup, tests and how to open a pull request, and [RELEASING.md](https://github.com/Attumm/redis-dict/blob/main/RELEASING.md) for how releases are made.

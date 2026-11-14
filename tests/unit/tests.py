@@ -9,42 +9,39 @@ import unittest
 
 from datetime import datetime, timedelta
 
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import redis
 
-from redis_dict import RedisDict, PythonRedisDict
+from redis_dict import RedisDict, PythonRedisDict, EncryptedRedisDict
 from redis_dict import RedisDictJSONEncoder, RedisDictJSONDecoder
 
 
 # !! Make sure you don't have keys within redis named like this, they will be deleted.
 TEST_NAMESPACE_PREFIX = '__test_prefix_key_meta_8128__'
+TEST_ENCRYPTION_KEY = AESGCM.generate_key(bit_length=256)
+
+EDGE_STRING_CASES = {
+    "Empty string": "",
+    "Single space": " ",
+    "Whitespace": "\t\n\r",
+    "Punctuation": "Hello, World! !@#$%^&*()_+-=[]{}|;:,.<>?",
+    "Colons": "type:val:extra:colons",
+    "Non-ASCII": "äöüßÄÖÜ 中文字符测试 こんにちは 한글 테스트",
+    "Emoji": "😀🙈🚀🔐",
+    "Null byte": "prefix\x00suffix",
+    "Low ASCII": "\u0000\u0001\u0002\u0003",
+    "High Unicode": "\uFFFF",
+    "Lone surrogate": "lead-\ud800-trail",
+    "RTL override": "\u202Eexample",
+    "Quotes and slashes": "\"quoted\" 'single' C:\\Program Files\\ /usr/local/bin/",
+    "Long string": "Lorem ipsum dolor sit amet. " * 200,
+}
 
 redis_config = {
     'host': 'localhost',
     'port': 6379,
     'db': 11,
 }
-
-
-def skip_before_python39(test_item):
-    """
-    Decorator to skip tests for Python versions before 3.9
-    where dictionary union operations are not supported.
-
-    Can be used to decorate both test methods and test classes.
-
-    Args:
-        test_item: The test method or class to be decorated
-
-    Returns:
-        The decorated test item that will be skipped if Python version < 3.9
-    """
-    reason = "Dictionary union operators (|, |=) require Python 3.9+"
-
-    if sys.version_info < (3, 9):
-        if isinstance(test_item, type):
-            return unittest.skip(reason)(test_item)
-        return unittest.skip(reason)(test_item)
-    return test_item
 
 
 class TestRedisDictBehaviorDict(unittest.TestCase):
@@ -161,6 +158,34 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         dic.clear()
         self.assertEqual(len(redis_dic), 0)
         self.assertEqual(len(dic), 0)
+
+    def test_edge_string_cases(self):
+        redis_dic = self.create_redis_dict()
+        valid_cases = {k: v for k, v in EDGE_STRING_CASES.items() if k != "Lone surrogate"}
+
+        for label, expected in valid_cases.items():
+            redis_dic[label] = expected
+            self.assertEqual(redis_dic[label], expected, label)
+
+        redis_dic.clear()
+        for label, expected in valid_cases.items():
+            redis_dic[expected] = label
+            self.assertEqual(redis_dic[expected], label, label)
+
+        redis_dic.clear()
+        nested_payload = {
+            "dict": valid_cases,
+            "list": list(valid_cases.values()),
+            "tuple": tuple(valid_cases.values()),
+            "set": set(valid_cases.values()),
+        }
+        redis_dic.update(nested_payload)
+        for key, expected_val in nested_payload.items():
+            self.assertEqual(redis_dic[key], expected_val)
+
+        surrogate_dic = self.create_redis_dict()
+        with self.assertRaises(UnicodeEncodeError):
+            surrogate_dic["Lone surrogate"] = EDGE_STRING_CASES["Lone surrogate"]
 
     def test_update(self):
         redis_dic = self.create_redis_dict()
@@ -797,7 +822,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
                 self.assertEqual(dic == other, redis_dic == other)
                 self.assertEqual(dic != other, redis_dic != other)
 
-    @skip_before_python39
     def test_dict_method_or(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -839,7 +863,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(TypeError):
             redis_dic | [1, 2]
 
-    @skip_before_python39
     def test_dict_method_ror(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -882,7 +905,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(TypeError):
              [1, 2] | redis_dic
 
-    @skip_before_python39
     def test_dict_method_ior(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -920,7 +942,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(TypeError):
             redis_dic |= [1, 2]
 
-    @skip_before_python39
     def test_dict_method_or_with_redis_dict(self):
         redis_dic = self.create_redis_dict()
         other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
@@ -959,7 +980,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(dict(redis_dic), dic)
         self.assertEqual(dict(other_redis_dic), other_dic)
 
-    @skip_before_python39
     def test_dict_method_or_with_redis_dict_reversed_operands(self):
         redis_dic = self.create_redis_dict()
         other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
@@ -988,7 +1008,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         self.assertEqual(dict(redis_result), dict_result)
         self.assertEqual(redis_result["str"], "im a string")
 
-    @skip_before_python39
     def test_dict_method_ior_with_redis_dict(self):
         redis_dic = self.create_redis_dict()
         other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
@@ -1023,7 +1042,6 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         # Verify right-hand operand was not modified
         self.assertEqual(dict(other_redis_dic), other_dic)
 
-    @skip_before_python39
     def test_ducktype_dict_operations(self):
         class DuckDict:
             def __init__(self, data):
@@ -1866,6 +1884,14 @@ class TestPythonRedisDictBehaviorDict(TestRedisDictBehaviorDict):
         self.assertTrue(list(d.items()) == list(rd.items()))
 
 
+class TestEncryptedRedisDictBehaviorDict(TestRedisDictBehaviorDict):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        return EncryptedRedisDict(namespace=namespace, key=TEST_ENCRYPTION_KEY, **config)
+
+
 class TestRedisDict(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -2492,6 +2518,14 @@ class TestPythonRedisDict(TestRedisDict):
             cls.redisdb.delete(key)
 
 
+class TestEncryptedRedisDict(TestRedisDict):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        return EncryptedRedisDict(namespace=namespace, key=TEST_ENCRYPTION_KEY, **config)
+
+
 class TestRedisDictSecurity(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -2671,6 +2705,14 @@ class TestPythonRedisDictSecurity(TestRedisDictSecurity):
         cls.redisdb.delete(f"redis-dict-insertion-order-{TEST_NAMESPACE_PREFIX}")
         for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
             cls.redisdb.delete(key)
+
+
+class TestEncryptedRedisDictSecurity(TestRedisDictSecurity):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        return EncryptedRedisDict(namespace=namespace, key=TEST_ENCRYPTION_KEY, **config)
 
 
 class TestRedisDictComparison(unittest.TestCase):
@@ -2917,6 +2959,22 @@ class TestPythonRedisDictComparison(TestRedisDictComparison):
         self.d2 = {"a": 1, "b": 3, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
 
 
+class TestEncryptedRedisDictComparison(TestRedisDictComparison):
+    def setUp(self):
+        self.r1 = EncryptedRedisDict(namespace="test1", key=TEST_ENCRYPTION_KEY)
+        self.r2 = EncryptedRedisDict(namespace="test2", key=TEST_ENCRYPTION_KEY)
+        self.r3 = EncryptedRedisDict(namespace="test3", key=TEST_ENCRYPTION_KEY)
+        self.r4 = EncryptedRedisDict(namespace="test4", key=TEST_ENCRYPTION_KEY)
+
+        self.r1.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r2.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r3.update({"a": 1, "b": 3, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}})
+        self.r4.update({"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 7]}})
+
+        self.d1 = {"a": 1, "b": 2, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
+        self.d2 = {"a": 1, "b": 3, "c": "foo", "d": [1, 2, 3], "e": {"a": 1, "b": [4, 5, 6]}}
+
+
 class TestRedisDictPreserveExpire(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -3021,6 +3079,14 @@ class TestPythonRedisDictPreserveExpire(TestRedisDictPreserveExpire):
         cls.redisdb.delete(f"redis-dict-insertion-order-{TEST_NAMESPACE_PREFIX}")
         for key in cls.redisdb.scan_iter('{}:*'.format(TEST_NAMESPACE_PREFIX)):
             cls.redisdb.delete(key)
+
+
+class TestEncryptedRedisDictPreserveExpire(TestRedisDictPreserveExpire):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        return EncryptedRedisDict(namespace=namespace, key=TEST_ENCRYPTION_KEY, **config)
 
 
 class TestRedisDictMulti(unittest.TestCase):
@@ -3235,6 +3301,34 @@ class TestRedisDictMulti(unittest.TestCase):
 
         expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
         self.assertEqual(self.redisdb.get(expected_key), b'str:melons')
+
+
+class TestEncryptedRedisDictMulti(TestRedisDictMulti):
+    @classmethod
+    def create_redis_dict(cls, namespace=TEST_NAMESPACE_PREFIX, **kwargs):
+        config = redis_config.copy()
+        config.update(kwargs)
+        return EncryptedRedisDict(namespace=namespace, key=TEST_ENCRYPTION_KEY, **config)
+
+    def test_chain_set_1(self):
+        self.r.chain_set(['foo'], 'melons')
+        expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
+        self.assertNotEqual(self.redisdb.get(expected_key), b'str:melons')
+        self.assertEqual(self.r.chain_get(['foo']), 'melons')
+
+    def test_chain_set_2(self):
+        self.r.chain_set(['foo', 'bar'], 'melons')
+        expected_key = '{}:foo:bar'.format(TEST_NAMESPACE_PREFIX)
+        self.assertNotEqual(self.redisdb.get(expected_key), b'str:melons')
+        self.assertEqual(self.r.chain_get(['foo', 'bar']), 'melons')
+
+    def test_chain_set_overwrite(self):
+        self.r.chain_set(['foo'], 'melons')
+        self.r.chain_set(['foo'], 'bananas')
+        expected_key = '{}:foo'.format(TEST_NAMESPACE_PREFIX)
+        self.assertNotEqual(self.redisdb.get(expected_key), b'str:bananas')
+        self.assertEqual(self.r.chain_get(['foo']), 'bananas')
+
 
 class TestNotImplementedMethods(unittest.TestCase):
     def setUp(self):

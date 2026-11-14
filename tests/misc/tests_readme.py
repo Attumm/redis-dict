@@ -1,10 +1,12 @@
 import ast
 import contextlib
 import io
+import os
 import re
 import unittest
 from pathlib import Path
 from typing import Any, Dict, List
+from unittest.mock import patch
 
 from redis_dict import PythonRedisDict, RedisDict
 
@@ -58,6 +60,7 @@ class TestReadmeExamples(unittest.TestCase):
         PythonRedisDict(namespace="main").clear()
         RedisDict(namespace="main").clear()
         RedisDict(namespace="example").clear()
+        RedisDict(namespace="vault").clear()
 
     def _run_section_block(self, heading: str, index: int = 0) -> Dict[str, Any]:
         self.assertIn(heading, self.blocks_by_heading, f"Missing README heading: {heading!r}")
@@ -108,6 +111,26 @@ class TestReadmeExamples(unittest.TestCase):
     def test_insertion_order_example(self) -> None:
         ns = self._run_section_block("Insertion Order")
         self.assertEqual(list(ns["dic"].keys()), ["1", "2", "3"])
+
+    def test_storage_encryption_example(self) -> None:
+        ns_aesgcm = self._run_section_block("Storage Encryption", index=0)
+        vault = ns_aesgcm["vault"]
+        self.assertEqual(vault["secret"], "a secret message")
+        self.assertEqual(vault["limits"], {"rpm": 1000, "active": True})
+
+        persisted_env = {
+            "APP_SECRET_PASSPHRASE": "readme-test-passphrase",
+            "APP_SCRYPT_SALT_HEX": os.urandom(16).hex(),
+        }
+        with patch.dict(os.environ, persisted_env):
+            ns_deploy_1 = self._run_section_block("Storage Encryption", index=1)
+            ns_deploy_1["vault"]["persisted_user"] = {"id": 42, "plan": "pro"}
+            del ns_deploy_1
+
+            # Simulate a second deployment restarting and reading pre-existing encrypted data
+            ns_deploy_2 = self._run_section_block("Storage Encryption", index=1)
+            self.assertEqual(ns_deploy_2["vault"]["persisted_user"], {"id": 42, "plan": "pro"})
+            self.assertEqual(ns_deploy_2["vault"]["secret"], "derived-key-secret")
 
 
 if __name__ == "__main__":

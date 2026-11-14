@@ -1,8 +1,12 @@
 from datetime import datetime
 
-from redis_dict import RedisDict, PythonRedisDict
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-for obj in [RedisDict, PythonRedisDict]:
+from redis_dict import EncryptedRedisDict, PythonRedisDict, RedisDict
+
+key = AESGCM.generate_key(bit_length=256)
+
+for obj in [RedisDict, PythonRedisDict, lambda **kw: EncryptedRedisDict(key=key, **kw)]:
     dic = obj(namespace='assert_test')
     assert 'random' not in dic
     dic['random'] = 4
