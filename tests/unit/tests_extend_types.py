@@ -807,6 +807,320 @@ class TestRedisDictExtendTypesInstanceIsolation(BaseRedisDictTest):
         self.assertEqual(dict_json["roster"], payload)
         self.assertEqual(dict_pipe["roster"], payload)
 
+    def test_deep_alternating_containers_round_trip_up_to_depth_150(self):
+        """Alternating list/dict/tuple nesting up to depth 150 preserves custom types and types at every layer."""
+        dic = RedisDict(namespace="ext_deep_alt")
+        unregistered = RedisDict(namespace="ext_deep_alt_unreg")
+        self.addCleanup(dic.clear)
+        self.addCleanup(unregistered.clear)
+        dic.extends_type(Person, person_encode, person_decode)
+
+        alice = Person("Alice", 30, "Wonderland")
+        for depth in (1, 2, 5, 10, 25, 50, 100, 150):
+            with self.subTest(depth=depth):
+                current = alice
+                for level in range(depth):
+                    kind = level % 3
+                    if kind == 0:
+                        current = [current, Person("Level", level, "List")]
+                    elif kind == 1:
+                        current = {"depth": level, "inner": current}
+                    else:
+                        current = (current, level)
+
+                key = "d_{}".format(depth)
+                dic[key] = current
+                loaded = dic[key]
+                self.assertEqual(loaded, current)
+
+                # Walk all the way back down to the leaf and verify exact container & Person types
+                cursor = loaded
+                for level in reversed(range(depth)):
+                    kind = level % 3
+                    if kind == 0:
+                        self.assertIs(type(cursor), list)
+                        self.assertIsInstance(cursor[1], Person)
+                        cursor = cursor[0]
+                    elif kind == 1:
+                        self.assertIs(type(cursor), dict)
+                        cursor = cursor["inner"]
+                    else:
+                        self.assertIs(type(cursor), tuple)
+                        cursor = cursor[0]
+                self.assertIsInstance(cursor, Person)
+                self.assertEqual(cursor, alice)
+
+                # Even at depth 150, an instance without extends_type(Person) rejects the nested custom object
+                if depth == 150:
+                    with self.assertRaises(TypeError):
+                        unregistered[key] = current
+
+    def test_deep_hashable_containers_and_custom_typed_dict_keys(self):
+        """Custom hashable types work inside deep tuple/set/frozenset chains and as nested dict keys."""
+        class Tag:
+            def __init__(self, code):
+                self.code = code
+
+            def encode(self) -> str:
+                return self.code
+
+            @classmethod
+            def decode(cls, raw: str) -> 'Tag':
+                return cls(raw)
+
+            def __eq__(self, other):
+                return isinstance(other, Tag) and self.code == other.code
+
+            def __hash__(self):
+                return hash((Tag, self.code))
+
+        dic = RedisDict(namespace="ext_deep_hashable")
+        self.addCleanup(dic.clear)
+        dic.extends_type(Person, person_encode, person_decode)
+        dic.extends_type(Tag)
+
+        alice = Person("Alice", 30, "Wonderland")
+        bob = Person("Bob", 40, "Builder")
+        vip = Tag("vip")
+        ops = Tag("ops")
+
+        # Depth-6 mixed structure: dict -> list -> tuple -> dict (custom Tag key, tuple key, "__type__" key) -> set -> frozenset -> tuple
+        deep_payload = {
+            "layers": [
+                (
+                    {
+                        vip: {frozenset({(ops, "leaf")})},
+                        (vip, 1): (alice, [bob]),
+                        "__type__": "not_a_marker",
+                        7: frozenset({vip, ops}),
+                    },
+                )
+            ]
+        }
+
+        dic["complex"] = deep_payload
+        loaded = dic["complex"]
+        self.assertEqual(loaded, deep_payload)
+
+        inner_tuple = loaded["layers"][0]
+        self.assertIs(type(inner_tuple), tuple)
+        inner_dict = inner_tuple[0]
+        self.assertIs(type(inner_dict), dict)
+        self.assertEqual(inner_dict[vip], {frozenset({(ops, "leaf")})})
+        self.assertEqual(inner_dict[(vip, 1)], (alice, [bob]))
+        self.assertEqual(inner_dict["__type__"], "not_a_marker")
+
+    def test_multiple_custom_types_at_different_depths_require_all_registered_on_instance(self):
+        """When multiple custom types appear at different depths, an instance must register all of them."""
+        class Badge:
+            def __init__(self, title):
+                self.title = title
+
+            def encode(self) -> str:
+                return self.title
+
+            @classmethod
+            def decode(cls, raw: str) -> 'Badge':
+                return cls(raw)
+
+            def __eq__(self, other):
+                return isinstance(other, Badge) and self.title == other.title
+
+            def __hash__(self):
+                return hash((Badge, self.title))
+
+        dict_both = RedisDict(namespace="ext_multi_both")
+        dict_only_person = RedisDict(namespace="ext_multi_person")
+        dict_only_badge = RedisDict(namespace="ext_multi_badge")
+        self.addCleanup(dict_both.clear)
+        self.addCleanup(dict_only_person.clear)
+        self.addCleanup(dict_only_badge.clear)
+
+        dict_both.extends_type(Person, person_encode, person_decode)
+        dict_both.extends_type(Badge)
+        dict_only_person.extends_type(Person, person_encode, person_decode)
+        dict_only_badge.extends_type(Badge)
+
+        alice = Person("Alice", 30, "Wonderland")
+        gold = Badge("gold")
+        payload = {"org": [{"owner": alice, "awards": (frozenset({gold}),)}]}
+
+        dict_both["record"] = payload
+        self.assertEqual(dict_both["record"], payload)
+
+        # Missing Badge at depth 5 raises TypeError even though Person at depth 3 is registered
+        with self.assertRaises(TypeError):
+            dict_only_person["record"] = payload
+        # Missing Person at depth 3 raises TypeError even though Badge at depth 5 is registered
+        with self.assertRaises(TypeError):
+            dict_only_badge["record"] = payload
+
+    def test_depth_1_ordered_dict_defaultdict_and_json_native_subclasses_round_trip(self):
+        """At depth 1 (top-level value), OrderedDict, defaultdict, NamedTuple, and IntEnum round-trip cleanly."""
+        from collections import OrderedDict, defaultdict
+        from enum import IntEnum
+        from typing import NamedTuple
+
+        class Point(NamedTuple):
+            x: int
+            y: int
+
+        class Priority(IntEnum):
+            LOW = 1
+            HIGH = 2
+
+        dic = RedisDict(namespace="ext_depth1_special")
+        self.addCleanup(dic.clear)
+        dic.extends_type(Person, person_encode, person_decode)
+        dic.extends_type(
+            Point,
+            encode=lambda p: "{},{}".format(p.x, p.y),
+            decode=lambda s: Point(*map(int, s.split(","))),
+        )
+        dic.extends_type(
+            Priority,
+            encode=lambda p: str(int(p)),
+            decode=lambda s: Priority(int(s)),
+        )
+
+        alice = Person("Alice", 30, "Wonderland")
+        bob = Person("Bob", 40, "Builder")
+
+        dic["od"] = OrderedDict([("b", bob), ("a", alice)])
+        dic["dd"] = defaultdict(type(None), {"lead": alice})
+        dic["pt"] = Point(3, 4)
+        dic["pr"] = Priority.HIGH
+
+        self.assertIs(type(dic["od"]), OrderedDict)
+        self.assertEqual(list(dic["od"].items()), [("b", bob), ("a", alice)])
+        self.assertIs(type(dic["dd"]), defaultdict)
+        self.assertEqual(dic["dd"]["lead"], alice)
+        self.assertIsInstance(dic["pt"], Point)
+        self.assertEqual(dic["pt"], Point(3, 4))
+        self.assertIsInstance(dic["pr"], Priority)
+        self.assertEqual(dic["pr"], Priority.HIGH)
+
+    @unittest.skip(
+        "Not yet feasible at depth >= 2: nested OrderedDict/defaultdict serialize as plain dict "
+        "and _tag_json_value (`type(obj) is dict`) does not walk inside them to tag inner tuples"
+    )
+    def test_boundary_nested_ordered_dict_and_defaultdict_preserve_container_and_inner_tuples(self):
+        """Depth >= 2 OrderedDict and defaultdict currently decay to plain dict and skip _tag_json_value."""
+        from collections import OrderedDict, defaultdict
+
+        dic = RedisDict(namespace="ext_bound_od")
+        self.addCleanup(dic.clear)
+        dic.extends_type(Person, person_encode, person_decode)
+        alice = Person("Alice", 30, "Wonderland")
+        bob = Person("Bob", 40, "Builder")
+
+        nested = {
+            "ordered": OrderedDict([("team", (alice, bob))]),
+            "defaults": defaultdict(type(None), {"lead": (alice,)}),
+        }
+        dic["depth2"] = nested
+        loaded = dic["depth2"]
+        self.assertIs(type(loaded["ordered"]), OrderedDict)
+        self.assertIs(type(loaded["ordered"]["team"]), tuple)
+        self.assertIs(type(loaded["defaults"]), defaultdict)
+        self.assertIs(type(loaded["defaults"]["lead"]), tuple)
+
+    @unittest.skip(
+        "Not yet feasible at depth >= 2: Python's json encoder serializes subclasses of "
+        "tuple/int/str/list/dict natively before calling RedisDictJSONEncoder.default"
+    )
+    def test_boundary_nested_custom_subclasses_of_json_native_types(self):
+        """Custom types subclassing tuple/int/str/list/dict bypass JSONEncoder.default at depth >= 2."""
+        from enum import IntEnum
+        from typing import NamedTuple
+
+        class Point(NamedTuple):
+            x: int
+            y: int
+
+        class Priority(IntEnum):
+            LOW = 1
+            HIGH = 2
+
+        dic = RedisDict(namespace="ext_bound_subclasses")
+        self.addCleanup(dic.clear)
+        dic.extends_type(
+            Point,
+            encode=lambda p: "{},{}".format(p.x, p.y),
+            decode=lambda s: Point(*map(int, s.split(","))),
+        )
+        dic.extends_type(
+            Priority,
+            encode=lambda p: str(int(p)),
+            decode=lambda s: Priority(int(s)),
+        )
+
+        dic["nested"] = {"points": [Point(3, 4)], "priority": Priority.HIGH}
+        loaded = dic["nested"]
+        self.assertIsInstance(loaded["points"][0], Point)
+        self.assertIsInstance(loaded["priority"], Priority)
+
+    @unittest.skip(
+        "Not yet feasible: EncodeFuncType/DecodeFuncType take only the object/string and receive "
+        "no per-instance registries for custom-inside-custom composition"
+    )
+    def test_boundary_custom_type_containing_another_instance_extended_type(self):
+        """Custom encode/decode callables receive no instance registries for custom-inside-custom nesting."""
+        from redis_dict import RedisDictJSONDecoder, RedisDictJSONEncoder
+
+        class Department:
+            def __init__(self, title, lead, members):
+                self.title = title
+                self.lead = lead
+                self.members = members
+
+            def encode(self) -> str:
+                return json.dumps(
+                    {"title": self.title, "lead": self.lead, "members": self.members},
+                    cls=RedisDictJSONEncoder,
+                )
+
+            @classmethod
+            def decode(cls, raw: str) -> 'Department':
+                data = json.loads(raw, cls=RedisDictJSONDecoder)
+                return cls(data["title"], data["lead"], data["members"])
+
+            def __eq__(self, other):
+                return (
+                    isinstance(other, Department)
+                    and self.title == other.title
+                    and self.lead == other.lead
+                    and self.members == other.members
+                )
+
+        dic = RedisDict(namespace="ext_bound_custom_in_custom")
+        self.addCleanup(dic.clear)
+        dic.extends_type(Person, person_encode, person_decode)
+        dic.extends_type(Department)
+
+        dept = Department("Engineering", Person("Alice", 30, "Wonderland"), [Person("Bob", 40, "Builder")])
+        dic["dept"] = dept
+        self.assertEqual(dic["dept"], dept)
+
+    @unittest.skip(
+        "Not yet feasible: recursive _tag_json_value and json codecs hit Python's recursion limit "
+        "when container depth exceeds sys.getrecursionlimit()"
+    )
+    def test_boundary_extreme_nesting_beyond_python_recursion_limit(self):
+        """Container nesting deeper than sys.getrecursionlimit() hits RecursionError in recursive codecs."""
+        import sys
+
+        dic = RedisDict(namespace="ext_bound_recursion")
+        self.addCleanup(dic.clear)
+        dic.extends_type(Person, person_encode, person_decode)
+
+        deep = Person("Leaf", 1, "Bottom")
+        for _ in range(sys.getrecursionlimit() + 100):
+            deep = [deep]
+
+        dic["too_deep"] = deep
+        self.assertIsNotNone(dic["too_deep"])
+
 
 if __name__ == '__main__':
     unittest.main()
