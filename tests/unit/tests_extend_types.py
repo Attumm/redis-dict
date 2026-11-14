@@ -650,6 +650,38 @@ class TestNewTypeComplianceFailures(BaseRedisDictTest):
         self.assertTrue("Class NonCallableDecodeMethod does not implement the required decode class method" in str(
             context.exception))
 
+    def test_extends_type_with_only_encode_or_only_decode_provided(self):
+        class OnlyDecodeMethod:
+            def __init__(self, token: str):
+                self.token = token
+
+            @classmethod
+            def decode(cls, raw: str):
+                return cls(raw)
+
+            def __eq__(self, other):
+                return isinstance(other, OnlyDecodeMethod) and self.token == other.token
+
+        class OnlyEncodeMethod:
+            def __init__(self, token: str):
+                self.token = token
+
+            def encode(self) -> str:
+                return self.token
+
+            def __eq__(self, other):
+                return isinstance(other, OnlyEncodeMethod) and self.token == other.token
+
+        dic = RedisDict(namespace="half_custom_ext")
+        self.addCleanup(dic.clear)
+        dic.extends_type(OnlyDecodeMethod, encode=lambda obj: obj.token)
+        dic.extends_type(OnlyEncodeMethod, decode=OnlyEncodeMethod)
+
+        dic["a"] = OnlyDecodeMethod("alpha")
+        dic["b"] = OnlyEncodeMethod("beta")
+        self.assertEqual(dic["a"], OnlyDecodeMethod("alpha"))
+        self.assertEqual(dic["b"], OnlyEncodeMethod("beta"))
+
 
 class TestRedisDictExtendTypesInstanceIsolation(BaseRedisDictTest):
     def test_extends_type_does_not_leak_across_instances_or_global_registry(self):

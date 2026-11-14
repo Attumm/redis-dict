@@ -2453,6 +2453,67 @@ class TestRedisDict(unittest.TestCase):
             with self.subTest(key=key):
                 self._assert_round_trip(key, value)
 
+    def test_json_decoder_preserves_unknown_type_marker_dict(self):
+        raw_payload = '{"__type__": "UnknownWidget", "value": "abc"}'
+        decoded = json.loads(raw_payload, cls=RedisDictJSONDecoder)
+        self.assertEqual(decoded, {"__type__": "UnknownWidget", "value": "abc"})
+
+    def test_package_version_fallback_when_metadata_missing(self):
+        import importlib
+        import importlib.metadata as importlib_metadata
+        import redis_dict as redis_dict_pkg
+
+        original_version = importlib_metadata.version
+
+        def _missing_version(_pkg_name):
+            raise importlib_metadata.PackageNotFoundError(_pkg_name)
+
+        try:
+            importlib_metadata.version = _missing_version
+            importlib.reload(redis_dict_pkg)
+            self.assertEqual(redis_dict_pkg.__version__, "0.0.0")
+        finally:
+            importlib_metadata.version = original_version
+            importlib.reload(redis_dict_pkg)
+
+    def test_class_getitem_and_strict_delete_missing_key(self):
+        self.assertIs(RedisDict[str, int], RedisDict)
+        self.assertIs(PythonRedisDict[str, int], PythonRedisDict)
+
+        strict_r = RedisDict(
+            namespace=TEST_NAMESPACE_PREFIX + "_strict_del",
+            raise_key_error_delete=True,
+            **redis_config,
+        )
+        self.addCleanup(strict_r.clear)
+        with self.assertRaises(KeyError):
+            del strict_r["missing_key"]
+
+    def test_popitem_retries_when_scanned_key_disappears_concurrently(self):
+        class _ConcurrentEvictOnceDict(RedisDict):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.evicted_once = False
+
+            def pop(self, key, *args, **kwargs):
+                if not self.evicted_once:
+                    self.evicted_once = True
+                    self.get_redis.delete(self._format_key(key))
+                return super().pop(key, *args, **kwargs)
+
+        race_dict = _ConcurrentEvictOnceDict(
+            namespace=TEST_NAMESPACE_PREFIX + "_popitem_race",
+            **redis_config,
+        )
+        self.addCleanup(race_dict.clear)
+        race_dict["k1"] = "v1"
+        race_dict["k2"] = "v2"
+
+        popped_key, popped_val = race_dict.popitem()
+        self.assertTrue(race_dict.evicted_once)
+        self.assertIn((popped_key, popped_val), {("k1", "v1"), ("k2", "v2")})
+        self.assertEqual(len(race_dict), 0)
+
     def test_init_redis_dict_with_redis_instance(self):
         test_key = "test_key"
         expected = "expected value"
