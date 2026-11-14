@@ -933,7 +933,10 @@ class RedisDict:
             yield
         finally:
             if top_level:
-                _, self._temp_redis, self.redis = self.redis.execute(), None, self._temp_redis  # type: ignore
+                try:
+                    self.redis.execute()  # type: ignore
+                finally:
+                    self.redis, self._temp_redis = self._temp_redis, None
 
     def multi_get(self, key: str) -> List[Any]:
         """
