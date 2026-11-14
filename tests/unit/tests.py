@@ -411,6 +411,21 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(StopIteration):
             next(redis_dic)
 
+    def test_iter_shares_setup_with_instance_next(self):
+        redis_dic = self.create_redis_dict()
+        dic = {"a": 1, "b": 2, "c": 3}
+        redis_dic.update(dic)
+
+        it = iter(redis_dic)
+        self.assertIs(it, redis_dic._iter)
+
+        seen = [next(it), next(redis_dic), redis_dic.next()]
+        self.assertEqual(sorted(seen), sorted(dic))
+        with self.assertRaises(StopIteration):
+            next(it)
+        with self.assertRaises(StopIteration):
+            next(redis_dic)
+
     def test_dict_method_update(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -1008,6 +1023,44 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         # Verify right-hand operand was not modified
         self.assertEqual(dict(other_redis_dic), other_dic)
 
+    @skip_before_python39
+    def test_ducktype_dict_operations(self):
+        class DuckDict:
+            def __init__(self, data):
+                self._data = data
+
+            def keys(self):
+                return self._data.keys()
+
+            def __getitem__(self, key):
+                return self._data[key]
+
+            def get(self, key, default=None):
+                return self._data.get(key, default)
+
+            def __len__(self):
+                return len(self._data)
+
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        duck = DuckDict({"str": "duck", "extra": 99})
+
+        self.assertTrue(redis_dic._is_ducktype_dict({"a": 1}))
+        self.assertTrue(redis_dic._is_ducktype_dict(other_redis_dic))
+        self.assertTrue(redis_dic._is_ducktype_dict(duck))
+        for non_duck in (None, 1, 1.5, "a", b"a", [1, 2], [("a", 1)], {1}):
+            with self.subTest(non_duck=non_duck):
+                self.assertFalse(redis_dic._is_ducktype_dict(non_duck))
+
+        redis_dic.update({"str": "orig", "keep": 1})
+        self.assertEqual(redis_dic | duck, {"str": "duck", "keep": 1, "extra": 99})
+        self.assertEqual(duck | redis_dic, {"str": "orig", "extra": 99, "keep": 1})
+        self.assertFalse(redis_dic == duck)
+        self.assertTrue(redis_dic != duck)
+
+        redis_dic |= duck
+        self.assertEqual(dict(redis_dic), {"str": "duck", "keep": 1, "extra": 99})
+
     def test_dict_method_reversed_(self):
         """
         RedisDict without the flag dict_compliant insertion order doens't make use of insert_order.
@@ -1515,6 +1568,57 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
             self.assertEqual(len(redis_dic), len(expected))
 
         self.assertEqual(len(redis_dic), 0)
+
+    def test_dict_method_pipeline_failed_execute_restores_redis_client(self):
+        redis_dic = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(lambda: self.create_redis_dict(namespace="dict_one").clear())
+        original_redis = redis_dic.redis
+        self.assertIsNone(redis_dic._temp_redis)
+
+        with self.assertRaises(redis.exceptions.ResponseError):
+            with redis_dic.pipeline():
+                with redis_dic.expire_at(-1):
+                    redis_dic['bad'] = 1
+
+        self.assertIs(redis_dic.redis, original_redis)
+        self.assertIsNone(redis_dic._temp_redis)
+        self.assertNotIn('bad', redis_dic)
+
+    def test_dict_method_pipeline_write_and_delete_after_failed_execute_are_stored(self):
+        redis_dic = self.create_redis_dict(namespace="dict_one")
+        reader = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(reader.clear)
+        redis_dic['existing'] = 'before'
+
+        with self.assertRaises(redis.exceptions.ResponseError):
+            with redis_dic.pipeline():
+                with redis_dic.expire_at(-1):
+                    redis_dic['bad'] = 1
+
+        redis_dic['after'] = 42
+        del redis_dic['existing']
+
+        self.assertEqual(reader['after'], 42)
+        self.assertNotIn('existing', reader)
+        self.assertEqual(redis_dic['after'], 42)
+
+    def test_dict_method_pipeline_new_and_nested_pipeline_after_failed_execute_commits(self):
+        redis_dic = self.create_redis_dict(namespace="dict_one")
+        reader = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(reader.clear)
+
+        with self.assertRaises(redis.exceptions.ResponseError):
+            with redis_dic.pipeline():
+                with redis_dic.pipeline():
+                    with redis_dic.expire_at(-1):
+                        redis_dic['bad'] = 1
+
+        with redis_dic.pipeline():
+            redis_dic['next1'] = 1
+            redis_dic['next2'] = 2
+
+        self.assertEqual(reader['next1'], 1)
+        self.assertEqual(reader['next2'], 2)
 
     def test_dict_method_fromkeys(self):
         redis_dic = self.create_redis_dict()
@@ -2399,6 +2503,67 @@ class TestRedisDict(unittest.TestCase):
         for key, value in cases:
             with self.subTest(key=key):
                 self._assert_round_trip(key, value)
+
+    def test_json_decoder_preserves_unknown_type_marker_dict(self):
+        raw_payload = '{"__type__": "UnknownWidget", "value": "abc"}'
+        decoded = json.loads(raw_payload, cls=RedisDictJSONDecoder)
+        self.assertEqual(decoded, {"__type__": "UnknownWidget", "value": "abc"})
+
+    def test_package_version_fallback_when_metadata_missing(self):
+        import importlib
+        import importlib.metadata as importlib_metadata
+        import redis_dict as redis_dict_pkg
+
+        original_version = importlib_metadata.version
+
+        def _missing_version(_pkg_name):
+            raise importlib_metadata.PackageNotFoundError(_pkg_name)
+
+        try:
+            importlib_metadata.version = _missing_version
+            importlib.reload(redis_dict_pkg)
+            self.assertEqual(redis_dict_pkg.__version__, "0.0.0")
+        finally:
+            importlib_metadata.version = original_version
+            importlib.reload(redis_dict_pkg)
+
+    def test_class_getitem_and_strict_delete_missing_key(self):
+        self.assertIs(RedisDict[str, int], RedisDict)
+        self.assertIs(PythonRedisDict[str, int], PythonRedisDict)
+
+        strict_r = RedisDict(
+            namespace=TEST_NAMESPACE_PREFIX + "_strict_del",
+            raise_key_error_delete=True,
+            **redis_config,
+        )
+        self.addCleanup(strict_r.clear)
+        with self.assertRaises(KeyError):
+            del strict_r["missing_key"]
+
+    def test_popitem_retries_when_scanned_key_disappears_concurrently(self):
+        class _ConcurrentEvictOnceDict(RedisDict):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.evicted_once = False
+
+            def pop(self, key, *args, **kwargs):
+                if not self.evicted_once:
+                    self.evicted_once = True
+                    self.get_redis.delete(self._format_key(key))
+                return super().pop(key, *args, **kwargs)
+
+        race_dict = _ConcurrentEvictOnceDict(
+            namespace=TEST_NAMESPACE_PREFIX + "_popitem_race",
+            **redis_config,
+        )
+        self.addCleanup(race_dict.clear)
+        race_dict["k1"] = "v1"
+        race_dict["k2"] = "v2"
+
+        popped_key, popped_val = race_dict.popitem()
+        self.assertTrue(race_dict.evicted_once)
+        self.assertIn((popped_key, popped_val), {("k1", "v1"), ("k2", "v2")})
+        self.assertEqual(len(race_dict), 0)
 
     def test_init_redis_dict_with_redis_instance(self):
         test_key = "test_key"

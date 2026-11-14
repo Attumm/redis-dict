@@ -379,7 +379,6 @@ resolution-markers = [
 dependencies = [
     { name = "colorama", marker = "os_name == 'nt'" },
     { name = "importlib-metadata", version = "9.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10.2'" },
-    { name = "importlib-metadata", version = "10.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_version < '0'" },
     { name = "packaging", version = "26.3", source = { registry = "https://pypi.org/simple" } },
     { name = "pyproject-hooks" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
@@ -3676,7 +3675,7 @@ wheels = [
 
 [[package]]
 name = "redis-dict"
-version = "3.5.0"
+version = "3.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "redis", version = "6.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },

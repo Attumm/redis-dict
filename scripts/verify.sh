@@ -21,8 +21,9 @@ python -m pycodestyle src/redis_dict
 python -m pyflakes src/redis_dict
 check_complexity src/redis_dict/*.py
 
-# Unit tests
-python -m unittest discover -s tests
+# Unit tests & 100% branch coverage gate
+python -m coverage run -m unittest discover -s tests
+python -m coverage report --fail-under=100
 
 # Security Check
 bandit -r src/redis_dict
