@@ -709,6 +709,40 @@ class TestRedisDictExtendTypesInstanceIsolation(BaseRedisDictTest):
         self.assertEqual(dict_json["p"], alice)
         self.assertEqual(dict_pipe["p"], bob)
 
+    def test_custom_hashable_type_as_key(self):
+        class UserId:
+            def __init__(self, code: int):
+                self.code = code
+
+            def encode(self) -> str:
+                return str(self.code)
+
+            @classmethod
+            def decode(cls, raw: str) -> "UserId":
+                return cls(int(raw))
+
+            def __hash__(self) -> int:
+                return hash((UserId, self.code))
+
+            def __eq__(self, other: object) -> bool:
+                return isinstance(other, UserId) and self.code == other.code
+
+        redis_dict = RedisDict(namespace="custom_key_type")
+        self.addCleanup(redis_dict.clear)
+        redis_dict.extends_type(UserId)
+
+        uid_alice = UserId(7)
+        uid_bob = UserId(42)
+        redis_dict[uid_alice] = "Alice"
+        redis_dict[uid_bob] = "Bob"
+
+        self.assertIn(uid_alice, redis_dict)
+        self.assertEqual(redis_dict[uid_alice], "Alice")
+        self.assertEqual(redis_dict.to_dict(), {uid_alice: "Alice", uid_bob: "Bob"})
+        self.assertEqual(set(redis_dict.keys()), {uid_alice, uid_bob})
+        self.assertEqual(redis_dict.pop(uid_alice), "Alice")
+        self.assertNotIn(uid_alice, redis_dict)
+
 
 if __name__ == '__main__':
     unittest.main()
