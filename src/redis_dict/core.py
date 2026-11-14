@@ -1,5 +1,5 @@
 """Redis Dict module."""
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple, Type, Union, cast
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple, Type, Union
 
 from datetime import timedelta
 from contextlib import contextmanager
@@ -320,6 +320,17 @@ class RedisDict:
         self.decoding_registry[type_name] = decode
         self.encoding_registry[type_name] = encode
 
+    def _is_ducktype_dict(self, other: Any) -> bool:
+        """Check whether ``other`` provides a dict-like ``keys()`` interface.
+
+        Args:
+            other (Any): The object to inspect.
+
+        Returns:
+            bool: True if ``other`` has a ``keys`` attribute, False otherwise.
+        """
+        return hasattr(other, "keys")
+
     def __eq__(self, other: Any) -> bool:
         """
         Compare the current RedisDict with another object.
@@ -332,7 +343,7 @@ class RedisDict:
         Returns:
             bool: True if equal, False otherwise
         """
-        if not hasattr(other, "keys"):
+        if not self._is_ducktype_dict(other):
             return NotImplemented
         if len(self) != len(other):
             return False
@@ -351,9 +362,7 @@ class RedisDict:
         Returns:
             bool: False if equal, True otherwise
         """
-        if not hasattr(other, "keys"):
-            return NotImplemented
-        return not self.__eq__(other)
+        return not self.__eq__(other) if self._is_ducktype_dict(other) else NotImplemented
 
     def __getitem__(self, item: str) -> Any:
         """
@@ -435,8 +444,8 @@ class RedisDict:
         Returns:
             Iterator[str]: An iterator over the keys of the RedisDict.
         """
-        self._iter = self.keys()
-        return iter(self.keys())
+        self._iter = iter(self.keys())
+        return self._iter
 
     def __repr__(self) -> str:
         """
@@ -470,13 +479,7 @@ class RedisDict:
         Returns:
             Dict[str, Any]: A new dictionary containing items from both dictionaries.
         """
-        if not hasattr(other, "keys"):
-            return NotImplemented
-
-        result = {}
-        result.update(self.to_dict())
-        result.update(other)
-        return result
+        return {**self.to_dict(), **other} if self._is_ducktype_dict(other) else NotImplemented
 
     def __ror__(self, other: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -493,13 +496,7 @@ class RedisDict:
         Returns:
             Dict[str, Any]: A new dictionary containing items from both dictionaries.
         """
-        if not hasattr(other, "keys"):
-            return NotImplemented
-
-        result = {}
-        result.update(other)
-        result.update(self.to_dict())
-        return result
+        return {**other, **self.to_dict()} if self._is_ducktype_dict(other) else NotImplemented
 
     def __ior__(self, other: Dict[str, Any]) -> 'RedisDict':
         """
@@ -516,7 +513,7 @@ class RedisDict:
         Returns:
             RedisDict: The modified RedisDict instance.
         """
-        if not hasattr(other, "keys"):
+        if not self._is_ducktype_dict(other):
             return NotImplemented
 
         self.update(other)
@@ -833,7 +830,7 @@ class RedisDict:
             **kwargs (object): Additional key-value pairs to update the RedisDict.
         """
         pairs: Iterable[Tuple[str, object]] = (
-            ((k, cast(Mapping[str, object], other)[k]) for k in other.keys()) if hasattr(other, "keys") else other
+            ((k, other[k]) for k in other.keys()) if self._is_ducktype_dict(other) else other  # type: ignore
         )
         with self.pipeline():
             for key, value in chain(pairs, kwargs.items()):
