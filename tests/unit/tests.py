@@ -1,5 +1,6 @@
 from typing import Any
 
+import enum
 import sys
 import time
 import json
@@ -1164,6 +1165,10 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         )
         self.assertEqual(result_two, expected_value_two)
         self.assertEqual(redis_dic[key], expected_value_two)
+        new_key_ttl = redis_dic.get_ttl(key)
+        self.assertIsNotNone(new_key_ttl)
+        self.assertAlmostEqual(5, new_key_ttl, delta=2)
+        redis_dic.clear()
 
     def test_setdefault_concurrent_ttl(self):
         """Test TTL behavior with concurrent setdefault operations"""
@@ -1193,6 +1198,69 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         ttl2 = other_redis_dic.get_ttl(key)
         self.assertAlmostEqual(3600, ttl2, delta=3)
         self.assertEqual(value1, value2)  # Should get same value
+
+    def test_setdefault_preserve_expiration_new_key_ttl(self):
+        """Test that setdefault on a brand-new key applies instance expire when preserve_expiration is True."""
+        expire_seconds = 3600
+        redis_dic = self.create_redis_dict(expire=expire_seconds, preserve_expiration=True)
+        key = "test_setdefault_preserve_new_key"
+
+        if key in redis_dic:
+            del redis_dic[key]
+
+        result = redis_dic.setdefault(key, "default_value")
+        self.assertEqual(result, "default_value")
+
+        actual_ttl = redis_dic.get_ttl(key)
+        self.assertIsNotNone(actual_ttl)
+        self.assertAlmostEqual(expire_seconds, actual_ttl, delta=2)
+
+    def test_setdefault_preserve_expiration_existing_key_keeps_shorter_ttl(self):
+        """Existing key with a shorter TTL: setdefault must not reset it to the instance expire."""
+        redis_dic = self.create_redis_dict(expire=3600, preserve_expiration=True)
+        key = "test_setdefault_keeps_shorter_ttl"
+
+        with redis_dic.expire_at(100):
+            redis_dic[key] = "existing_value"
+        self.assertAlmostEqual(100, redis_dic.get_ttl(key), delta=2)
+
+        self.assertEqual(redis_dic.setdefault(key, "default_value"), "existing_value")
+        self.assertEqual(redis_dic[key], "existing_value")
+        self.assertAlmostEqual(100, redis_dic.get_ttl(key), delta=2)
+
+    def test_setdefault_preserve_expiration_existing_key_without_ttl_stays_without_ttl(self):
+        """Existing key without a TTL: setdefault must not add the instance expire."""
+        no_expire_dic = self.create_redis_dict()
+        redis_dic = self.create_redis_dict(expire=3600, preserve_expiration=True)
+        key = "test_setdefault_keeps_no_ttl"
+
+        no_expire_dic[key] = "existing_value"
+        self.assertIsNone(redis_dic.get_ttl(key))
+
+        self.assertEqual(redis_dic.setdefault(key, "default_value"), "existing_value")
+        self.assertIsNone(redis_dic.get_ttl(key))
+
+    def test_setdefault_preserve_expiration_existing_key_ttl_from_other_dict(self):
+        """Existing key written by another dict (expire=1800): setdefault must not reset it to 3600."""
+        other_dic = self.create_redis_dict(expire=1800)
+        redis_dic = self.create_redis_dict(expire=3600, preserve_expiration=True)
+        key = "test_setdefault_keeps_other_dict_ttl"
+
+        other_dic[key] = "existing_value"
+
+        self.assertEqual(redis_dic.setdefault(key, "default_value"), "existing_value")
+        self.assertAlmostEqual(1800, redis_dic.get_ttl(key), delta=2)
+
+    def test_setdefault_preserve_expiration_without_expire_new_key_has_no_ttl(self):
+        """preserve_expiration without expire: a new key from setdefault gets no TTL."""
+        redis_dic = self.create_redis_dict(preserve_expiration=True)
+        key = "test_setdefault_preserve_without_expire"
+
+        if key in redis_dic:
+            del redis_dic[key]
+
+        self.assertEqual(redis_dic.setdefault(key, "default_value"), "default_value")
+        self.assertIsNone(redis_dic.get_ttl(key))
 
     def test_dict_method_get(self):
         redis_dic = self.create_redis_dict()
@@ -2422,6 +2490,57 @@ class TestRedisDict(unittest.TestCase):
                 msg=assert_fail_msg,
                 )
             test_input.flushdb()
+
+    def test_unregistered_custom_class_raises_with_extends_type_hint(self):
+        class Point:
+            def __init__(self, x):
+                self.x = x
+
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(dict_one.clear)
+
+        with self.assertRaises(ValueError) as ctx:
+            dict_one["point"] = Point(1)
+        message = str(ctx.exception)
+        self.assertIn("Point", message)
+        self.assertIn("extends_type", message)
+        self.assertNotIn("point", dict_one)
+
+        with self.assertRaises(ValueError) as setdefault_ctx:
+            dict_one.setdefault("point", Point(1))
+        self.assertIn("Point", str(setdefault_ctx.exception))
+        self.assertIn("extends_type", str(setdefault_ctx.exception))
+        self.assertNotIn("point", dict_one)
+
+    def test_unregistered_enum_raises_with_extends_type_hint(self):
+        class Color(enum.IntEnum):
+            RED = 1
+
+        class Shape(enum.Enum):
+            CIRCLE = "circle"
+
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(dict_one.clear)
+
+        for key, value in (("color", Color.RED), ("shape", Shape.CIRCLE)):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError) as ctx:
+                    dict_one[key] = value
+                self.assertIn(type(value).__name__, str(ctx.exception))
+                self.assertIn("extends_type", str(ctx.exception))
+                self.assertNotIn(key, dict_one)
+
+    def test_registered_enum_round_trips(self):
+        class Color(enum.IntEnum):
+            RED = 1
+
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(dict_one.clear)
+
+        dict_one.extends_type(Color, encode=lambda c: str(c.value), decode=lambda s: Color(int(s)))
+        dict_one["color"] = Color.RED
+        result = dict_one["color"]
+        self.assertIs(result, Color.RED)
 
 
 class TestPythonRedisDict(TestRedisDict):

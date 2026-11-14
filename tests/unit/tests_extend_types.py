@@ -557,7 +557,8 @@ class TestRedisDictExtendTypesCompressed(BaseRedisDictTest):
 
     def test_compression_timing_comparison(self):
             """Compare timing of operations between compressed and uncompressed strings"""
-            redis_dict = self.redis_dict # A new instance for regular strings
+            redis_dict = self.redis_dict
+            redis_dict.extends_type(CompressedString, encoding_method_name='compress', decoding_method_name='decompress')
 
             key_compressed = "compressed"
             key = "regular"

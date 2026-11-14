@@ -141,10 +141,20 @@ class RedisDict:
         Args:
             value (Any): The value to be encoded and formatted.
 
+        Raises:
+            ValueError: If the value's type is not supported by RedisDict.
+
         Returns:
             str: The formatted value with the type and encoded representation of the value.
         """
         store_type = type(value).__name__
+        if store_type not in self.decoding_registry:
+            raise ValueError(
+                f"Type '{store_type}' is not supported by RedisDict. Register it first:\n"
+                f"    d.extends_type({store_type}, encode=..., decode=...)\n"
+                f"or give {store_type} an `encode` method and a `decode` classmethod "
+                f"and call d.extends_type({store_type})."
+            )
         encoded_value = self.encoding_registry.get(store_type, lambda x: x)(value)  # type: ignore
         return f'{store_type}{self.key_delimiter}{encoded_value}'
 
@@ -764,9 +774,7 @@ class RedisDict:
         # Setting {"get": True} enables parsing of the redis result as "GET", instead of "SET" command
         options = {"get": True}
         args = ["SET", formatted_key, formatted_value, "NX", "GET"]
-        if self.preserve_expiration:
-            args.append("KEEPTTL")
-        elif self.expire is not None:
+        if self.expire is not None:
             expire_val = int(self.expire.total_seconds()) if isinstance(self.expire, timedelta) else self.expire
             expire_str = str(1) if expire_val <= 1 else str(expire_val)
             args.extend(["EX", expire_str])
