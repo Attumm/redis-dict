@@ -1,5 +1,6 @@
 from typing import Any
 
+import enum
 import sys
 import time
 import json
@@ -2422,6 +2423,57 @@ class TestRedisDict(unittest.TestCase):
                 msg=assert_fail_msg,
                 )
             test_input.flushdb()
+
+    def test_unregistered_custom_class_raises_with_extends_type_hint(self):
+        class Point:
+            def __init__(self, x):
+                self.x = x
+
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(dict_one.clear)
+
+        with self.assertRaises(ValueError) as ctx:
+            dict_one["point"] = Point(1)
+        message = str(ctx.exception)
+        self.assertIn("Point", message)
+        self.assertIn("extends_type", message)
+        self.assertNotIn("point", dict_one)
+
+        with self.assertRaises(ValueError) as setdefault_ctx:
+            dict_one.setdefault("point", Point(1))
+        self.assertIn("Point", str(setdefault_ctx.exception))
+        self.assertIn("extends_type", str(setdefault_ctx.exception))
+        self.assertNotIn("point", dict_one)
+
+    def test_unregistered_enum_raises_with_extends_type_hint(self):
+        class Color(enum.IntEnum):
+            RED = 1
+
+        class Shape(enum.Enum):
+            CIRCLE = "circle"
+
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(dict_one.clear)
+
+        for key, value in (("color", Color.RED), ("shape", Shape.CIRCLE)):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError) as ctx:
+                    dict_one[key] = value
+                self.assertIn(type(value).__name__, str(ctx.exception))
+                self.assertIn("extends_type", str(ctx.exception))
+                self.assertNotIn(key, dict_one)
+
+    def test_registered_enum_round_trips(self):
+        class Color(enum.IntEnum):
+            RED = 1
+
+        dict_one = self.create_redis_dict(namespace="dict_one")
+        self.addCleanup(dict_one.clear)
+
+        dict_one.extends_type(Color, encode=lambda c: str(c.value), decode=lambda s: Color(int(s)))
+        dict_one["color"] = Color.RED
+        result = dict_one["color"]
+        self.assertIs(result, Color.RED)
 
 
 class TestPythonRedisDict(TestRedisDict):
