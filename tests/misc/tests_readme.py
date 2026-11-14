@@ -58,6 +58,7 @@ class TestReadmeExamples(unittest.TestCase):
         PythonRedisDict(namespace="main").clear()
         RedisDict(namespace="main").clear()
         RedisDict(namespace="example").clear()
+        RedisDict(namespace="async_example").clear()
 
     def _run_section_block(self, heading: str, index: int = 0) -> Dict[str, Any]:
         self.assertIn(heading, self.blocks_by_heading, f"Missing README heading: {heading!r}")
@@ -108,6 +109,13 @@ class TestReadmeExamples(unittest.TestCase):
     def test_insertion_order_example(self) -> None:
         ns = self._run_section_block("Insertion Order")
         self.assertEqual(list(ns["dic"].keys()), ["1", "2", "3"])
+
+    def test_async_redis_dict_example(self) -> None:
+        self._run_section_block("Async Support")
+        self.assertEqual(
+            RedisDict(namespace="async_example").to_dict(),
+            {"user": {"name": "Alice", "active": True}, "count": 42},
+        )
 
 
 if __name__ == "__main__":
