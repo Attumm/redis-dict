@@ -1,15 +1,16 @@
 import unittest
 
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from hypothesis import given, strategies as st
 
-from redis_dict import RedisDict, PythonRedisDict
+from redis_dict import RedisDict, PythonRedisDict, EncryptedRedisDict
 
 
-def _create_hypothesis_suite(dict_cls, namespace):
+def _create_hypothesis_suite(dict_cls, namespace, **kwargs):
     class _HypothesisSuite(unittest.TestCase):
         @classmethod
         def setUpClass(cls):
-            cls.r = dict_cls(namespace=namespace)
+            cls.r = dict_cls(namespace=namespace, **kwargs)
 
         @classmethod
         def tearDownClass(cls):
@@ -130,6 +131,18 @@ class TestRedisDictWithHypothesis(_create_hypothesis_suite(RedisDict, "test_with
 class TestPythonRedisDictWithHypothesis(_create_hypothesis_suite(PythonRedisDict, "test_with_fuzzing_python")):
     """
     A test suite employing Hypothesis for property-based testing of PythonRedisDict.
+    """
+
+
+class TestEncryptedRedisDictWithHypothesis(
+    _create_hypothesis_suite(
+        EncryptedRedisDict,
+        "test_with_fuzzing_encrypted",
+        key=AESGCM.generate_key(bit_length=256),
+    )
+):
+    """
+    A test suite employing Hypothesis for property-based testing of EncryptedRedisDict.
     """
 
 
