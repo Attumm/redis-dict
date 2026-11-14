@@ -111,13 +111,7 @@ source = ["redis_dict"]
 branch = true
 
 [tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if __name__ == .__main__.:",
-    "raise NotImplementedError",
-    "if TYPE_CHECKING:",
-]
+exclude_lines = []
 show_missing = true
 
 [tool.mypy]
