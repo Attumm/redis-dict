@@ -64,7 +64,7 @@ class TestReadmeExamples(unittest.TestCase):
         code = self.blocks_by_heading[heading][index]
         namespace: Dict[str, Any] = {"__name__": "__readme_test__"}
         with contextlib.redirect_stdout(io.StringIO()):
-            exec(compile(code, f"README.md [{heading}]", "exec"), namespace)
+            exec(compile(code, f"<README.md:{heading}>", "exec"), namespace)
         return namespace
 
     def test_all_non_repl_python_blocks_parse(self) -> None:
@@ -84,6 +84,13 @@ class TestReadmeExamples(unittest.TestCase):
         for key in list(dic.keys()):
             self.assertIsNotNone(key)
             _ = dic[key]
+
+    def test_typed_keys_example(self) -> None:
+        ns = self._run_section_block("Typed keys")
+        dic = ns["dic"]
+        self.assertEqual(dic[42], "answer")
+        self.assertEqual(dic[None], "nothing")
+        self.assertIn((1, 2), dic)
 
     def test_distributed_computing_example(self) -> None:
         ns = self._run_section_block("Distributed computing")
