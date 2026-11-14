@@ -359,6 +359,26 @@ dic["3"] = "three"
 assert list(dic.keys()) == ["1", "2", "3"]
 ```
 
+### Async Support
+For `asyncio` applications, use `AsyncRedisDict`. It shares the exact same key/value serialization and `extends_type` format as `RedisDict` while executing all Redis operations non-blockingly via `redis.asyncio`:
+
+```python
+import asyncio
+from redis_dict import AsyncRedisDict
+
+async def main():
+    async with AsyncRedisDict(namespace="async_example") as dic:
+        await dic.set_item("user", {"name": "Alice", "active": True})
+        async with dic.pipeline():
+            await dic.set_item("count", 42)
+
+        assert await dic.get_item("user") == {"name": "Alice", "active": True}
+        assert await dic.contains("count") is True
+        assert await dic.len() == 2
+
+asyncio.run(main())
+```
+
 For more information on [extending types](https://github.com/Attumm/redis-dict/blob/main/tests/unit/tests_extend_types.py).
 
 ## Security

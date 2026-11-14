@@ -1,11 +1,13 @@
 """__init__ module for redis dict."""
 from importlib.metadata import version, PackageNotFoundError
 
+from .async_dict import AsyncRedisDict
 from .core import RedisDict
 from .python_dict import PythonRedisDict
 from .type_management import decoding_registry, encoding_registry, RedisDictJSONEncoder, RedisDictJSONDecoder
 
 __all__ = [
+    'AsyncRedisDict',
     'RedisDict',
     'PythonRedisDict',
     'decoding_registry',
