@@ -698,6 +698,10 @@ class TestRedisDictExtendTypesInstanceIsolation(BaseRedisDictTest):
         self.addCleanup(lambda: RedisDict.decoding_registry.pop("Customer", None))
 
         dict_one.extends_type(Customer)
+        alice = Customer("Alice", 30, "Wonderland")
+        dict_one["alice"] = alice
+        unregistered_reader = RedisDict(namespace="ext_iso_one")
+        self.assertEqual(unregistered_reader["alice"], alice.encode())
 
         self.assertIn("Customer", dict_one.encoding_registry)
         self.assertIn("Customer", dict_one.decoding_registry)
