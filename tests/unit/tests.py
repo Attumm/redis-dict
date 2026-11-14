@@ -411,6 +411,21 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
         with self.assertRaises(StopIteration):
             next(redis_dic)
 
+    def test_iter_shares_setup_with_instance_next(self):
+        redis_dic = self.create_redis_dict()
+        dic = {"a": 1, "b": 2, "c": 3}
+        redis_dic.update(dic)
+
+        it = iter(redis_dic)
+        self.assertIs(it, redis_dic._iter)
+
+        seen = [next(it), next(redis_dic), redis_dic.next()]
+        self.assertEqual(sorted(seen), sorted(dic))
+        with self.assertRaises(StopIteration):
+            next(it)
+        with self.assertRaises(StopIteration):
+            next(redis_dic)
+
     def test_dict_method_update(self):
         redis_dic = self.create_redis_dict()
         dic = dict()
@@ -1007,6 +1022,44 @@ class TestRedisDictBehaviorDict(unittest.TestCase):
 
         # Verify right-hand operand was not modified
         self.assertEqual(dict(other_redis_dic), other_dic)
+
+    @skip_before_python39
+    def test_ducktype_dict_operations(self):
+        class DuckDict:
+            def __init__(self, data):
+                self._data = data
+
+            def keys(self):
+                return self._data.keys()
+
+            def __getitem__(self, key):
+                return self._data[key]
+
+            def get(self, key, default=None):
+                return self._data.get(key, default)
+
+            def __len__(self):
+                return len(self._data)
+
+        redis_dic = self.create_redis_dict()
+        other_redis_dic = self.create_redis_dict(namespace=TEST_NAMESPACE_PREFIX + "_other")
+        duck = DuckDict({"str": "duck", "extra": 99})
+
+        self.assertTrue(redis_dic._is_ducktype_dict({"a": 1}))
+        self.assertTrue(redis_dic._is_ducktype_dict(other_redis_dic))
+        self.assertTrue(redis_dic._is_ducktype_dict(duck))
+        for non_duck in (None, 1, 1.5, "a", b"a", [1, 2], [("a", 1)], {1}):
+            with self.subTest(non_duck=non_duck):
+                self.assertFalse(redis_dic._is_ducktype_dict(non_duck))
+
+        redis_dic.update({"str": "orig", "keep": 1})
+        self.assertEqual(redis_dic | duck, {"str": "duck", "keep": 1, "extra": 99})
+        self.assertEqual(duck | redis_dic, {"str": "orig", "extra": 99, "keep": 1})
+        self.assertFalse(redis_dic == duck)
+        self.assertTrue(redis_dic != duck)
+
+        redis_dic |= duck
+        self.assertEqual(dict(redis_dic), {"str": "duck", "keep": 1, "extra": 99})
 
     def test_dict_method_reversed_(self):
         """
